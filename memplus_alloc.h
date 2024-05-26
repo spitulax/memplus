@@ -1,14 +1,14 @@
-#ifndef MEMPP_ALLOC_H__
-#define MEMPP_ALLOC_H__
+#ifndef MEMPLUS_ALLOC_H__
+#define MEMPLUS_ALLOC_H__
 
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef MEMPP_ASSERT
+#ifndef MEMPLUS_ASSERT
 #include <assert.h>
-#define MEMPP_ASSERT assert
+#define MEMPLUS_ASSERT assert
 #endif
 
 typedef struct mp_Region mp_Region;
@@ -50,12 +50,12 @@ void  mp_arena_free(mp_Arena *self);
 mp_Allocator mp_arena_allocator_new(mp_Arena *arena);
 
 
-#ifdef MEMPP_ALLOC_IMPLEMENTATION
+#ifdef MEMPLUS_ALLOC_IMPLEMENTATION
 
 mp_Region *mp_region_new(size_t capacity) {
     size_t     bytes  = sizeof(mp_Region) + sizeof(uintptr_t) * capacity;
     mp_Region *region = malloc(bytes);
-    MEMPP_ASSERT(region != NULL);
+    MEMPLUS_ASSERT(region != NULL);
     region->next     = NULL;
     region->count    = 0;
     region->capacity = capacity;
@@ -71,7 +71,7 @@ void *mp_arena_alloc(mp_Arena *self, size_t size) {
     size_t size_word = (size + sizeof(uintptr_t) - 1) / sizeof(uintptr_t);
 
     if (self->end == NULL) {
-        MEMPP_ASSERT(self->begin == NULL);
+        MEMPLUS_ASSERT(self->begin == NULL);
         size_t capacity = REGION_DEFAULT_CAP;
         if (capacity < size_word) capacity = size_word;
         self->end   = mp_region_new(capacity);
@@ -83,7 +83,7 @@ void *mp_arena_alloc(mp_Arena *self, size_t size) {
     }
 
     if (self->end->count + size_word > self->end->capacity) {
-        MEMPP_ASSERT(self->end->next == NULL);
+        MEMPLUS_ASSERT(self->end->next == NULL);
         size_t capacity = REGION_DEFAULT_CAP;
         if (capacity < size_word) capacity = size_word;
         self->end->next = mp_region_new(capacity);
@@ -132,6 +132,6 @@ mp_Allocator mp_arena_allocator_new(mp_Arena *arena) {
     return allocator;
 }
 
-#endif /* ifdef MEMPP_ALLOC_IMPLEMENTATION */
+#endif /* ifdef MEMPLUS_ALLOC_IMPLEMENTATION */
 
-#endif /* ifndef MEMPP_ALLOC_H__ */
+#endif /* ifndef MEMPLUS_ALLOC_H__ */
