@@ -1,0 +1,62 @@
+#ifndef MEMPP_STRING_H__
+#define MEMPP_STRING_H__
+
+#include "mempp_alloc.h"
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdlib.h>
+
+#ifndef MEMPP_ASSERT
+#include <assert.h>
+#define MEMPP_ASSERT assert
+#endif
+
+typedef struct {
+    size_t size;
+    char  *cstr;
+} mp_String;
+
+mp_String mp_string_new(mp_Allocator allocator, const char *str);
+mp_String mp_string_newf(mp_Allocator allocator, const char *fmt, ...);
+mp_String mp_string_dup(mp_Allocator allocator, mp_String str);
+
+
+#ifdef MEMPP_STRING_IMPLEMENTATION
+
+mp_String mp_string_new(mp_Allocator allocator, const char *str) {
+    int size = snprintf(NULL, 0, "%s", str);
+    MEMPP_ASSERT(size >= 0 && "failed to count string size");
+    char *result      = mp_allocator_alloc(allocator, size + 1);
+    int   result_size = snprintf(result, size + 1, "%s", str);
+    MEMPP_ASSERT(result_size == size);
+    return (mp_String){ result_size, result };
+}
+
+mp_String mp_string_newf(mp_Allocator allocator, const char *fmt, ...) {
+    va_list args;
+
+    va_start(args, fmt);
+    int size = vsnprintf(NULL, 0, fmt, args);
+    MEMPP_ASSERT(size >= 0 && "failed to count string size");
+    va_end(args);
+
+    char *result = mp_allocator_alloc(allocator, size + 1);
+
+    va_start(args, fmt);
+    int result_size = vsnprintf(result, size + 1, fmt, args);
+    MEMPP_ASSERT(result_size == size);
+    va_end(args);
+
+    return (mp_String){ result_size, result };
+}
+
+mp_String mp_string_dup(mp_Allocator allocator, mp_String str) {
+    int size = snprintf(NULL, 0, "%s", str.cstr);
+    MEMPP_ASSERT((size >= 0 || size != str.size) && "failed to count string size");
+    char *ptr = mp_allocator_dup(allocator, str.cstr, size);
+    return (mp_String){ size, ptr };
+}
+
+#endif /* ifdef MEMPP_STRING_IMPLEMENTATION */
+
+#endif /* ifndef MEMPP_STRING_H__ */
