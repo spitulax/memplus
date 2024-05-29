@@ -1,6 +1,8 @@
 #ifndef MEMPLUS_ALLOC_H__
 #define MEMPLUS_ALLOC_H__
 
+/* #ifdef MEMPLUS_ALLOC_IMPLEMENTATION */
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -11,42 +13,50 @@
 #define _MEMPLUS_ASSERT assert
 #endif
 
+/* Default size of a single region in qwords. You can adjust this to your liking. */
 #ifndef MP_REGION_DEFAULT_SIZE
 #define MP_REGION_DEFAULT_SIZE (8 * 1024)
 #endif
 
 typedef struct mp_Region mp_Region;
 
+/* Holds certain size of allocated memory. */
 struct mp_Region {
-    mp_Region *next;
-    size_t     count;
-    size_t     capacity;
-    uintptr_t  data[];
+    mp_Region *next;        // The next region in the linked list if any
+    size_t     count;       // The amount of data (in qwords) used
+    size_t     capacity;    // The amount of data (in qwords) allocated
+    uintptr_t  data[];      // The data (aligned)
 };
 
+/* Manages regions in a linked list. */
 typedef struct {
     mp_Region *begin, *end;
 } mp_Arena;
 
+/* Interface to wrap functions to allocate memory.
+ * The method of allocation can be costumized by the user. */
 typedef struct {
+    // The object that manages or holds the memory.
+    // In case of allocator that works with global memory, this could be specified as NULL.
     void *context;
+    /* These functions is not meant to be used directly.
+     * To call them use the macros defined below. */
+    // Allocates the memory.
     void *(*alloc)(void *context, size_t size);
+    // Takes a pointer to a data and reallocate it with a new size.
     void *(*realloc)(void *context, void *old_ptr, size_t old_size, size_t new_size);
+    // Takes a pointer to a data and allocate its duplicate.
     void *(*dup)(void *context, void *data, size_t size);
 } mp_Allocator;
 
-mp_Region *mp_region_new(size_t capacity);
-void       mp_region_free(mp_Region *self);
-
-mp_Arena     mp_arena_init(void);
-void         mp_arena_deinit(mp_Arena *self);
-mp_Allocator mp_arena_new_allocator(mp_Arena *arena);
-
+/* Macros that wrap the functions above */
 #define mp_allocator_alloc(self, size)  ((self).alloc((self).context, (size)))
 #define mp_allocator_create(self, type) ((self).alloc((self).context, (sizeof(type))))
 #define mp_allocator_realloc(self, old_ptr, old_size, new_size)                                    \
     ((self).realloc((self).context, (old_ptr), (old_size), (new_size)))
 #define mp_allocator_dup(self, data, size) ((self).dup((self).context, (data), (size)))
+
+/* Creates a custom allocator given the context and respective function pointers. */
 #define mp_allocator_new(context, alloc_func, realloc_func, dup_func)                              \
     ((mp_Allocator){                                                                               \
         (void *) (context),                                                                        \
@@ -55,6 +65,22 @@ mp_Allocator mp_arena_new_allocator(mp_Arena *arena);
         (void *(*) (void *, void *, size_t))(dup_func),                                            \
     })
 
+/* Allocates a new region with `capacity` * 8  bytes of size. */
+mp_Region *mp_region_new(size_t capacity);
+/* Frees region from memory. */
+void mp_region_free(mp_Region *self);
+
+/* Creates a new, unallocated arena. */
+#define mp_arena_new()                                                                             \
+    (mp_Arena) {                                                                                   \
+        0                                                                                          \
+    }
+/* Frees the arena and its regions. */
+void mp_arena_free(mp_Arena *self);
+/* Returns an allocator that works with `arena`. */
+mp_Allocator mp_arena_new_allocator(mp_Arena *arena);
+
+/* Functions that are used by `mp_arena_new_allocator` to define the arena allocator. */
 static void *mp_arena_alloc(mp_Arena *self, size_t size);
 static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, size_t new_size);
 static void *mp_arena_dup(mp_Arena *self, void *data, size_t size);
@@ -76,11 +102,7 @@ void mp_region_free(mp_Region *self) {
     free(self);
 }
 
-mp_Arena mp_arena_init(void) {
-    return (mp_Arena){ 0 };
-}
-
-void mp_arena_deinit(mp_Arena *self) {
+void mp_arena_free(mp_Arena *self) {
     mp_Region *region = self->begin;
     while (region) {
         mp_Region *region_temp = region;
