@@ -64,7 +64,7 @@ static void *mp_arena_dup(mp_Arena *self, void *data, size_t size);
 
 mp_Region *mp_region_new(size_t capacity) {
     size_t     bytes  = sizeof(mp_Region) + sizeof(uintptr_t) * capacity;
-    mp_Region *region = malloc(bytes);
+    mp_Region *region = calloc(bytes, 1);
     _MEMPLUS_ASSERT(region != NULL);
     region->next     = NULL;
     region->count    = 0;
