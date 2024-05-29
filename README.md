@@ -7,20 +7,11 @@ Memplus currently implements:
 
 ## Usage
 
-Memplus is comprised of several header files that you can copy to your project as you like.
-Typically a header file contains implementation that should be included once in your project.
-
-**NOTE: all header files depend on `memplus_alloc.h`**
+Memplus is a header only library that you can copy to your project as you like.
 
 ```c
-#define MEMPLUS_ALLOC_IMPLEMENTATION
-#include "memplus_alloc.h"
-
-#define MEMPLUS_STRING_IMPLEMENTATION
-#include "memplus_string.h"
-
-#define MEMPLUS_VECTOR_IMPLEMENTATION
-#include "memplus_vector.h"
+#define MEMPLUS_IMPLEMENTATION // add this line once
+#include "memplus.h"
 ```
 
 ## TODO
