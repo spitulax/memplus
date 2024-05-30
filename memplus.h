@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -102,11 +103,6 @@ void mp_region_free(mp_Region *self);
 void mp_arena_free(mp_Arena *self);
 /* Returns an allocator that works with `arena`. */
 mp_Allocator mp_arena_new_allocator(mp_Arena *arena);
-
-/* Functions that are used by `mp_arena_new_allocator` to define the arena allocator. */
-static void *mp_arena_alloc(mp_Arena *self, size_t size);
-static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, size_t new_size);
-static void *mp_arena_dup(mp_Arena *self, void *data, size_t size);
 
 /***********
  * END OF ALLOCATOR
@@ -300,6 +296,11 @@ mp_String mp_string_dup(mp_Allocator allocator, mp_String str);
  ***********/
 #ifdef MEMPLUS_IMPLEMENTATION
 
+/* Functions that are used by `mp_arena_new_allocator` to define the arena allocator. */
+static void *mp_arena_alloc(mp_Arena *self, size_t size);
+static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, size_t new_size);
+static void *mp_arena_dup(mp_Arena *self, void *data, size_t size);
+
 mp_Region *mp_region_new(size_t capacity) {
     size_t     bytes  = sizeof(mp_Region) + sizeof(uintptr_t) * capacity;
     mp_Region *region = calloc(bytes, 1);
@@ -402,7 +403,7 @@ mp_String mp_string_newf(mp_Allocator allocator, const char *fmt, ...) {
 
 mp_String mp_string_dup(mp_Allocator allocator, mp_String str) {
     int size = snprintf(NULL, 0, "%s", str.cstr);
-    _MEMPLUS_ASSERT((size >= 0 || size != str.size) && "failed to count string size");
+    _MEMPLUS_ASSERT((size >= 0 || (size_t) size != str.size) && "failed to count string size");
     char *ptr = mp_allocator_dup(allocator, str.cstr, size);
     return (mp_String){ size, ptr };
 }
