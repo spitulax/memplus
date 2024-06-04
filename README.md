@@ -15,6 +15,6 @@ Memplus is a header only library that you can copy to your project as you like.
 ```
 
 ## TODO
-- [ ] Resizable string
+- [ ] Resizable string/String builder
 - [ ] Hash map
 - [ ] Other kinds of allocator

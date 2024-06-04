@@ -37,7 +37,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * ALLOCATOR
  ***********/
 
-/* Default size of a single region in qwords. You can adjust this to your liking. */
+/* Default size of a single region in words. You can adjust this to your liking. */
 #ifndef MP_REGION_DEFAULT_SIZE
 #define MP_REGION_DEFAULT_SIZE (8 * 1024)
 #endif
@@ -47,8 +47,8 @@ typedef struct mp_Region mp_Region;
 /* Holds certain size of allocated memory. */
 struct mp_Region {
     mp_Region *next;        // The next region in the linked list if any
-    size_t     count;       // The amount of data (in qwords) used
-    size_t     capacity;    // The amount of data (in qwords) allocated
+    size_t     count;       // The amount of data (in words) used
+    size_t     capacity;    // The amount of data (in words) allocated
     uintptr_t  data[];      // The data (aligned)
 };
 
@@ -397,7 +397,7 @@ mp_Allocator mp_arena_new_allocator(mp_Arena *arena) {
 }
 
 static void *mp_arena_alloc(mp_Arena *self, size_t size) {
-    // size in word/qword (64 bits)
+    // size in words
     size_t size_word = (size + sizeof(uintptr_t) - 1) / sizeof(uintptr_t);
 
     if (self->end == NULL) {
