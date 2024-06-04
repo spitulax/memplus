@@ -98,7 +98,7 @@ typedef struct mp_Region mp_Region;
 /* Holds certain size of allocated memory. */
 struct mp_Region {
     mp_Region *next;        // The next region in the linked list if any
-    size_t     count;       // The amount of data (in words) used
+    size_t     size;        // The amount of data (in words) used
     size_t     capacity;    // The amount of data (in words) allocated
     uintptr_t  data[];      // The data (aligned)
 };
@@ -122,8 +122,30 @@ typedef struct {
     }
 /* Frees the arena and its regions. */
 void mp_arena_free(mp_Arena *self);
-/* Returns an allocator that works with `arena`. */
-mp_Allocator mp_arena_new_allocator(mp_Arena *arena);
+/* Returns an allocator that works with `mp_Arena`. */
+mp_Allocator mp_arena_new_allocator(mp_Arena *self);
+
+/* TEMP ALLOCATOR
+ * Linear allocator located in the stack. */
+typedef struct {
+    uintptr_t *buf;
+    size_t     size;
+    size_t     capacity;
+} mp_Temp;
+
+// NOTE: alloc, realloc, and dup returns NULL if allocation exceeds capacity
+
+/* Initializes a temp allocator with an array as buf. */
+#define mp_temp_new(buffer)                                                                        \
+    (memset((buffer), 0, sizeof(buffer)),                                                          \
+     (mp_Temp){                                                                                    \
+         .buf      = (buffer),                                                                     \
+         .size     = 0,                                                                            \
+         .capacity = sizeof(buffer) / sizeof(uintptr_t),                                           \
+     })
+void mp_temp_reset(mp_Temp *self);
+/* Returns an allocator that works with `mp_Temp`. */
+mp_Allocator mp_temp_new_allocator(mp_Temp *self);
 
 /***********
  * END OF ALLOCATOR
@@ -370,18 +392,22 @@ mp_String mp_string_dup(mp_Allocator *allocator, mp_String str);
  ***********/
 #ifdef MEMPLUS_IMPLEMENTATION
 
-/* Functions that are used by `mp_arena_new_allocator` to define the arena allocator. */
+/* Functions that are used by `mp_*_new_allocator` to define the allocator. */
 static void *mp_arena_alloc(mp_Arena *self, size_t size);
 static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, size_t new_size);
 static void *mp_arena_dup(mp_Arena *self, void *data, size_t size);
 static void  mp_arena_free_single(mp_Arena *self, void *ptr);
+static void *mp_temp_alloc(mp_Temp *self, size_t size);
+static void *mp_temp_realloc(mp_Temp *self, void *old_ptr, size_t old_size, size_t new_size);
+static void *mp_temp_dup(mp_Temp *self, void *data, size_t size);
+static void  mp_temp_free_single(mp_Temp *self, void *ptr);
 
 mp_Region *mp_region_new(size_t capacity) {
     size_t     bytes  = sizeof(mp_Region) + sizeof(uintptr_t) * capacity;
     mp_Region *region = calloc(bytes, 1);
     _MEMPLUS_ASSERT(region != NULL);
     region->next     = NULL;
-    region->count    = 0;
+    region->size     = 0;
     region->capacity = capacity;
     return region;
 }
@@ -401,9 +427,9 @@ void mp_arena_free(mp_Arena *self) {
     self->end   = NULL;
 }
 
-mp_Allocator mp_arena_new_allocator(mp_Arena *arena) {
+mp_Allocator mp_arena_new_allocator(mp_Arena *self) {
     return mp_allocator_new(
-        arena, mp_arena_alloc, mp_arena_realloc, mp_arena_dup, mp_arena_free_single);
+        self, mp_arena_alloc, mp_arena_realloc, mp_arena_dup, mp_arena_free_single);
 }
 
 static void *mp_arena_alloc(mp_Arena *self, size_t size) {
@@ -418,11 +444,11 @@ static void *mp_arena_alloc(mp_Arena *self, size_t size) {
         self->begin = self->end;
     }
 
-    while (self->end->count + size_word > self->end->capacity && self->end->next != NULL) {
+    while (self->end->size + size_word > self->end->capacity && self->end->next != NULL) {
         self->end = self->end->next;
     }
 
-    if (self->end->count + size_word > self->end->capacity) {
+    if (self->end->size + size_word > self->end->capacity) {
         _MEMPLUS_ASSERT(self->end->next == NULL);
         size_t capacity = MP_REGION_DEFAULT_SIZE;
         if (capacity < size_word) capacity = size_word;
@@ -430,8 +456,8 @@ static void *mp_arena_alloc(mp_Arena *self, size_t size) {
         self->end       = self->end->next;
     }
 
-    void *result = &self->end->data[self->end->count];
-    self->end->count += size_word;
+    void *result = &self->end->data[self->end->size];
+    self->end->size += size_word;
     return result;
 }
 
@@ -451,6 +477,44 @@ static void *mp_arena_dup(mp_Arena *self, void *data, size_t size) {
 }
 
 static void mp_arena_free_single(mp_Arena *self, void *ptr) {
+    // NOP
+}
+
+void mp_temp_reset(mp_Temp *self) {
+    self->size = 0;
+}
+
+mp_Allocator mp_temp_new_allocator(mp_Temp *temp) {
+    return mp_allocator_new(temp, mp_temp_alloc, mp_temp_realloc, mp_temp_dup, mp_temp_free_single);
+}
+
+static void *mp_temp_alloc(mp_Temp *self, size_t size) {
+    size_t size_word = (size + sizeof(uintptr_t) - 1) / sizeof(uintptr_t);
+    if (self->size + size_word > self->capacity) return NULL;
+    void *result = &self->buf[self->size];
+    self->size += size_word;
+    return result;
+}
+
+static void *mp_temp_realloc(mp_Temp *self, void *old_ptr, size_t old_size, size_t new_size) {
+    if (new_size <= old_size) return old_ptr;
+    void *new_ptr = mp_temp_alloc(self, new_size);
+    if (new_ptr == NULL) return NULL;
+    uint8_t *new_ptr_byte = (uint8_t *) new_ptr;
+    uint8_t *old_ptr_byte = (uint8_t *) old_ptr;
+    for (size_t i = 0; i < old_size; ++i) {
+        new_ptr_byte[i] = old_ptr_byte[i];
+    }
+    return new_ptr;
+}
+
+static void *mp_temp_dup(mp_Temp *self, void *data, size_t size) {
+    void *buf = mp_temp_alloc(self, size);
+    if (buf == NULL) return NULL;
+    return memcpy(buf, data, size);
+}
+
+static void mp_temp_free_single(mp_Temp *self, void *ptr) {
     // NOP
 }
 

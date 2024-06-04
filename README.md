@@ -1,7 +1,9 @@
 <h2 align="center">Memplus: A library to help with memory allocation in C</h2>
 
 Memplus currently implements:
+- Customizable allocator interface
 - Arena allocator
+- Stack temp allocator
 - Sized string
 - Dynamic array (vector)
 
