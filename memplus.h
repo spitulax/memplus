@@ -42,21 +42,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define MP_REGION_DEFAULT_SIZE (8 * 1024)
 #endif
 
-typedef struct mp_Region mp_Region;
-
-/* Holds certain size of allocated memory. */
-struct mp_Region {
-    mp_Region *next;        // The next region in the linked list if any
-    size_t     count;       // The amount of data (in words) used
-    size_t     capacity;    // The amount of data (in words) allocated
-    uintptr_t  data[];      // The data (aligned)
-};
-
-/* Manages regions in a linked list. */
-typedef struct {
-    mp_Region *begin, *end;
-} mp_Arena;
-
 /* Interface to wrap functions to allocate memory.
  * The method of allocation can be costumized by the user. */
 typedef struct {
@@ -67,10 +52,12 @@ typedef struct {
      * To call them use the macros defined below. */
     // Allocates the memory.
     void *(*alloc)(void *context, size_t size);
-    // Takes a pointer to a data and reallocate it with a new size.
+    // Takes a pointer to a data and reallocates it with a new size.
     void *(*realloc)(void *context, void *old_ptr, size_t old_size, size_t new_size);
-    // Takes a pointer to a data and allocate its duplicate.
+    // Takes a pointer to a data and allocates its duplicate.
     void *(*dup)(void *context, void *data, size_t size);
+    // Takes a pointer to a data and deallocates it within the context.
+    void (*free)(void *context, void *ptr);
 } mp_Allocator;
 
 /* Macros that wrap the functions above */
@@ -90,22 +77,43 @@ typedef struct {
 // data: pointer
 // size: number of bytes
 #define mp_allocator_dup(self, data, size) ((self)->dup((self)->context, (data), (size)))
+// self: mp_Allocator*
+// ptr: pointer (nullability depends on the implementation)
+#define mp_allocator_free(self, ptr) ((self)->free((self)->context, (ptr)))
 
 /* Creates a custom allocator given the context and respective function pointers. */
 // context: pointer
 // alloc_func, realloc_func, dup_func: function pointer
-#define mp_allocator_new(context, alloc_func, realloc_func, dup_func)                              \
+#define mp_allocator_new(context, alloc_func, realloc_func, dup_func, free_func)                   \
     ((mp_Allocator){                                                                               \
         (void *) (context),                                                                        \
         (void *(*) (void *, size_t))(alloc_func),                                                  \
         (void *(*) (void *, void *, size_t, size_t))(realloc_func),                                \
         (void *(*) (void *, void *, size_t))(dup_func),                                            \
+        (void (*)(void *, void *))(free_func),                                                     \
     })
+
+typedef struct mp_Region mp_Region;
+
+/* Holds certain size of allocated memory. */
+struct mp_Region {
+    mp_Region *next;        // The next region in the linked list if any
+    size_t     count;       // The amount of data (in words) used
+    size_t     capacity;    // The amount of data (in words) allocated
+    uintptr_t  data[];      // The data (aligned)
+};
 
 /* Allocates a new region with `capacity` * 8  bytes of size. */
 mp_Region *mp_region_new(size_t capacity);
 /* Frees region from memory. */
 void mp_region_free(mp_Region *self);
+
+/* ARENA ALLOCATOR
+ * Manages regions in a linked list.
+ * Regions cannot be freed individually. For that use `mp_Pool`. */
+typedef struct {
+    mp_Region *begin, *end;
+} mp_Arena;
 
 /* Creates a new, unallocated arena. */
 #define mp_arena_new()                                                                             \
@@ -366,6 +374,7 @@ mp_String mp_string_dup(mp_Allocator *allocator, mp_String str);
 static void *mp_arena_alloc(mp_Arena *self, size_t size);
 static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, size_t new_size);
 static void *mp_arena_dup(mp_Arena *self, void *data, size_t size);
+static void  mp_arena_free_single(mp_Arena *self, void *ptr);
 
 mp_Region *mp_region_new(size_t capacity) {
     size_t     bytes  = sizeof(mp_Region) + sizeof(uintptr_t) * capacity;
@@ -393,7 +402,8 @@ void mp_arena_free(mp_Arena *self) {
 }
 
 mp_Allocator mp_arena_new_allocator(mp_Arena *arena) {
-    return mp_allocator_new(arena, mp_arena_alloc, mp_arena_realloc, mp_arena_dup);
+    return mp_allocator_new(
+        arena, mp_arena_alloc, mp_arena_realloc, mp_arena_dup, mp_arena_free_single);
 }
 
 static void *mp_arena_alloc(mp_Arena *self, size_t size) {
@@ -438,6 +448,10 @@ static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, si
 
 static void *mp_arena_dup(mp_Arena *self, void *data, size_t size) {
     return memcpy(mp_arena_alloc(self, size), data, size);
+}
+
+static void mp_arena_free_single(mp_Arena *self, void *ptr) {
+    // NOP
 }
 
 mp_String mp_string_new(mp_Allocator *allocator, const char *str) {
