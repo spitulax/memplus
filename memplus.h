@@ -33,6 +33,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define _MEMPLUS_ASSERT assert
 #endif
 
+#define return_defer(v)                                                                            \
+    do {                                                                                           \
+        result = (v);                                                                              \
+        return result;                                                                             \
+    } while (0)
+
 /***********
  * ALLOCATOR
  ***********/
@@ -61,29 +67,36 @@ typedef struct {
 } mp_Allocator;
 
 /* Macros that wrap the functions above */
-// self: mp_Allocator*
+// self: mp_Allocator
 // size: number of bytes
-#define mp_allocator_alloc(self, size) ((self)->alloc((self)->context, (size)))
-// self: mp_Allocator*
-// type: typename
-#define mp_allocator_create(self, type) ((self)->alloc((self)->context, (sizeof(type))))
-// self: mp_Allocator*
+// -> void*
+#define mp_allocator_alloc(self, size) ((self).alloc((self).context, (size)))
+// self: mp_Allocator
 // old_ptr: pointer
 // old_size: number of bytes
 // new_size: number of bytes
+// -> void*
 #define mp_allocator_realloc(self, old_ptr, old_size, new_size)                                    \
-    ((self)->realloc((self)->context, (old_ptr), (old_size), (new_size)))
-// self: mp_Allocator*
+    ((self).realloc((self).context, (old_ptr), (old_size), (new_size)))
+// self: mp_Allocator
 // data: pointer
 // size: number of bytes
-#define mp_allocator_dup(self, data, size) ((self)->dup((self)->context, (data), (size)))
-// self: mp_Allocator*
+// -> void*
+#define mp_allocator_dup(self, data, size) ((self).dup((self).context, (data), (size)))
+// self: mp_Allocator
 // ptr: pointer (nullability depends on the implementation)
-#define mp_allocator_free(self, ptr) ((self)->free((self)->context, (ptr)))
+#define mp_allocator_free(self, ptr) ((self).free((self).context, (ptr)))
+
+/* Allocate a new chunk of memory for the given type. */
+// self: mp_Allocator
+// type: typename
+// -> `type`*
+#define mp_allocator_create(self, type) ((self).alloc((self).context, (sizeof(type))))
 
 /* Creates a custom allocator given the context and respective function pointers. */
 // context: pointer
 // alloc_func, realloc_func, dup_func: function pointer
+// -> mp_Allocator
 #define mp_allocator_new(context, alloc_func, realloc_func, dup_func, free_func)                   \
     ((mp_Allocator){                                                                               \
         (void *) (context),                                                                        \
@@ -103,27 +116,23 @@ struct mp_Region {
     uintptr_t  data[];      // The data (aligned)
 };
 
-/* Allocates a new region with `capacity` * 8  bytes of size. */
+/* Allocates a new region with `capacity` * (UINTPTR_WIDTH/8) bytes of size. */
 mp_Region *mp_region_new(size_t capacity);
 /* Frees region from memory. */
 void mp_region_free(mp_Region *self);
 
-/* ARENA ALLOCATOR
- * Manages regions in a linked list.
- * Regions cannot be freed individually. For that use `mp_Pool`. */
+/* GROWING ARENA ALLOCATOR
+ * Manages regions in a linked list. */
 typedef struct {
     mp_Region *begin, *end;
 } mp_Arena;
 
 /* Creates a new, unallocated arena. */
-#define mp_arena_new()                                                                             \
-    (mp_Arena) {                                                                                   \
-        0                                                                                          \
-    }
+void mp_arena_init(mp_Arena *self);
 /* Frees the arena and its regions. */
-void mp_arena_free(mp_Arena *self);
+void mp_arena_destroy(mp_Arena *self);
 /* Returns an allocator that works with `mp_Arena`. */
-mp_Allocator mp_arena_new_allocator(mp_Arena *self);
+mp_Allocator mp_arena_allocator(const mp_Arena *self);
 
 /* TEMP ALLOCATOR
  * Linear allocator located in the stack. */
@@ -136,16 +145,12 @@ typedef struct {
 // NOTE: alloc, realloc, and dup returns NULL if allocation exceeds capacity
 
 /* Initializes a temp allocator with an array as buf. */
-#define mp_temp_new(buffer)                                                                        \
-    (memset((buffer), 0, sizeof(buffer)),                                                          \
-     (mp_Temp){                                                                                    \
-         .buf      = (buffer),                                                                     \
-         .size     = 0,                                                                            \
-         .capacity = sizeof(buffer) / sizeof(uintptr_t),                                           \
-     })
+#define mp_temp_init(self, buffer) mp_temp_init_size((self), (buffer), sizeof(buffer))
+void mp_temp_init_size(mp_Temp *self, void *buffer, size_t capacity);
+/* Resets the size of a temp allocator */
 void mp_temp_reset(mp_Temp *self);
 /* Returns an allocator that works with `mp_Temp`. */
-mp_Allocator mp_temp_new_allocator(mp_Temp *self);
+mp_Allocator mp_temp_allocator(const mp_Temp *self);
 
 /***********
  * END OF ALLOCATOR
@@ -162,11 +167,13 @@ typedef struct {
 } mp_String;
 
 /* Allocates a new `mp_String` from a null-terminated string. */
-mp_String mp_string_new(mp_Allocator *allocator, const char *str);
+mp_String mp_string_new(mp_Allocator allocator, const char *str);
 /* Allocates a new `mp_String` from formatted input. */
-mp_String mp_string_newf(mp_Allocator *allocator, const char *fmt, ...);
+mp_String mp_string_newf(mp_Allocator allocator, const char *fmt, ...);
 /* Allocates duplicate of `str`. */
-mp_String mp_string_dup(mp_Allocator *allocator, mp_String str);
+mp_String mp_string_dup(mp_Allocator allocator, mp_String str);
+/* Free an `mp_String`. */
+mp_String mp_string_destroy(mp_Allocator allocator, mp_String *str);
 
 /***********
  * END OF STRING
@@ -396,11 +403,12 @@ mp_String mp_string_dup(mp_Allocator *allocator, mp_String str);
 static void *mp_arena_alloc(mp_Arena *self, size_t size);
 static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, size_t new_size);
 static void *mp_arena_dup(mp_Arena *self, void *data, size_t size);
-static void  mp_arena_free_single(mp_Arena *self, void *ptr);
+static void  mp_arena_free(mp_Arena *self, void *ptr);
+
 static void *mp_temp_alloc(mp_Temp *self, size_t size);
 static void *mp_temp_realloc(mp_Temp *self, void *old_ptr, size_t old_size, size_t new_size);
 static void *mp_temp_dup(mp_Temp *self, void *data, size_t size);
-static void  mp_temp_free_single(mp_Temp *self, void *ptr);
+static void  mp_temp_free(mp_Temp *self, void *ptr);
 
 mp_Region *mp_region_new(size_t capacity) {
     size_t     bytes  = sizeof(mp_Region) + sizeof(uintptr_t) * capacity;
@@ -416,7 +424,12 @@ void mp_region_free(mp_Region *self) {
     free(self);
 }
 
-void mp_arena_free(mp_Arena *self) {
+void mp_arena_init(mp_Arena *self) {
+    self->begin = NULL;
+    self->end   = NULL;
+}
+
+void mp_arena_destroy(mp_Arena *self) {
     mp_Region *region = self->begin;
     while (region) {
         mp_Region *region_temp = region;
@@ -427,9 +440,8 @@ void mp_arena_free(mp_Arena *self) {
     self->end   = NULL;
 }
 
-mp_Allocator mp_arena_new_allocator(mp_Arena *self) {
-    return mp_allocator_new(
-        self, mp_arena_alloc, mp_arena_realloc, mp_arena_dup, mp_arena_free_single);
+mp_Allocator mp_arena_allocator(const mp_Arena *self) {
+    return mp_allocator_new(self, mp_arena_alloc, mp_arena_realloc, mp_arena_dup, mp_arena_free);
 }
 
 static void *mp_arena_alloc(mp_Arena *self, size_t size) {
@@ -476,16 +488,24 @@ static void *mp_arena_dup(mp_Arena *self, void *data, size_t size) {
     return memcpy(mp_arena_alloc(self, size), data, size);
 }
 
-static void mp_arena_free_single(mp_Arena *self, void *ptr) {
+static void mp_arena_free(mp_Arena *self, void *ptr) {
     // NOP
 }
 
+void mp_temp_init_size(mp_Temp *self, void *buffer, size_t capacity) {
+    memset(buffer, 0, capacity);
+    self->buf      = buffer;
+    self->size     = 0;
+    self->capacity = capacity / sizeof(uintptr_t);
+}
+
 void mp_temp_reset(mp_Temp *self) {
+    memset(self->buf, 0, self->capacity);
     self->size = 0;
 }
 
-mp_Allocator mp_temp_new_allocator(mp_Temp *temp) {
-    return mp_allocator_new(temp, mp_temp_alloc, mp_temp_realloc, mp_temp_dup, mp_temp_free_single);
+mp_Allocator mp_temp_allocator(const mp_Temp *temp) {
+    return mp_allocator_new(temp, mp_temp_alloc, mp_temp_realloc, mp_temp_dup, mp_temp_free);
 }
 
 static void *mp_temp_alloc(mp_Temp *self, size_t size) {
@@ -514,11 +534,11 @@ static void *mp_temp_dup(mp_Temp *self, void *data, size_t size) {
     return memcpy(buf, data, size);
 }
 
-static void mp_temp_free_single(mp_Temp *self, void *ptr) {
+static void mp_temp_free(mp_Temp *self, void *ptr) {
     // NOP
 }
 
-mp_String mp_string_new(mp_Allocator *allocator, const char *str) {
+mp_String mp_string_new(mp_Allocator allocator, const char *str) {
     int size = snprintf(NULL, 0, "%s", str);
     _MEMPLUS_ASSERT(size >= 0 && "failed to count string size");
     char *result      = mp_allocator_alloc(allocator, size + 1);
@@ -527,7 +547,7 @@ mp_String mp_string_new(mp_Allocator *allocator, const char *str) {
     return (mp_String){ result_size, result };
 }
 
-mp_String mp_string_newf(mp_Allocator *allocator, const char *fmt, ...) {
+mp_String mp_string_newf(mp_Allocator allocator, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
@@ -545,11 +565,16 @@ mp_String mp_string_newf(mp_Allocator *allocator, const char *fmt, ...) {
     return (mp_String){ result_size, result };
 }
 
-mp_String mp_string_dup(mp_Allocator *allocator, mp_String str) {
+mp_String mp_string_dup(mp_Allocator allocator, mp_String str) {
     int size = snprintf(NULL, 0, "%s", str.cstr);
     _MEMPLUS_ASSERT((size >= 0 || (size_t) size != str.size) && "failed to count string size");
     char *ptr = mp_allocator_dup(allocator, str.cstr, size);
     return (mp_String){ size, ptr };
+}
+
+mp_String mp_string_destroy(mp_Allocator allocator, mp_String *str) {
+    mp_allocator_free(allocator, str->cstr);
+    str->size = 0;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
