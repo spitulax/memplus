@@ -36,7 +36,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define return_defer(v)                                                                            \
     do {                                                                                           \
         result = (v);                                                                              \
-        return result;                                                                             \
+        goto defer;                                                                                \
     } while (0)
 
 /***********
