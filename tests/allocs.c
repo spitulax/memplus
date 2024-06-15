@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test(mp_Allocator alloc, size_t *size) {
+void test(mp_Allocator *alloc, size_t *size) {
     int32_t *test1, *test2;
     int64_t *test3;
 
@@ -24,7 +24,6 @@ void test(mp_Allocator alloc, size_t *size) {
 }
 
 int main(void) {
-    int          result = 0;
     mp_Allocator alloc;
 
     /* GROWING ARENA ALLOCATOR */
@@ -32,14 +31,14 @@ int main(void) {
     mp_Arena arena;
     mp_arena_init(&arena);
     alloc = mp_arena_allocator(&arena);
-    test(alloc, &arena.size);
+    test(&alloc, &arena.size);
 
     /* STATIC ARENA ALLOCATOR */
 
     mp_SArena sarena;
     mp_sarena_init(&sarena, 256);
     alloc = mp_sarena_allocator(&sarena);
-    test(alloc, &sarena.size);
+    test(&alloc, &sarena.size);
 
     /* TEMP ALLOCATOR */
 
@@ -47,7 +46,7 @@ int main(void) {
     mp_Temp temp_arena;
     mp_temp_init(&temp_arena, temp_buf);
     alloc = mp_temp_allocator(&temp_arena);
-    test(alloc, &temp_arena.size);
+    test(&alloc, &temp_arena.size);
 
     mp_temp_reset(&temp_arena);
     expects(temp_arena.buf[0] == 0, "mp_temp_reset failed");
@@ -55,9 +54,8 @@ int main(void) {
     /* HEAP ALLOCATOR */
 
     alloc = mp_heap_allocator();
-    test(alloc, NULL);
+    test(&alloc, NULL);
 
-defer:
     mp_sarena_destroy(&sarena);
     mp_arena_destroy(&arena);
 }
