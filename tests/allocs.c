@@ -4,23 +4,23 @@ void test(mp_Allocator alloc, size_t *size) {
     int32_t *test1, *test2;
     int64_t *test3;
 
-    test1  = mp_allocator_create(alloc, int32_t);
+    test1  = mp_create(alloc, int32_t);
     *test1 = 69;
     if (size) prnf("%zu", *size);
     expectf(*test1 == 69, "1(%d)", *test1);
 
-    test2  = mp_allocator_dup(alloc, test1, sizeof(int32_t));
+    test2  = mp_dup(alloc, test1, sizeof(int32_t));
     *test2 = 420;
     if (size) prnf("%zu", *size);
     expectf(*test1 == 69 && *test2 == 420, "2(%d)\n1(%d) -> %d", *test2, *test1, *test2);
 
-    test3  = mp_allocator_realloc(alloc, test2, sizeof(int32_t), sizeof(int64_t));
+    test3  = mp_realloc(alloc, test2, sizeof(int32_t), sizeof(int64_t));
     *test3 = INT64_MAX;
     if (size) prnf("%zu", *size);
     expectf(*test3 == INT64_MAX, "3(%ld)", *test3);
 
-    mp_allocator_free(alloc, test1);
-    mp_allocator_free(alloc, test3);
+    mp_free(alloc, test1);
+    mp_free(alloc, test3);
 }
 
 int main(void) {
@@ -43,7 +43,7 @@ int main(void) {
 
     /* TEMP ALLOCATOR */
 
-    uint8_t temp_buf[1024];
+    mp_temp_buffer(temp_buf, 1024);
     mp_Temp temp_arena;
     mp_temp_init(&temp_arena, temp_buf);
     alloc = mp_temp_allocator(&temp_arena);

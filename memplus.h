@@ -67,31 +67,31 @@ typedef struct {
 } mp_Allocator;
 
 /* Macros that wrap the functions above */
-// self: mp_Allocator
+// allocator: mp_Allocator
 // size: number of bytes
 // -> void*
-#define mp_allocator_alloc(self, size) ((self).alloc((self).context, (size)))
-// self: mp_Allocator
+#define mp_alloc(allocator, size) ((allocator).alloc((allocator).context, (size)))
+// allocator: mp_Allocator
 // old_ptr: pointer
 // old_size: number of bytes
 // new_size: number of bytes
 // -> void*
-#define mp_allocator_realloc(self, old_ptr, old_size, new_size)                                    \
-    ((self).realloc((self).context, (old_ptr), (old_size), (new_size)))
-// self: mp_Allocator
+#define mp_realloc(allocator, old_ptr, old_size, new_size)                                         \
+    ((allocator).realloc((allocator).context, (old_ptr), (old_size), (new_size)))
+// allocator: mp_Allocator
 // data: pointer
 // size: number of bytes
 // -> void*
-#define mp_allocator_dup(self, data, size) ((self).dup((self).context, (data), (size)))
-// self: mp_Allocator
+#define mp_dup(allocator, data, size) ((allocator).dup((allocator).context, (data), (size)))
+// allocator: mp_Allocator
 // ptr: pointer (nullability depends on the implementation)
-#define mp_allocator_free(self, ptr) ((self).free((self).context, (ptr)))
+#define mp_free(allocator, ptr) ((allocator).free((allocator).context, (ptr)))
 
 /* Allocate a new chunk of memory for the given type. */
-// self: mp_Allocator
+// allocator: mp_Allocator
 // type: typename
 // -> `type`*
-#define mp_allocator_create(self, type) ((self).alloc((self).context, (sizeof(type))))
+#define mp_create(allocator, type) ((allocator).alloc((allocator).context, (sizeof(type))))
 
 /* Creates a custom allocator given the context and respective function pointers. */
 // context: pointer
@@ -116,7 +116,7 @@ struct mp_Region {
     uintptr_t  data[];      // The data (aligned)
 };
 
-/* Allocates a new region with `capacity` * (UINTPTR_WIDTH/8) bytes of size. */
+/* Allocates a new region with `capacity` * sizeof(uintptr_t) bytes of size. */
 mp_Region *mp_region_new(size_t capacity);
 /* Frees region from memory. */
 void mp_region_free(mp_Region *self);
@@ -161,6 +161,11 @@ typedef struct {
     size_t     capacity;
 } mp_Temp;
 
+/* Declare an array for the use of `mp_Temp`. */
+// name: identifier
+// size: size in bytes
+#define mp_temp_buffer(name, size)                                                                 \
+    uintptr_t name[((size) + sizeof(uintptr_t) - 1) / sizeof(uintptr_t)];
 /* Initializes a temp allocator with an array as buf. */
 #define mp_temp_init(self, buffer) mp_temp_init_size((self), (buffer), sizeof(buffer))
 void mp_temp_init_size(mp_Temp *self, void *buffer, size_t capacity);
@@ -623,7 +628,7 @@ static void mp_heap_free(void *self, void *ptr) {
 mp_String mp_string_new(mp_Allocator allocator, const char *str) {
     int size = snprintf(NULL, 0, "%s", str);
     _MEMPLUS_ASSERT(size >= 0 && "failed to count string size");
-    char *result      = mp_allocator_alloc(allocator, size + 1);
+    char *result      = mp_alloc(allocator, size + 1);
     int   result_size = snprintf(result, size + 1, "%s", str);
     _MEMPLUS_ASSERT(result_size == size);
     return (mp_String){ result_size, result };
@@ -637,7 +642,7 @@ mp_String mp_string_newf(mp_Allocator allocator, const char *fmt, ...) {
     _MEMPLUS_ASSERT(size >= 0 && "failed to count string size");
     va_end(args);
 
-    char *result = mp_allocator_alloc(allocator, size + 1);
+    char *result = mp_alloc(allocator, size + 1);
 
     va_start(args, fmt);
     int result_size = vsnprintf(result, size + 1, fmt, args);
@@ -650,12 +655,12 @@ mp_String mp_string_newf(mp_Allocator allocator, const char *fmt, ...) {
 mp_String mp_string_dup(mp_Allocator allocator, mp_String str) {
     int size = snprintf(NULL, 0, "%s", str.cstr);
     _MEMPLUS_ASSERT((size >= 0 || (size_t) size != str.size) && "failed to count string size");
-    char *ptr = mp_allocator_dup(allocator, str.cstr, size);
+    char *ptr = mp_dup(allocator, str.cstr, size);
     return (mp_String){ size, ptr };
 }
 
 void mp_string_destroy(mp_Allocator allocator, mp_String *str) {
-    mp_allocator_free(allocator, str->cstr);
+    mp_free(allocator, str->cstr);
     str->size = 0;
 }
 
