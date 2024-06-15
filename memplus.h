@@ -212,13 +212,13 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
 
 /* Starting capacity of a vector. You can adjust this to your liking. */
 #ifndef MP_VECTOR_INIT_CAPACITY
-#define MP_VECTOR_INIT_CAPACITY 256
+#define MP_VECTOR_INIT_CAPACITY 64
 #endif
 
 /* You can define a vector struct with any type as long as it's in this format. */
 /*
     typedef struct {
-        mp_Allocator *alloc;     // The allocator that manages the allocation of the vector
+        mp_Allocator *alloc;    // The allocator that manages the allocation of the vector
         size_t       size;      // The size of the vector
         size_t       capacity;  // The capacity of the vector
         <type>       *data;     // Pointer to the data (points to the first element)
@@ -238,26 +238,43 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
     } name
 
 /* Initializes a new vector and tell it to use `allocator`. */
+// self: Vector*
 // allocator: mp_Allocator*
-// name: typename
-#define mp_vector_new(allocator, name)                                                             \
-    (name) {                                                                                       \
-        .alloc = (allocator), .size = 0, .capacity = 0, .data = NULL,                              \
-    }
+#define mp_vector_init(self, allocator)                                                            \
+    do {                                                                                           \
+        (self)->alloc    = (allocator);                                                            \
+        (self)->size     = 0;                                                                      \
+        (self)->capacity = 0;                                                                      \
+        (self)->data     = NULL;                                                                   \
+    } while (0)
+
+/* Frees the vector. */
+// self: Vector*
+#define mp_vector_destroy(self)                                                                    \
+    do {                                                                                           \
+        mp_free((self)->alloc, (self)->data);                                                      \
+        (self)->alloc    = NULL;                                                                   \
+        (self)->size     = 0;                                                                      \
+        (self)->capacity = 0;                                                                      \
+        (self)->data     = NULL;                                                                   \
+    } while (0)
+
+// TOOO: make these functions apply to other data structures later
 
 /* Gets an item at index `i`. */
 // self: Vector*
 // i: size_t
-#define mp_vector_get(self, i) (self)->data[i]
+#define mp_get(self, i) (self)->data[i]
 
 /* Resizes vector to `offset` of the current size.
  * If the current capacity is 0, allocates for `MP_VECTOR_INIT_CAPACITY` items.
  * If the current capacity is not large enough, allocates for double the current capacity.
+ * self.data == NULL and self.capacity == -1 if allocation failed.
  * Positive `offset` grows the vector.
  * Negative `offset` shrinks the vector. */
 // self: Vector*
 // offset: int
-#define mp_vector_resize(self, offset)                                                             \
+#define mp_resize(self, offset)                                                                    \
     do {                                                                                           \
         if ((self)->size + (offset) > (self)->capacity && (offset) > 0) {                          \
             if ((self)->capacity == 0) {                                                           \
@@ -266,34 +283,43 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
             while ((self)->size + (offset) > (self)->capacity) {                                   \
                 (self)->capacity *= 2;                                                             \
             }                                                                                      \
-            (self)->data = mp_allocator_realloc(                                                   \
+            (self)->data = mp_realloc(                                                             \
                 (self)->alloc, (self)->data, 0, (self)->capacity * sizeof(*(self)->data));         \
         }                                                                                          \
-        (self)->size += (offset);                                                                  \
+        if ((self)->data != NULL)                                                                  \
+            (self)->size += (offset);                                                              \
+        else                                                                                       \
+            (self)->capacity = -1;                                                                 \
     } while (0)
 
 /* Changes the capacity of the vector.
  * Shrinks the vector `capacity` is smaller than the current size.
- * Reallocate the vector if `capacity` is larger than the current capacity. */
+ * Reallocate the vector if `capacity` is larger than the current capacity.
+ * self.data == NULL and self.capacity == -1 if allocation failed. */
 // self: Vector*
 // new_capacity: size_t
-#define mp_vector_reserve(self, new_capacity)                                                      \
+#define mp_reserve(self, new_capacity)                                                             \
     do {                                                                                           \
         if ((new_capacity) < (self)->size) {                                                       \
-            mp_vector_resize((self), (new_capacity) - (self)->size);                               \
+            mp_resize((self), (new_capacity) - (self)->size);                                      \
         } else if ((new_capacity) > (self)->capacity) {                                            \
-            (self)->data = mp_allocator_realloc(                                                   \
-                (self)->alloc, (self)->data, 0, (new_capacity) * sizeof(*(self)->data));           \
+            (self)->data = mp_realloc((self)->alloc,                                               \
+                                      (self)->data,                                                \
+                                      (self)->capacity * sizeof(*(self)->data),                    \
+                                      (new_capacity) * sizeof(*(self)->data));                     \
         }                                                                                          \
-        (self)->capacity = (new_capacity);                                                         \
+        if ((self)->data != NULL)                                                                  \
+            (self)->capacity = (new_capacity);                                                     \
+        else                                                                                       \
+            (self)->capacity = -1;                                                                 \
     } while (0)
 
 /* Resizes the vector and appends item to the end. */
 // self: Vector*
 // item: value of the same type as the vector data
-#define mp_vector_append(self, item)                                                               \
+#define mp_append(self, item)                                                                      \
     do {                                                                                           \
-        mp_vector_resize(self, 1);                                                                 \
+        mp_resize(self, 1);                                                                        \
         (self)->data[(self)->size - 1] = (item);                                                   \
     } while (0)
 
@@ -301,121 +327,135 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
 // self: Vector*
 // items_ptr: pointer to the same type as the vector data
 // items_amount: size_t
-#define mp_vector_append_many(self, items_ptr, items_amount)                                       \
+#define mp_append_many(self, items_ptr, items_amount)                                              \
     do {                                                                                           \
-        mp_vector_resize((self), (items_amount));                                                  \
+        mp_resize((self), (items_amount));                                                         \
         memcpy((self)->data + ((self)->size - (items_amount)),                                     \
                (items_ptr),                                                                        \
                (items_amount) * sizeof(*(self)->data));                                            \
     } while (0)
 
+/* Clones the vector to `dest` to be managed by `allocator`. */
+// self: Vector*
+// dest: Vector*
+// allocator: mp_Allocator*
+#define mp_clone(self, dest, allocator)                                                            \
+    do {                                                                                           \
+        (dest)->alloc    = (allocator);                                                            \
+        (dest)->size     = (self)->size;                                                           \
+        (dest)->capacity = (self)->size + MP_VECTOR_INIT_CAPACITY;                                 \
+        (dest)->data =                                                                             \
+            mp_dup((allocator), (self)->data, (self)->capacity * sizeof(*(self)->data));           \
+    } while (0)
+
 /* Gets the first or the last item in the vector. */
 // self: Vector*
-#define mp_vector_first(self) (self)->data[0]
-#define mp_vector_last(self)  (self)->data[(self)->size - 1]
+#define mp_first(self) (self)->data[0]
+#define mp_last(self)  (self)->data[(self)->size - 1]
 
 /* Deletes the last item in the vector and returns it. */
 // self: Vector*
-#define mp_vector_pop(self) (--(self)->size, (self)->data[(self)->size])
+#define mp_pop(self) (--(self)->size, (self)->data[(self)->size])
 
 /* Sets the vector size to 0. */
 // self: Vector*
-#define mp_vector_clear(self)                                                                      \
+#define mp_clear(self)                                                                             \
     do {                                                                                           \
         (self)->size = 0;                                                                          \
     } while (0)
 
-/* Inserts an item in the given `pos`. */
+/* Inserts an item to the given `pos`. */
 // self: Vector*
 // pos: size_t
 // item: value of the same type of the vector data
-#define mp_vector_insert(self, pos, item)                                                          \
+#define mp_insert(self, pos, item)                                                                 \
     do {                                                                                           \
         size_t actual_pos = (pos) > (self)->size ? (self)->size : (pos);                           \
-        mp_vector_resize((self), 1);                                                               \
+        mp_resize((self), 1);                                                                      \
         for (int i = (self)->size - 2; i > actual_pos; --i)                                        \
             (self)->data[i + 1] = (self)->data[i];                                                 \
         (self)->data[actual_pos + 1] = (self)->data[actual_pos];                                   \
         (self)->data[actual_pos]     = (item);                                                     \
     } while (0)
 
-/* Inserts items from `items_ptr` in the given `pos`.
- * Items previously in and after `pos` are shifted. */
+/* Inserts items from `items_ptr` to the given `pos`.
+ * Items previously at and after `pos` are shifted. */
 // self: Vector*
 // pos: size_t
 // items_ptr: pointer to the same type as the vector data
 // items_amount: size_t
-#define mp_vector_insert_many(self, pos, items_ptr, amount)                                        \
+#define mp_insert_many(self, pos, items_ptr, amount)                                               \
     do {                                                                                           \
         size_t actual_pos = (pos) > (self)->size ? (self)->size : (pos);                           \
-        mp_vector_resize((self), (amount));                                                        \
+        mp_resize((self), (amount));                                                               \
         for (int i = (self)->size - 1 - (amount); i > actual_pos; --i)                             \
             (self)->data[i + amount] = (self)->data[i];                                            \
         (self)->data[actual_pos + amount] = (self)->data[actual_pos];                              \
         memcpy((self)->data + actual_pos, (items_ptr), (amount) * sizeof(*(self)->data));          \
     } while (0)
 
-/* Deletes an item in the given `pos`. */
+/* Deletes an item at the given `pos`. */
 // self: Vector*
 // pos: size_t
-#define mp_vector_erase(self, pos)                                                                 \
+#define mp_erase(self, pos)                                                                        \
     do {                                                                                           \
         _MEMPLUS_ASSERT((pos) < (self)->size && "index out of bounds");                            \
-        mp_vector_resize((self), -1);                                                              \
+        mp_resize((self), -1);                                                                     \
         for (size_t i = (pos) + 1; i < (self)->size + 1; ++i)                                      \
             (self)->data[i - 1] = (self)->data[i];                                                 \
     } while (0)
 
-/* Deletes an item in the given `pos` and return that item. */
+/* Deletes an item at the given `pos` and return that item. */
 // self: Vector*
 // pos: size_t
-#define mp_vector_erase_ret(self, pos)                                                             \
+#define mp_erase_ret(self, pos)                                                                    \
     (self)->data[pos];                                                                             \
-    mp_vector_erase((self), (pos))
+    mp_erase((self), (pos))
 
-/* Deletes items from `items_ptr` in the given `pos`.
+/* Deletes items from `items_ptr` at the given `pos`.
  * Items are shifted to fill the spaces left by deleted items. */
 // self: Vector*
 // pos: size_t
 // amount: size_t
-#define mp_vector_erase_many(self, pos, amount)                                                    \
+#define mp_erase_many(self, pos, amount)                                                           \
     do {                                                                                           \
         _MEMPLUS_ASSERT((pos) + (amount) <= (self)->size && "index out of bounds");                \
-        mp_vector_resize((self), -(amount));                                                       \
+        mp_resize((self), -(amount));                                                              \
         for (size_t i = (pos) + (amount); i < (self)->size + (amount); ++i)                        \
             (self)->data[i - (amount)] = (self)->data[i];                                          \
     } while (0)
 
-/* Same as `mp_vector_erase_many`, but also writes the deleted items to `buf`. */
+/* Same as `mp_erase_many`, but also writes the deleted items to `buf`. */
 // self: Vector*
 // pos: size_t
 // buf: pointer to a buffer containing the same type as the vector data
 // amount: size_t
-#define mp_vector_erase_many_to_buf(self, pos, buf, amount)                                        \
+#define mp_erase_many_to_buf(self, pos, buf, amount)                                               \
     do {                                                                                           \
         _MEMPLUS_ASSERT((pos) + (amount) <= (self)->size && "index out of bounds");                \
-        mp_vector_resize((self), -(amount));                                                       \
+        mp_resize((self), -(amount));                                                              \
         for (size_t i = 0; i < (amount); ++i)                                                      \
             (buf)[i] = (self)->data[(pos) + i];                                                    \
         for (size_t i = (pos) + (amount); i < (self)->size + (amount); ++i)                        \
             (self)->data[i - (amount)] = (self)->data[i];                                          \
     } while (0)
 
-/* Iterates over a vector. Usage:
- * ```
-    mp_foreach(int * v, &vector);
-    {
-        // `v` is a pointer to the current element
-        // `i` is a size_t representing the index that's exposed to this block
-        printf("%d: %d\n", i, *v);
-    }
-    mp_endforeach();
- * ```
- */
-#define mp_foreach(element, vector)                                                                \
-    for (size_t i = 0; i < (vector)->size; ++i) {                                                  \
-        element = &(vector)->data[i];
-#define mp_endforeach() }
+/* Deletes an item at the given `pos`. This operation is O(1). */
+// self: Vector*
+// pos: size_t
+#define mp_unordered_erase(self, pos)                                                              \
+    do {                                                                                           \
+        _MEMPLUS_ASSERT((pos) < (self)->size && "index out of bounds");                            \
+        mp_resize((self), -1);                                                                     \
+        if ((pos) != (self)->size) (self)->data[pos] = (self)->data[(self)->size];                 \
+    } while (0)
+
+/* Deletes an item at the given `pos` and return that item. */
+// self: Vector*
+// pos: size_t
+#define mp_unordered_erase_ret(self, pos)                                                          \
+    (self)->data[pos];                                                                             \
+    mp_unordered_erase((self), (pos))
 
 /***********
  * END OF VECTOR

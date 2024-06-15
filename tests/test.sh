@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-TESTS=(allocs string)
+TESTS=(allocs string vector)
 
 cd `dirname $0`
 
