@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /* #define MEMPLUS_IMPLEMENTATION */
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -262,9 +263,9 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
 // TOOO: make these functions apply to other data structures later
 
 /* Gets an item at index `i`. */
-// self: Vector*
+// self: Vector
 // i: size_t
-#define mp_get(self, i) (self)->data[i]
+#define mp_get(self, i) (self).data[i]
 
 /* Resizes vector to `offset` of the current size.
  * If the current capacity is 0, allocates for `MP_VECTOR_INIT_CAPACITY` items.
@@ -277,14 +278,17 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
 #define mp_resize(self, offset)                                                                    \
     do {                                                                                           \
         if ((self)->size + (offset) > (self)->capacity && (offset) > 0) {                          \
+            size_t old_capacity = (self)->capacity;                                                \
             if ((self)->capacity == 0) {                                                           \
                 (self)->capacity = MP_VECTOR_INIT_CAPACITY;                                        \
             }                                                                                      \
             while ((self)->size + (offset) > (self)->capacity) {                                   \
                 (self)->capacity *= 2;                                                             \
             }                                                                                      \
-            (self)->data = mp_realloc(                                                             \
-                (self)->alloc, (self)->data, 0, (self)->capacity * sizeof(*(self)->data));         \
+            (self)->data = mp_realloc((self)->alloc,                                               \
+                                      (self)->data,                                                \
+                                      old_capacity * sizeof(*(self)->data),                        \
+                                      (self)->capacity * sizeof(*(self)->data));                   \
         }                                                                                          \
         if ((self)->data != NULL)                                                                  \
             (self)->size += (offset);                                                              \
@@ -460,6 +464,18 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
 /***********
  * END OF VECTOR
  ***********/
+
+/**********
+ * MISCELLANEOUS
+ **********/
+
+/* Reads and allocates the content in `file_path` and return it to `output`.
+ * Returns false if failed and sets errno through stdlib functions. */
+bool mp_read_entire_file(mp_Allocator *allocator, mp_String *output, const char *file_path);
+
+/**********
+ * END OF MISCELLANEOUS
+ **********/
 
 /***********
  * IMPLEMENTATION
@@ -702,6 +718,31 @@ mp_String mp_string_dup(const mp_Allocator *allocator, mp_String str) {
 void mp_string_destroy(const mp_Allocator *allocator, mp_String *str) {
     mp_free(allocator, str->cstr);
     str->size = 0;
+}
+
+bool mp_read_entire_file(mp_Allocator *allocator, mp_String *output, const char *file_path) {
+    bool         result     = true;
+    mp_Allocator heap_alloc = mp_heap_allocator();
+    char        *buffer     = NULL;
+
+    FILE *file = fopen(file_path, "r");
+    if (file == NULL) return false;
+
+    if (fseek(file, 0, SEEK_END) < 0) return_defer(false);
+    long file_size = ftell(file);
+    if (file_size < 0) return_defer(false);
+    if (fseek(file, 0, SEEK_SET) < 0) return_defer(false);
+    buffer = mp_alloc(&heap_alloc, file_size + 1);
+    if (buffer == NULL) return_defer(false);
+    long bytes_read = fread(buffer, 1, file_size, file);
+    if (bytes_read != file_size || ferror(file) != 0) return_defer(false);
+    buffer[file_size] = '\0';
+    *output           = mp_string_new(allocator, buffer);
+
+defer:
+    mp_free(&heap_alloc, buffer);
+    fclose(file);
+    return result;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
