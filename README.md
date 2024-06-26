@@ -3,6 +3,7 @@
 **WARNING: The library is still in development. Something may be changed drastically.**
 
 Memplus currently implements:
+
 - Customizable allocator interface
 - Growing and static arena allocator
 - Stack temp allocator
@@ -19,6 +20,8 @@ Memplus is a header only library that you can copy to your project as you like.
 ```
 
 ## TODO
+
 - [ ] Resizable string/String builder
+- [ ] Slice (multi-ptr with length)
 - [ ] Hash map
 - [ ] Other kinds of allocator

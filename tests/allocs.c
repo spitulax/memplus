@@ -31,14 +31,14 @@ int main(void) {
     mp_Arena arena;
     mp_arena_init(&arena);
     alloc = mp_arena_allocator(&arena);
-    test(&alloc, &arena.size);
+    test(&alloc, &arena.len);
 
     /* STATIC ARENA ALLOCATOR */
 
     mp_SArena sarena;
     mp_sarena_init(&sarena, 256);
     alloc = mp_sarena_allocator(&sarena);
-    test(&alloc, &sarena.size);
+    test(&alloc, &sarena.len);
 
     /* TEMP ALLOCATOR */
 
@@ -46,7 +46,7 @@ int main(void) {
     mp_Temp temp_arena;
     mp_temp_init(&temp_arena, temp_buf);
     alloc = mp_temp_allocator(&temp_arena);
-    test(&alloc, &temp_arena.size);
+    test(&alloc, &temp_arena.len);
 
     mp_temp_reset(&temp_arena);
     expects(temp_arena.buf[0] == 0, "mp_temp_reset failed");
