@@ -67,6 +67,8 @@ typedef struct {
     void *(*dup)(void *context, void *data, size_t size);
     // Takes a pointer to a data and deallocates it within the context.
     void (*free)(void *context, void *ptr);
+
+    /* Allocators may return NULL on functions above if allocation failed. */
 } mp_Allocator;
 
 /* Macros that wrap the functions above */
@@ -139,7 +141,6 @@ void mp_arena_destroy(mp_Arena *self);
 mp_Allocator mp_arena_allocator(const mp_Arena *self);
 
 /* STATIC ARENA ALLOCATOR */
-// may return NULL if failed
 typedef struct {
     uintptr_t *buf;
     size_t     len;
@@ -157,7 +158,6 @@ mp_Allocator mp_sarena_allocator(const mp_SArena *self);
 
 /* TEMP ALLOCATOR
  * mp_SArena located in the stack. */
-// may return NULL if failed
 typedef struct {
     uintptr_t *buf;
     size_t     len;
@@ -178,7 +178,6 @@ void mp_temp_reset(mp_Temp *self);
 mp_Allocator mp_temp_allocator(const mp_Temp *self);
 
 /* HEAP ALLOCATOR */
-// may return NULL if failed
 
 mp_Allocator mp_heap_allocator(void);
 
@@ -195,6 +194,9 @@ typedef struct {
     size_t len;
     char  *cstr;
 } mp_String;
+
+/* In the case of functions that return mp_String,
+ * the returned mp_String.cstr == NULL and mp_String.len == 0 if allocation failed. */
 
 /* Allocates a new `mp_String` from a null-terminated string. */
 mp_String mp_string_new(const mp_Allocator *allocator, const char *str);
@@ -272,7 +274,7 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
 /* Resizes vector to `offset` of the current `len`.
  * If the current capacity is 0, allocates for `MP_VECTOR_INIT_CAPACITY` items.
  * If the current capacity is not large enough, allocates for double the current capacity.
- * self.data == NULL and self.cap == -1 if allocation failed.
+ * self.data == NULL if allocation failed.
  * Positive `offset` grows the vector.
  * Negative `offset` shrinks the vector. */
 // self: Vector*
@@ -292,16 +294,13 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
                                       old_cap * sizeof(*(self)->data),                             \
                                       (self)->cap * sizeof(*(self)->data));                        \
         }                                                                                          \
-        if ((self)->data != NULL)                                                                  \
-            (self)->len += (offset);                                                               \
-        else                                                                                       \
-            (self)->cap = -1;                                                                      \
+        if ((self)->data != NULL) (self)->len += (offset);                                         \
     } while (0)
 
 /* Changes the capacity of the vector.
  * Shrinks the vector `cap` is smaller than the current size.
  * Reallocate the vector if `capacity` is larger than the current capacity.
- * self.data == NULL and self.cap == -1 if allocation failed. */
+ * self.data == NULL if allocation failed. */
 // self: Vector*
 // new_capacity: size_t
 #define mp_reserve(self, new_cap)                                                                  \
@@ -314,43 +313,50 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
                                       (self)->cap * sizeof(*(self)->data),                         \
                                       (new_cap) * sizeof(*(self)->data));                          \
         }                                                                                          \
-        if ((self)->data != NULL)                                                                  \
-            (self)->cap = (new_cap);                                                               \
-        else                                                                                       \
-            (self)->cap = -1;                                                                      \
+        if ((self)->data != NULL) (self)->cap = (new_cap);                                         \
     } while (0)
 
-/* Resizes the vector and appends item to the end. */
+/* Resizes the vector and appends item to the end.
+ * self.data == NULL if allocation failed. */
 // self: Vector*
 // item: value of the same type as the vector data
 #define mp_append(self, item)                                                                      \
     do {                                                                                           \
-        mp_resize(self, 1);                                                                        \
-        (self)->data[(self)->len - 1] = (item);                                                    \
+        mp_resize((self), 1);                                                                      \
+        if ((self)->data != NULL) (self)->data[(self)->len - 1] = (item);                          \
     } while (0)
 
-/* Resizes the vector and appends items from `items_ptr` to the end. */
+/* Resizes the vector and appends items from `items_ptr` to the end.
+ * self.data == NULL if allocation failed. */
 // self: Vector*
 // items_ptr: pointer to the same type as the vector data
 // items_amount: size_t
 #define mp_append_many(self, items_ptr, items_amount)                                              \
     do {                                                                                           \
         mp_resize((self), (items_amount));                                                         \
-        memcpy((self)->data + ((self)->len - (items_amount)),                                      \
-               (items_ptr),                                                                        \
-               (items_amount) * sizeof(*(self)->data));                                            \
+        if ((self)->data != NULL)                                                                  \
+            memcpy((self)->data + ((self)->len - (items_amount)),                                  \
+                   (items_ptr),                                                                    \
+                   (items_amount) * sizeof(*(self)->data));                                        \
     } while (0)
 
-/* Clones the vector to `dest` to be managed by `allocator`. */
+/* Clones the vector to `dest` to be managed by `allocator`.
+ * dest.data == NULL if allocation failed. */
 // self: Vector*
 // dest: Vector*
 // allocator: mp_Allocator*
 #define mp_clone(self, dest, allocator)                                                            \
     do {                                                                                           \
-        (dest)->alloc = (allocator);                                                               \
-        (dest)->len   = (self)->len;                                                               \
-        (dest)->cap   = (self)->len + MP_VECTOR_INIT_CAPACITY;                                     \
-        (dest)->data  = mp_dup((allocator), (self)->data, (self)->cap * sizeof(*(self)->data));    \
+        (dest)->data = mp_dup((allocator), (self)->data, (self)->cap * sizeof(*(self)->data));     \
+        if ((dest)->data != NULL) {                                                                \
+            (dest)->alloc = (allocator);                                                           \
+            (dest)->len   = (self)->len;                                                           \
+            (dest)->cap   = (self)->len + MP_VECTOR_INIT_CAPACITY;                                 \
+        } else {                                                                                   \
+            (dest)->alloc = NULL;                                                                  \
+            (dest)->len   = 0;                                                                     \
+            (dest)->cap   = 0;                                                                     \
+        }                                                                                          \
     } while (0)
 
 /* Gets the first or the last item in the vector. */
@@ -369,7 +375,8 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
         (self)->len = 0;                                                                           \
     } while (0)
 
-/* Inserts an item to the given `pos`. */
+/* Inserts an item to the given `pos`.
+ * self.data == NULL if allocation failed. */
 // self: Vector*
 // pos: size_t
 // item: value of the same type of the vector data
@@ -377,14 +384,17 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
     do {                                                                                           \
         size_t actual_pos = (pos) > (self)->len ? (self)->len : (pos);                             \
         mp_resize((self), 1);                                                                      \
-        for (int i = (self)->len - 2; i > actual_pos; --i)                                         \
-            (self)->data[i + 1] = (self)->data[i];                                                 \
-        (self)->data[actual_pos + 1] = (self)->data[actual_pos];                                   \
-        (self)->data[actual_pos]     = (item);                                                     \
+        if ((self)->data != NULL) {                                                                \
+            for (int i = (self)->len - 2; i > actual_pos; --i)                                     \
+                (self)->data[i + 1] = (self)->data[i];                                             \
+            (self)->data[actual_pos + 1] = (self)->data[actual_pos];                               \
+            (self)->data[actual_pos]     = (item);                                                 \
+        }                                                                                          \
     } while (0)
 
 /* Inserts items from `items_ptr` to the given `pos`.
- * Items previously at and after `pos` are shifted. */
+ * Items previously at and after `pos` are shifted.
+ * self.data == NULL if allocation failed. */
 // self: Vector*
 // pos: size_t
 // items_ptr: pointer to the same type as the vector data
@@ -393,10 +403,12 @@ void mp_string_destroy(const mp_Allocator *allocator, mp_String *str);
     do {                                                                                           \
         size_t actual_pos = (pos) > (self)->len ? (self)->len : (pos);                             \
         mp_resize((self), (amount));                                                               \
-        for (int i = (self)->len - 1 - (amount); i > actual_pos; --i)                              \
-            (self)->data[i + amount] = (self)->data[i];                                            \
-        (self)->data[actual_pos + amount] = (self)->data[actual_pos];                              \
-        memcpy((self)->data + actual_pos, (items_ptr), (amount) * sizeof(*(self)->data));          \
+        if ((self)->data != NULL) {                                                                \
+            for (int i = (self)->len - 1 - (amount); i > actual_pos; --i)                          \
+                (self)->data[i + amount] = (self)->data[i];                                        \
+            (self)->data[actual_pos + amount] = (self)->data[actual_pos];                          \
+            memcpy((self)->data + actual_pos, (items_ptr), (amount) * sizeof(*(self)->data));      \
+        }                                                                                          \
     } while (0)
 
 /* Deletes an item at the given `pos`. */
@@ -503,10 +515,9 @@ static void  mp_heap_free(void *self, void *ptr);
 mp_Region *mp_region_new(size_t cap) {
     size_t     bytes  = sizeof(mp_Region) + sizeof(uintptr_t) * cap;
     mp_Region *region = calloc(bytes, 1);
-    MEMPLUS_ASSERT(region != NULL);
-    region->next = NULL;
-    region->len  = 0;
-    region->cap  = cap;
+    region->next      = NULL;
+    region->len       = 0;
+    region->cap       = cap;
     return region;
 }
 
@@ -543,7 +554,8 @@ static void *mp_arena_alloc(mp_Arena *self, size_t size) {
         MEMPLUS_ASSERT(self->begin == NULL);
         size_t capacity = MP_REGION_DEFAULT_SIZE;
         if (capacity < size_word) capacity = size_word;
-        self->end   = mp_region_new(capacity);
+        self->end = mp_region_new(capacity);
+        if (self->end == NULL) return NULL;
         self->begin = self->end;
     }
 
@@ -556,7 +568,8 @@ static void *mp_arena_alloc(mp_Arena *self, size_t size) {
         size_t capacity = MP_REGION_DEFAULT_SIZE;
         if (capacity < size_word) capacity = size_word;
         self->end->next = mp_region_new(capacity);
-        self->end       = self->end->next;
+        if (self->end->next == NULL) return NULL;
+        self->end = self->end->next;
     }
 
     void *result = &self->end->data[self->end->len];
@@ -567,7 +580,8 @@ static void *mp_arena_alloc(mp_Arena *self, size_t size) {
 
 static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, size_t new_size) {
     if (new_size <= old_size) return old_ptr;
-    void    *new_ptr      = mp_arena_alloc(self, new_size);
+    void *new_ptr = mp_arena_alloc(self, new_size);
+    if (new_ptr == NULL) return NULL;
     uint8_t *new_ptr_byte = (uint8_t *) new_ptr;
     uint8_t *old_ptr_byte = (uint8_t *) old_ptr;
     for (size_t i = 0; i < old_size; ++i) {
@@ -577,7 +591,9 @@ static void *mp_arena_realloc(mp_Arena *self, void *old_ptr, size_t old_size, si
 }
 
 static void *mp_arena_dup(mp_Arena *self, void *data, size_t size) {
-    return memcpy(mp_arena_alloc(self, size), data, size);
+    void *dest = mp_arena_alloc(self, size);
+    if (dest == NULL) return NULL;
+    return memcpy(dest, data, size);
 }
 
 static void mp_arena_free(mp_Arena *self, void *ptr) {
@@ -685,8 +701,9 @@ static void mp_heap_free(void *self, void *ptr) {
 mp_String mp_string_new(const mp_Allocator *allocator, const char *str) {
     int size = snprintf(NULL, 0, "%s", str);
     MEMPLUS_ASSERT(size >= 0 && "failed to count string size");
-    char *result      = mp_alloc(allocator, size + 1);
-    int   result_size = snprintf(result, size + 1, "%s", str);
+    char *result = mp_alloc(allocator, size + 1);
+    if (result == NULL) return (mp_String){ 0, NULL };
+    int result_size = snprintf(result, size + 1, "%s", str);
     MEMPLUS_ASSERT(result_size == size);
     return (mp_String){ result_size, result };
 }
@@ -700,6 +717,7 @@ mp_String mp_string_newf(const mp_Allocator *allocator, const char *fmt, ...) {
     va_end(args);
 
     char *result = mp_alloc(allocator, len + 1);
+    if (result == NULL) return (mp_String){ 0, NULL };
 
     va_start(args, fmt);
     int result_len = vsnprintf(result, len + 1, fmt, args);
@@ -713,6 +731,7 @@ mp_String mp_string_dup(const mp_Allocator *allocator, mp_String str) {
     int len = snprintf(NULL, 0, "%s", str.cstr);
     MEMPLUS_ASSERT((len >= 0 || (size_t) len != str.len) && "failed to count string length");
     char *ptr = mp_dup(allocator, str.cstr, len);
+    if (ptr == NULL) return (mp_String){ 0, NULL };
     return (mp_String){ len, ptr };
 }
 
