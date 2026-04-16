@@ -55,7 +55,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * ALLOCATORS
  ***********/
 
-/* Default size of a single region in bytes. You can adjust this to your liking. */
+/* Default size of a single region in bytes. You can adjust this to your liking.
+ * Will be aligned to the nearest increment of `sizeof(uintptr_t)`. */
 #ifndef MP_REGION_DEFAULT_SIZE
 #define MP_REGION_DEFAULT_SIZE (64 * 1024)
 #endif
@@ -164,7 +165,7 @@ struct mp_Region {
     mp_Region *next;      // The next region in linked list if any
     size_t     len;       // The amount of data (in bytes) used
     size_t     cap;       // The amount of data (in bytes) allocated
-    uintptr_t  data[];    // The data (aligned to the size of `uintptr_t`)
+    uintptr_t  data[];    // The data (aligned to the `sizeof(uintptr_t)`)
 };
 
 /* Allocates a new region with `cap` bytes of size.
@@ -177,7 +178,7 @@ void mp_region_deinit(mp_Region *r);
  * Manages regions in a linked list. */
 typedef struct {
     mp_Region *begin, *end;    // Region linked list
-    size_t     len;            // The amount of data (in bytes used)
+    size_t     len;            // The amount of data (in bytes used, aligned to `sizeof(uintptr_t)`)
 } mp_Arena;
 
 /* Creates a new, unallocated arena. */
@@ -266,31 +267,36 @@ mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t ol
             (void) old_size;
             (void) ptr;
 
+            size_t alloc_size = ALIGN(new_size, sizeof(uintptr_t));
+
             if (ctx->end == NULL) {
                 MEMPLUS_ASSERT(ctx->begin == NULL);
                 size_t capacity = MP_REGION_DEFAULT_SIZE;
-                if (capacity < new_size) capacity = new_size;
+                if (capacity < alloc_size) capacity = alloc_size;
                 ctx->end = mp_region_init(capacity);
                 if (ctx->end == NULL) return NULL;
                 ctx->begin = ctx->end;
             }
 
-            while (ctx->end->len + new_size > ctx->end->cap && ctx->end->next != NULL) {
+            while (ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap &&
+                   ctx->end->next != NULL) {
                 ctx->end = ctx->end->next;
             }
 
-            if (ctx->end->len + new_size > ctx->end->cap) {
+            if (ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap) {
                 MEMPLUS_ASSERT(ctx->end->next == NULL);
                 size_t capacity = MP_REGION_DEFAULT_SIZE;
-                if (capacity < new_size) capacity = new_size;
+                if (capacity < alloc_size) capacity = alloc_size;
                 ctx->end->next = mp_region_init(capacity);
                 if (ctx->end->next == NULL) return NULL;
                 ctx->end = ctx->end->next;
             }
 
-            void *result = &ctx->end->data[ctx->end->len];
-            ctx->end->len += new_size;
-            ctx->len += new_size;
+            MEMPLUS_ASSERT(ctx->end->len % sizeof(uintptr_t) == 0);
+            size_t len_words = DIV_ROUNDUP(ctx->end->len, sizeof(uintptr_t));
+            void  *result    = &ctx->end->data[len_words];
+            ctx->end->len += alloc_size;
+            ctx->len += alloc_size;
             return result;
         } break;
         case MP_ALLOCTYPE_REALLOC: {
