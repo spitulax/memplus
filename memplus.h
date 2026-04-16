@@ -64,7 +64,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 typedef enum {
     MP_ALLOCTYPE_ALLOC,
     MP_ALLOCTYPE_REALLOC,
-    MP_ALLOCTYPE_DUP,
     MP_ALLOCTYPE_FREE,
 } mp_AllocType;
 
@@ -86,11 +85,6 @@ typedef enum {
  *       - `ptr`: The pointer to the data
  *       - `old_size`: The size of that data
  *       - `new_size`: The new size of the data
- *  - MP_ALLOCTYPE_DUP: Duplicates a data
- *       - `context`: The allocator context
- *       - `ptr`: The data
- *       - `new_size`: The size of the data
- *       - ignores other parameters
  *  - MP_ALLOCTYPE_FREE: Frees a data that has been allocated
  *       - `context`: The allocator context
  *       - `ptr`: The data to be freed
@@ -128,24 +122,22 @@ typedef struct {
 #define mp_realloc(alloc, old_ptr, old_size, new_size)                                             \
     ((alloc)->f(MP_ALLOCTYPE_REALLOC, (alloc)->context, (new_size), (old_size), (old_ptr)))
 /* alloc: mp_Allocator* (NO SIDE EFFECTS)
- * data: pointer
- * size: number of bytes
- * Returns void* */
-#define mp_dup(alloc, data, size)                                                                  \
-    ((alloc)->f(MP_ALLOCTYPE_DUP, (alloc)->context, (size), 0, (data)))
-/* alloc: mp_Allocator* (NO SIDE EFFECTS)
  * ptr: pointer (nullability depends on the allocator implementation)
  * size: number of bytes
  * Returns NULL */
 #define mp_free(alloc, ptr, size)                                                                  \
     ((alloc)->f(MP_ALLOCTYPE_FREE, (alloc)->context, (size), 0, (ptr)))
-
 /* Allocate a new chunk of memory for the given type.
  *
  * alloc: mp_Allocator*
  * type: typename
  * Returns `type`* */
 #define mp_create(alloc, type) (mp_alloc((alloc), sizeof(type)))
+/* alloc: mp_Allocator* (NO SIDE EFFECTS)
+ * data: pointer
+ * size: number of bytes
+ * Returns void* */
+void *mp_dup(mp_Allocator *alloc, void *data, size_t size);
 
 /* Creates a custom allocator given the context and the allocation function.
  *
@@ -213,6 +205,12 @@ mp_Allocator mp_arena_allocator(const mp_Arena *a);
         }                                                                                          \
     } while (0)
 
+void *mp_dup(mp_Allocator *alloc, void *data, size_t size) {
+    void *buf = mp_alloc(alloc, size);
+    if (buf == NULL) return NULL;
+    return memcpy(buf, data, size);
+}
+
 static void *
 mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
 
@@ -221,7 +219,7 @@ mp_Region *mp_region_init(size_t cap) {
     mp_Region *region = MEMPLUS_ALLOC(bytes);
     region->next      = NULL;
     region->len       = 0;
-    region->cap       = cap;
+    region->cap       = bytes;
     return region;
 }
 
@@ -307,13 +305,6 @@ mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t ol
             memcpy(new_ptr, ptr, old_size);
             mp_free(&alloc, ptr, old_size);
             return new_ptr;
-        } break;
-        case MP_ALLOCTYPE_DUP: {
-            (void) old_size;
-
-            void *dest = mp_alloc(&alloc, new_size);
-            if (dest == NULL) return NULL;
-            return memcpy(dest, ptr, new_size);
         } break;
         case MP_ALLOCTYPE_FREE: {
             (void) old_size;
