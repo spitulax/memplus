@@ -192,10 +192,10 @@ mp_Allocator mp_arena_allocator(const mp_Arena *a);
  * Allocations are cancelled and return NULL if the requested size is bigger than the remaining
  * capacity. */
 typedef struct {
+    uintptr_t *buf;    // The arena buffer (of size `cap`)
+    size_t     len;    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    size_t     cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
     mp_Allocator *alloc;    // The allocator used to manage `buf`
-    uintptr_t    *buf;      // The arena buffer (of size `cap`)
-    size_t        len;      // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
-    size_t cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
 } mp_SArena;
 
 /* Initializes and allocates a static arena. `cap` in bytes.
@@ -208,6 +208,24 @@ void mp_sarena_deinit(mp_SArena *a);
 /* Returns an allocator that works with `mp_SArena`. */
 mp_Allocator mp_sarena_allocator(const mp_SArena *a);
 
+/* TEMP ALLOCATOR.
+ * `mp_SArena` located in the stack. */
+
+typedef struct {
+    uintptr_t *buf;    // The arena buffer (of size `cap`)
+    size_t     len;    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    size_t     cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+} mp_Temp;
+
+/* Initializes a temp allocator with an array as buf.
+ * `cap` should be an increment of `sizeof(uintptr_t)`.
+ * If not, the actual `cap` will ROUND DOWN to the nearest increment. */
+void mp_temp_init(mp_Temp *t, char *buf, size_t cap);
+/* Resets the size of the temp allocator */
+void mp_temp_reset(mp_Temp *t);
+/* Returns an allocator that works with `mp_Temp`. */
+mp_Allocator mp_temp_allocator(const mp_Temp *t);
+
 /***********
  * IMPLEMENTATION
  ***********/
@@ -216,12 +234,13 @@ mp_Allocator mp_sarena_allocator(const mp_SArena *a);
 
 #ifdef MEMPLUS_IMPLEMENTATION
 
-#define DIV_ROUNDUP(a, b) (((a) + (b) - 1) / (b))
-#define ALIGN(a, inc)     (DIV_ROUNDUP((a), (inc)) * (inc))
-#define ZERO(ptr)         memset((ptr), 0, sizeof(*(ptr)))
-#define UNREACHABLE()     assert(0 && "unreachable")
-#define MAX(a, b)         ((a) > (b) ? (a) : (b))
-#define MIN(a, b)         ((a) < (b) ? (a) : (b))
+#define DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
+#define ALIGN(a, inc)      (DIV_ROUNDUP((a), (inc)) * (inc))
+#define ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
+#define ZERO(ptr)          memset((ptr), 0, sizeof(*(ptr)))
+#define UNREACHABLE()      assert(0 && "unreachable")
+#define MAX(a, b)          ((a) > (b) ? (a) : (b))
+#define MIN(a, b)          ((a) < (b) ? (a) : (b))
 #define ASSERT_OVERLAP(a, a_len, b, b_len)                                                         \
     do {                                                                                           \
         auto _a = (uintptr_t) a;                                                                   \
@@ -400,6 +419,21 @@ static void *mp_sarena_alloc_func(
         } break;
     }
     UNREACHABLE();
+}
+
+void mp_temp_init(mp_Temp *t, char *buf, size_t cap) {
+    memset(buf, 0, cap);
+    t->buf = (uintptr_t *) buf;
+    t->len = 0;
+    t->cap = ALIGN_DOWN(cap, sizeof(uintptr_t));
+}
+
+void mp_temp_reset(mp_Temp *t) {
+    t->len = 0;
+}
+
+mp_Allocator mp_temp_allocator(const mp_Temp *t) {
+    return mp_allocator_new(t, mp_sarena_alloc_func);
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
