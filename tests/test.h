@@ -1,38 +1,25 @@
-#ifndef TEST_H
-#define TEST_H
+#pragma once
 
 #define MEMPLUS_IMPLEMENTATION
-#include "../memplus.h"
+#include "memplus.h"
 
-#include <stdbool.h>
-#include <stdio.h>
+#define RED   "\033[31m"
+#define RESET "\033[0m"
 
-#define prn(str)                                                                                   \
-    do {                                                                                           \
-        printf("%s\n", str);                                                                       \
-    } while (0)
-#define prnf(fmt, ...)                                                                             \
-    do {                                                                                           \
-        printf(fmt "\n", __VA_ARGS__);                                                             \
-    } while (0)
+#define logf(fmt, ...)                                                                             \
+    printf("%s:%s():%d: " fmt "\n", __FILE__, __func__, __LINE__ __VA_OPT__(, ) __VA_ARGS__);
+#define elogf(fmt, ...)                                                                            \
+    fprintf(stderr,                                                                                \
+            RED "%s:%s():%d: " fmt "\n" RESET,                                                     \
+            __FILE__,                                                                              \
+            __func__,                                                                              \
+            __LINE__ __VA_OPT__(, ) __VA_ARGS__);
+#define unr() assert(0 && "unreachable");
 
-#define expects(cond, str)                                                                         \
+#define expect_eq(a, b, fmt)                                                                       \
     do {                                                                                           \
-        if (!(cond)) {                                                                             \
-            printf("\033[0;31m");                                                                  \
-            printf("%s\n", str);                                                                   \
-            printf("\033[0m");                                                                     \
-            exit(EXIT_FAILURE);                                                                    \
+        if ((a) != (b)) {                                                                          \
+            elogf("Expected `a == b`, got\n\ta == `" fmt "`\n\tb == `" fmt "`", (a), (b));         \
+            exit(1);                                                                               \
         }                                                                                          \
     } while (0)
-#define expectf(cond, fmt, ...)                                                                    \
-    do {                                                                                           \
-        if (!(cond)) {                                                                             \
-            printf("\033[0;31m");                                                                  \
-            printf(fmt "\n", __VA_ARGS__);                                                         \
-            printf("\033[0m");                                                                     \
-            exit(EXIT_FAILURE);                                                                    \
-        }                                                                                          \
-    } while (0)
-
-#endif /* ifndef TEST_H */

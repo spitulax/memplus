@@ -1,4 +1,0 @@
-tests/*
-!tests/*.c
-!tests/test.sh
-!tests/test.h
