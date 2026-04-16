@@ -150,6 +150,12 @@ void *mp_dup(mp_Allocator *alloc, void *data, size_t size);
         .f       = (func),                                                                         \
     })
 
+/* Handles reallocation for custom allocators.
+ * You can slot this into your allocator function as long as alloc and free functionalities are
+ * defined. For details see the implementation. */
+void *
+mp_allocator_handle_realloc(mp_Allocator *alloc, void *old_ptr, size_t old_size, size_t new_size);
+
 typedef struct mp_Region mp_Region;
 
 /* Linked list element that holds certain size of allocated memory. */
@@ -209,6 +215,17 @@ void *mp_dup(mp_Allocator *alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
     if (buf == NULL) return NULL;
     return memcpy(buf, data, size);
+}
+
+void *
+mp_allocator_handle_realloc(mp_Allocator *alloc, void *old_ptr, size_t old_size, size_t new_size) {
+    if (new_size <= old_size) return old_ptr;
+    void *new_ptr = mp_alloc(alloc, new_size);
+    if (new_ptr == NULL) return NULL;
+    ASSERT_OVERLAP(old_ptr, old_size, new_ptr, new_size);
+    memcpy(new_ptr, old_ptr, old_size);
+    mp_free(alloc, old_ptr, old_size);
+    return new_ptr;
 }
 
 static void *
