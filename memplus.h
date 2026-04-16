@@ -188,6 +188,26 @@ void mp_arena_deinit(mp_Arena *a);
 /* Returns an allocator that works with `mp_Arena`. */
 mp_Allocator mp_arena_allocator(const mp_Arena *a);
 
+/* STATIC ARENA ALLOCATOR.
+ * Allocations are cancelled and return NULL if the requested size is bigger than the remaining
+ * capacity. */
+typedef struct {
+    mp_Allocator *alloc;    // The allocator used to manage `buf`
+    uintptr_t    *buf;      // The arena buffer (of size `cap`)
+    size_t        len;      // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    size_t cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+} mp_SArena;
+
+/* Initializes and allocates a static arena. `cap` in bytes.
+ * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`. */
+void mp_sarena_init(mp_SArena *a, mp_Allocator *alloc, size_t cap);
+/* Resets the size of the arena. */
+void mp_sarena_reset(mp_SArena *a);
+/* Frees the arena. */
+void mp_sarena_deinit(mp_SArena *a);
+/* Returns an allocator that works with `mp_SArena`. */
+mp_Allocator mp_sarena_allocator(const mp_SArena *a);
+
 /***********
  * IMPLEMENTATION
  ***********/
@@ -211,6 +231,11 @@ mp_Allocator mp_arena_allocator(const mp_Arena *a);
         }                                                                                          \
     } while (0)
 
+static void *
+mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
+static void *
+mp_sarena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
+
 void *mp_dup(mp_Allocator *alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
     if (buf == NULL) return NULL;
@@ -227,9 +252,6 @@ mp_allocator_handle_realloc(mp_Allocator *alloc, void *old_ptr, size_t old_size,
     mp_free(alloc, old_ptr, old_size);
     return new_ptr;
 }
-
-static void *
-mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
 
 mp_Region *mp_region_init(size_t cap) {
     size_t     bytes  = ALIGN(cap, sizeof(uintptr_t));
@@ -315,13 +337,61 @@ mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t ol
             return result;
         } break;
         case MP_ALLOCTYPE_REALLOC: {
-            if (new_size <= old_size) return ptr;
-            void *new_ptr = mp_alloc(&alloc, new_size);
-            if (new_ptr == NULL) return NULL;
-            ASSERT_OVERLAP(ptr, old_size, new_ptr, new_size);
-            memcpy(new_ptr, ptr, old_size);
-            mp_free(&alloc, ptr, old_size);
-            return new_ptr;
+            return mp_allocator_handle_realloc(&alloc, ptr, old_size, new_size);
+        } break;
+        case MP_ALLOCTYPE_FREE: {
+            (void) old_size;
+
+            return NULL;
+        } break;
+    }
+    UNREACHABLE();
+}
+
+void mp_sarena_init(mp_SArena *a, mp_Allocator *alloc, size_t cap) {
+    size_t     bytes  = ALIGN(cap, sizeof(uintptr_t));
+    uintptr_t *buffer = mp_alloc(alloc, bytes);
+    a->alloc          = alloc;
+    a->buf            = buffer;
+    a->len            = 0;
+    a->cap            = bytes;
+}
+
+void mp_sarena_reset(mp_SArena *a) {
+    // memset(a->buf, 0, a->cap);
+    a->len = 0;
+}
+
+void mp_sarena_deinit(mp_SArena *a) {
+    mp_free(a->alloc, a->buf, a->cap);
+    ZERO(a);
+}
+
+mp_Allocator mp_sarena_allocator(const mp_SArena *a) {
+    return mp_allocator_new(a, mp_sarena_alloc_func);
+}
+
+static void *mp_sarena_alloc_func(
+    mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr) {
+    mp_SArena   *ctx   = context;
+    mp_Allocator alloc = mp_allocator_new(ctx, mp_sarena_alloc_func);
+
+    switch (type) {
+        case MP_ALLOCTYPE_ALLOC: {
+            (void) old_size;
+            (void) ptr;
+
+            size_t alloc_size = ALIGN(new_size, sizeof(uintptr_t));
+
+            MEMPLUS_ASSERT(ctx->len % sizeof(uintptr_t) == 0);
+            if (ctx->len + alloc_size > ctx->cap) return NULL;
+
+            void *result = ctx->buf + ctx->len;
+            ctx->len += alloc_size;
+            return result;
+        } break;
+        case MP_ALLOCTYPE_REALLOC: {
+            return mp_allocator_handle_realloc(&alloc, ptr, old_size, new_size);
         } break;
         case MP_ALLOCTYPE_FREE: {
             (void) old_size;
