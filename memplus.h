@@ -22,7 +22,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * # Version 0.1.0
  * - Rewritten the library.
- *
  */
 
 #ifndef MEMPLUS_H__
@@ -30,17 +29,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 /* #define MEMPLUS_IMPLEMENTATION */
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
+/* Must have the same signature as stdlib's `assert`. */
 #ifndef MEMPLUS_ASSERT
 #include <assert.h>
 #define MEMPLUS_ASSERT assert
+#endif
+
+/* Must have the same behavior as stdlib's `calloc(..., 1). */
+#ifndef MEMPLUS_ALLOC
+#include <stdlib.h>
+#define MEMPLUS_ALLOC(size) calloc((size), 1)
+#endif
+
+/* Must have the same signature and behavior as stdlib's `free`. */
+#ifndef MEMPLUS_FREE
+#include <stdlib.h>
+#define MEMPLUS_FREE free
 #endif
 
 #define MEMPLUS_VERSION (0x000100)
@@ -49,12 +55,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * ALLOCATORS
  ***********/
 
+/* Default size of a single region in bytes. You can adjust this to your liking. */
+#ifndef MP_REGION_DEFAULT_SIZE
+#define MP_REGION_DEFAULT_SIZE (64 * 1024)
+#endif
+
 typedef enum {
     MP_ALLOCTYPE_ALLOC,
     MP_ALLOCTYPE_REALLOC,
     MP_ALLOCTYPE_DUP,
     MP_ALLOCTYPE_FREE,
 } mp_AllocType;
+
+// TODO: Alloc location
 
 /*
  * Functions of this type does different things depending on the `type` given.
@@ -66,6 +79,8 @@ typedef enum {
  *       - `new_size`: The size of the allocated memory
  *       - ignores other parameters
  *  - MP_ALLOCTYPE_REALLOC: Reallocates a data
+ *    If `old_size` <= `new_size`, reallocation does not happen and the function just return `ptr`.
+ *    Otherwise, allocates with size `new_size` and frees the memory pointed by `ptr`.
  *       - `context`: The allocator context
  *       - `ptr`: The pointer to the data
  *       - `old_size`: The size of that data
@@ -82,8 +97,7 @@ typedef enum {
  *       - ignores other parameters
  *
  *  Returns the pointer to the newly allocated memory. May return NULL if allocation failed.
- *  Always returns NULL on MP_ALLOCTYPE_FREE.
- */
+ *  Always returns NULL on MP_ALLOCTYPE_FREE. */
 typedef void *(*mp_AllocFunc)(
     mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
 
@@ -103,29 +117,25 @@ typedef struct {
 
 /* alloc: mp_Allocator* (NO SIDE EFFECTS)
  * size: number of bytes
- * Returns void*
- */
+ * Returns void* */
 #define mp_alloc(alloc, size) ((alloc)->f(MP_ALLOCTYPE_ALLOC, (alloc)->context, (size), 0, NULL))
 /* alloc: mp_Allocator* (NO SIDE EFFECTS)
  * old_ptr: pointer
  * old_size: number of bytes
  * new_size: number of bytes
- * Returns void*
- */
+ * Returns void* */
 #define mp_realloc(alloc, old_ptr, old_size, new_size)                                             \
     ((alloc)->f(MP_ALLOCTYPE_REALLOC, (alloc)->context, (new_size), (old_size), (old_ptr)))
 /* alloc: mp_Allocator* (NO SIDE EFFECTS)
  * data: pointer
  * size: number of bytes
- * Returns void*
- */
+ * Returns void* */
 #define mp_dup(alloc, data, size)                                                                  \
     ((alloc)->f(MP_ALLOCTYPE_DUP, (alloc)->context, (size), 0, (data)))
 /* alloc: mp_Allocator* (NO SIDE EFFECTS)
  * ptr: pointer (nullability depends on the allocator implementation)
  * size: number of bytes
- * Returns NULL
- */
+ * Returns NULL */
 #define mp_free(alloc, ptr, size)                                                                  \
     ((alloc)->f(MP_ALLOCTYPE_FREE, (alloc)->context, (size), 0, (ptr)))
 
@@ -133,20 +143,181 @@ typedef struct {
  *
  * alloc: mp_Allocator*
  * type: typename
- * Returns `type`*
- */
+ * Returns `type`* */
 #define mp_create(alloc, type) (mp_alloc((alloc), sizeof(type)))
 
 /* Creates a custom allocator given the context and the allocation function.
  *
  * ctx (context): pointer
  * func: mp_AllocFunc
- * Returns mp_Allocator
- */
+ * Returns mp_Allocator */
 #define mp_allocator_new(ctx, func)                                                                \
     ((mp_Allocator) {                                                                              \
         .context = (void *) (ctx),                                                                 \
         .f       = (func),                                                                         \
     })
+
+typedef struct mp_Region mp_Region;
+
+/* Linked list element that holds certain size of allocated memory. */
+struct mp_Region {
+    mp_Region *next;      // The next region in linked list if any
+    size_t     len;       // The amount of data (in bytes) used
+    size_t     cap;       // The amount of data (in bytes) allocated
+    uintptr_t  data[];    // The data (aligned to the size of `uintptr_t`)
+};
+
+/* Allocates a new region with `cap` bytes of size.
+ * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`. */
+mp_Region *mp_region_init(size_t cap);
+/* Frees a region. */
+void mp_region_deinit(mp_Region *r);
+
+/* GROWING ARENA ALLOCATOR.
+ * Manages regions in a linked list. */
+typedef struct {
+    mp_Region *begin, *end;    // Region linked list
+    size_t     len;            // The amount of data (in bytes used)
+} mp_Arena;
+
+/* Creates a new, unallocated arena. */
+void mp_arena_init(mp_Arena *a);
+/* Set arena `len` to 0, but does not free allocated regions. */
+void mp_arena_reset(mp_Arena *a);
+/* Frees an arena and its regions. */
+void mp_arena_deinit(mp_Arena *a);
+/* Returns an allocator that works with `mp_Arena`. */
+mp_Allocator mp_arena_allocator(const mp_Arena *a);
+
+/***********
+ * IMPLEMENTATION
+ ***********/
+
+#include <string.h>
+
+#ifdef MEMPLUS_IMPLEMENTATION
+
+#define DIV_ROUNDUP(a, b) (((a) + (b) - 1) / (b))
+#define ALIGN(a, inc)     (DIV_ROUNDUP((a), (inc)) * (inc))
+#define ZERO(ptr)         memset((ptr), 0, sizeof(*(ptr)))
+#define UNREACHABLE()     assert(0 && "unreachable")
+#define MAX(a, b)         ((a) > (b) ? (a) : (b))
+#define MIN(a, b)         ((a) < (b) ? (a) : (b))
+#define ASSERT_OVERLAP(a, a_len, b, b_len)                                                         \
+    do {                                                                                           \
+        auto _a = (uintptr_t) a;                                                                   \
+        auto _b = (uintptr_t) b;                                                                   \
+        if (MAX((_a), (_b)) < MIN((_a) + (a_len), (_b) + (b_len))) {                               \
+            assert(0 && "Memory overlaps");                                                        \
+        }                                                                                          \
+    } while (0)
+
+static void *
+mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
+
+mp_Region *mp_region_init(size_t cap) {
+    size_t     bytes  = ALIGN(cap, sizeof(uintptr_t));
+    mp_Region *region = MEMPLUS_ALLOC(bytes);
+    region->next      = NULL;
+    region->len       = 0;
+    region->cap       = cap;
+    return region;
+}
+
+void mp_region_deinit(mp_Region *r) {
+    MEMPLUS_FREE(r);
+}
+
+void mp_arena_init(mp_Arena *a) {
+    a->len   = 0;
+    a->begin = NULL;
+    a->end   = NULL;
+}
+
+void mp_arena_reset(mp_Arena *a) {
+    a->len = 0;
+    for (mp_Region *region = a->begin; region; region = region->next) {
+        region->len = 0;
+    }
+    a->end = a->begin;
+}
+
+void mp_arena_deinit(mp_Arena *a) {
+    mp_Region *region = a->begin;
+    while (region) {
+        mp_Region *region_temp = region;
+        region                 = region->next;
+        mp_region_deinit(region_temp);
+    }
+    ZERO(a);
+}
+
+mp_Allocator mp_arena_allocator(const mp_Arena *a) {
+    return mp_allocator_new(a, mp_arena_alloc_func);
+}
+
+static void *
+mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr) {
+    mp_Arena    *ctx   = context;
+    mp_Allocator alloc = mp_allocator_new(ctx, mp_arena_alloc_func);
+
+    switch (type) {
+        case MP_ALLOCTYPE_ALLOC: {
+            (void) old_size;
+            (void) ptr;
+
+            if (ctx->end == NULL) {
+                MEMPLUS_ASSERT(ctx->begin == NULL);
+                size_t capacity = MP_REGION_DEFAULT_SIZE;
+                if (capacity < new_size) capacity = new_size;
+                ctx->end = mp_region_init(capacity);
+                if (ctx->end == NULL) return NULL;
+                ctx->begin = ctx->end;
+            }
+
+            while (ctx->end->len + new_size > ctx->end->cap && ctx->end->next != NULL) {
+                ctx->end = ctx->end->next;
+            }
+
+            if (ctx->end->len + new_size > ctx->end->cap) {
+                MEMPLUS_ASSERT(ctx->end->next == NULL);
+                size_t capacity = MP_REGION_DEFAULT_SIZE;
+                if (capacity < new_size) capacity = new_size;
+                ctx->end->next = mp_region_init(capacity);
+                if (ctx->end->next == NULL) return NULL;
+                ctx->end = ctx->end->next;
+            }
+
+            void *result = &ctx->end->data[ctx->end->len];
+            ctx->end->len += new_size;
+            ctx->len += new_size;
+            return result;
+        } break;
+        case MP_ALLOCTYPE_REALLOC: {
+            if (new_size <= old_size) return ptr;
+            void *new_ptr = mp_alloc(&alloc, new_size);
+            if (new_ptr == NULL) return NULL;
+            ASSERT_OVERLAP(ptr, old_size, new_ptr, new_size);
+            memcpy(new_ptr, ptr, old_size);
+            mp_free(&alloc, ptr, old_size);
+            return new_ptr;
+        } break;
+        case MP_ALLOCTYPE_DUP: {
+            (void) old_size;
+
+            void *dest = mp_alloc(&alloc, new_size);
+            if (dest == NULL) return NULL;
+            return memcpy(dest, ptr, new_size);
+        } break;
+        case MP_ALLOCTYPE_FREE: {
+            (void) old_size;
+
+            return NULL;
+        } break;
+    }
+    UNREACHABLE();
+}
+
+#endif /* ifdef MEMPLUS_IMPLEMENTATION */
 
 #endif /* ifndef MEMPLUS_H__ */

@@ -1,5 +1,7 @@
 // This file is to test the testing stuff.
 
+#define MEMPLUS_IMPLEMENTATION
+#include "memplus.h"
 #include "test.h"
 
 int main() {

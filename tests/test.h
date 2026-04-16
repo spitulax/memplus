@@ -1,7 +1,6 @@
 #pragma once
 
-#define MEMPLUS_IMPLEMENTATION
-#include "memplus.h"
+#include <stdio.h>
 
 #define RED   "\033[31m"
 #define RESET "\033[0m"
@@ -16,10 +15,13 @@
             __LINE__ __VA_OPT__(, ) __VA_ARGS__);
 #define unr() assert(0 && "unreachable");
 
-#define expect_eq(a, b, fmt)                                                                       \
+#define expect_binop(op, a, b, fmt)                                                                \
     do {                                                                                           \
-        if ((a) != (b)) {                                                                          \
-            elogf("Expected `a == b`, got\n\ta == `" fmt "`\n\tb == `" fmt "`", (a), (b));         \
-            exit(1);                                                                               \
+        if (!((a) op(b))) {                                                                        \
+            elogf("Expected `a %s b`, got\n\ta = `" fmt "`\n\tb = `" fmt "`", #op, (a), (b));      \
+            goto fail;                                                                             \
         }                                                                                          \
     } while (0)
+
+#define expect_eq(a, b, fmt) expect_binop(==, a, b, fmt)
+#define expect_ne(a, b, fmt) expect_binop(!=, a, b, fmt)

@@ -1,6 +1,5 @@
 { self
 , mkShell
-, man-pages
 , gcc
 , clang-tools
 , meson
@@ -10,7 +9,6 @@
 mkShell {
   name = "memplus-shell";
   buildInputs = [
-    man-pages
     gcc
     clang-tools
     meson

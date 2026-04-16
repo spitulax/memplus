@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-CCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.."
+CCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb"
 ACCENT="\033[35m"
 RED="\033[31m"
 GREEN="\033[32m"
@@ -19,11 +19,16 @@ run () {
         elif [[ -r "$f" ]]; then
             echo -e "${ACCENT}=== Running $f ===${RESET}"
             cc $CCARGS -o ".build/${f%.c}" "$f"
-            "./.build/${f%.c}"
             if [[ $? -eq 0 ]]; then
-                echo -e "${GREEN}>> $f successful${RESET}"
+                "./.build/${f%.c}"
+                if [[ $? -eq 0 ]]; then
+                    echo -e "${GREEN}>> $f successful${RESET}"
+                else
+                    echo -e "${RED}>> $f failed${RESET}"
+                    FAILED+=("$f")
+                fi
             else
-                echo -e "${RED}>> $f failed${RESET}"
+                echo -e "${RED}>> failed to compile $f${RESET}"
                 FAILED+=("$f")
             fi
         else
@@ -33,9 +38,9 @@ run () {
     done
 }
 
-mkdir -p .build &>/dev/null
-
 cd `dirname $0`
+
+mkdir -p .build &>/dev/null
 
 if [[ $# -gt 0 ]]; then
     TESTS=("$@")

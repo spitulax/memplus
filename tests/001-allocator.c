@@ -1,3 +1,4 @@
+#define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 #include "test.h"
 #include <stdint.h>
@@ -11,6 +12,9 @@ void *alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_s
         case MP_ALLOCTYPE_FREE:    return (void *) (new_size + (uintptr_t) ptr);
     }
     unr();
+
+fail:
+    exit(1);
 }
 
 int main(void) {
@@ -29,4 +33,7 @@ int main(void) {
     expect_eq(free_res, (void *) (100 + 10), "%p");
 
     return 0;
+
+fail:
+    exit(1);
 }
