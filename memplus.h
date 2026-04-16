@@ -37,10 +37,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define MEMPLUS_ASSERT assert
 #endif
 
-/* Must have the same behavior as stdlib's `calloc(..., 1). */
+/* Assumed have the same behavior as stdlib's `calloc(..., 1)`. */
 #ifndef MEMPLUS_ALLOC
 #include <stdlib.h>
 #define MEMPLUS_ALLOC(size) calloc((size), 1)
+#endif
+
+/* Assumed have the same behavior as stdlib's `realloc`. */
+#ifndef MEMPLUS_REALLOC
+#include <stdlib.h>
+#define MEMPLUS_REALLOC(ptr, new_size) realloc((ptr), (new_size))
 #endif
 
 /* Must have the same signature and behavior as stdlib's `free`. */
@@ -226,6 +232,11 @@ void mp_temp_reset(mp_Temp *t);
 /* Returns an allocator that works with `mp_Temp`. */
 mp_Allocator mp_temp_allocator(const mp_Temp *t);
 
+// TODO: Tracked allocator
+
+/* HEAP ALLOCATOR */
+mp_Allocator mp_heap_allocator(void);
+
 /***********
  * IMPLEMENTATION
  ***********/
@@ -254,6 +265,8 @@ static void *
 mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
 static void *
 mp_sarena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
+static void *
+mp_heap_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
 
 void *mp_dup(mp_Allocator *alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
@@ -434,6 +447,35 @@ void mp_temp_reset(mp_Temp *t) {
 
 mp_Allocator mp_temp_allocator(const mp_Temp *t) {
     return mp_allocator_new(t, mp_sarena_alloc_func);
+}
+
+mp_Allocator mp_heap_allocator(void) {
+    return mp_allocator_new(NULL, mp_heap_alloc_func);
+}
+
+static void *
+mp_heap_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr) {
+    (void) context;
+
+    switch (type) {
+        case MP_ALLOCTYPE_ALLOC: {
+            (void) old_size;
+            (void) ptr;
+
+            return MEMPLUS_ALLOC(new_size);
+        } break;
+        case MP_ALLOCTYPE_REALLOC: {
+            if (new_size <= old_size) return ptr;
+            return MEMPLUS_REALLOC(ptr, new_size);
+        } break;
+        case MP_ALLOCTYPE_FREE: {
+            (void) old_size;
+            // `new_size` is unused
+            MEMPLUS_FREE(ptr);
+            return NULL;
+        } break;
+    }
+    UNREACHABLE();
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */

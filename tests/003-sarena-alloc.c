@@ -56,6 +56,7 @@ int main(void) {
     expect_eq(s_arena.cap, (size_t) align(MP_REGION_DEFAULT_SIZE), "%zu");
     test(&s_alloc, (mp_Temp *) &s_arena);
     mp_sarena_deinit(&s_arena);
+    mp_arena_deinit(&parent_arena);
 
     mp_Temp t_arena;
     char    buf[1050];
