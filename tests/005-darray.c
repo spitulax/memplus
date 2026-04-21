@@ -70,6 +70,28 @@ int main(void) {
 
     mp_da_deinit(&array2);
 
+    // Append many test
+    ArrayInt32 array3;
+    mp_da_init(&array3, &alloc);
+    mp_da_append_many(&array3, 69, 420, 67, 13, 37);
+    expect_eq(array3.len, (size_t) 5, "%zu");
+
+    expect_eq(mp_da_get(&array3, 0), (int32_t) 69, "%d");
+    expect_eq(mp_da_get(&array3, 1), (int32_t) 420, "%d");
+    expect_eq(mp_da_get(&array3, 2), (int32_t) 67, "%d");
+    expect_eq(mp_da_get(&array3, 3), (int32_t) 13, "%d");
+    expect_eq(mp_da_get(&array3, 4), (int32_t) 37, "%d");
+
+    mp_da_reset(&array3);
+    int32_t append[] = { 10, 11, 12 };
+    mp_da_append_array(&array3, append, 3);
+    expect_eq(array3.len, (size_t) 3, "%zu");
+    expect_eq(mp_da_get(&array3, 0), (int32_t) 10, "%d");
+    expect_eq(mp_da_get(&array3, 1), (int32_t) 11, "%d");
+    expect_eq(mp_da_get(&array3, 2), (int32_t) 12, "%d");
+
+    mp_da_deinit(&array3);
+
     return 0;
 
 fail:

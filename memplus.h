@@ -355,6 +355,20 @@ mp_Allocator mp_heap_allocator(void);
         if ((a)->data != NULL) memcpy((a)->data + prev_len, items, sizeof(items));                 \
     } while (0)
 
+/* Resizes a dynamic array and appends items in an array to the end.
+ * `data` becomes NULL if allocation failed.
+ *
+ * a: DArray* (NO SIDE EFFECTS)
+ * items: array of item type
+ * items_len: length of the array */
+#define mp_da_append_array(a, items, items_len)                                                    \
+    do {                                                                                           \
+        size_t prev_len = (a)->len;                                                                \
+        mp_da_grow((a), (items_len));                                                              \
+        if ((a)->data != NULL)                                                                     \
+            memcpy((a)->data + prev_len, (items), (items_len) * sizeof(*(a)->data));               \
+    } while (0)
+
 /* Gets an item at index `i`.
  * No bounds checking, use `mp_da_get_safe` for that.
  *
