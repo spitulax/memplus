@@ -82,6 +82,11 @@ ___MP_NORETURN void ___mp_assert_fail(
 #define ___MP_ZERO(ptr) memset((ptr), 0, sizeof(*(ptr)))
 #define ___MP_BOUNDS_CHECK(i, len)                                                                 \
     MEMPLUS_ASSERT_MSG((i) < (len) && (i) >= 0, "Array index out of bounds")
+#if defined(__GNUC__) || defined(__clang__)
+#define ___MP_PRINTF_FORMAT(fmt_index) __attribute__((format(printf, (fmt_index), (fmt_index) + 1)))
+#else
+#define ___MP_PRINTF_FORMAT(fmt_index)
+#endif
 
 
 /***********
@@ -170,7 +175,7 @@ typedef struct {
  * data: pointer
  * size: number of bytes
  * Returns void* */
-void *mp_dup(mp_Allocator *alloc, void *data, size_t size);
+void *mp_dup(const mp_Allocator *alloc, void *data, size_t size);
 
 /* Creates a custom allocator given the context and the allocation function.
  *
@@ -473,6 +478,7 @@ mp_Allocator mp_heap_allocator(void);
     } while (0)
 
 /* Deletes an item at the given `pos`. This operation is O(1).
+ *
  * a: Vector* (NO SIDE EFFECTS)
  * pos: size_t */
 #define mp_da_unordered_delete(a, pos)                                                             \
@@ -484,9 +490,43 @@ mp_Allocator mp_heap_allocator(void);
     } while (0)
 
 /***********
+ * STRING
+ ***********/
+
+/* Holds a NULL-TERMINATED string and the size of the string (excluding the null-terminator).
+ * If its allocation has failed, `cstr` == NULL and `len` == 0. */
+typedef struct {
+    size_t len;
+    char  *cstr;
+} mp_String;
+
+/* Returns an invalid `mp_String`. */
+#define mp_string_invalid()                                                                        \
+    ((mp_String) {                                                                                 \
+        .len  = 0,                                                                                 \
+        .cstr = NULL,                                                                              \
+    })
+
+/* Tests if `s` is invalid (i.e. `cstr` == NULL).
+ * Returns true if valid.
+ *
+ * s: mp_String* */
+#define mp_string_is_valid(s) ((s)->cstr != NULL)
+
+/* Allocates and returns a new `mp_String` from a NULL-TERMINATED string. */
+mp_String mp_string_new(const mp_Allocator *alloc, const char *str);
+/* Allocates and returns a new `mp_String` from formatted input. */
+mp_String mp_string_newf(const mp_Allocator *alloc, const char *fmt, ...) ___MP_PRINTF_FORMAT(2);
+/* Allocates and returns duplicate of `str`. */
+mp_String mp_string_dup(const mp_Allocator *alloc, const mp_String *str);
+/* Frees an `mp_String`. */
+void mp_string_deinit(const mp_Allocator *alloc, mp_String *str);
+
+/***********
  * IMPLEMENTATION
  ***********/
 
+#include <stdarg.h>
 #include <string.h>
 
 #ifdef MEMPLUS_IMPLEMENTATION
@@ -513,7 +553,7 @@ mp_sarena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t o
 static void *
 mp_heap_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
 
-void *mp_dup(mp_Allocator *alloc, void *data, size_t size) {
+void *mp_dup(const mp_Allocator *alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
     if (buf == NULL) return NULL;
     return memcpy(buf, data, size);
@@ -721,6 +761,48 @@ mp_heap_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old
         } break;
     }
     UNREACHABLE();
+}
+
+mp_String mp_string_new(const mp_Allocator *alloc, const char *str) {
+    int len = snprintf(NULL, 0, "%s", str);
+    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
+    char *result = mp_alloc(alloc, (size_t) (len + 1));
+    if (result == NULL) return mp_string_invalid();
+    int result_len = snprintf(result, (size_t) (len + 1), "%s", str);
+    MEMPLUS_ASSERT(result_len == len);
+    return (mp_String) { .len = (size_t) result_len, .cstr = result };
+}
+
+mp_String mp_string_newf(const mp_Allocator *alloc, const char *fmt, ...) {
+    va_list args;
+
+    va_start(args, fmt);
+    int len = vsnprintf(NULL, 0, fmt, args);
+    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
+    va_end(args);
+
+    char *result = mp_alloc(alloc, (size_t) (len + 1));
+    if (result == NULL) return mp_string_invalid();
+
+    va_start(args, fmt);
+    int result_len = vsnprintf(result, (size_t) (len + 1), fmt, args);
+    MEMPLUS_ASSERT(result_len == len);
+    va_end(args);
+
+    return (mp_String) { .len = (size_t) result_len, .cstr = result };
+}
+
+mp_String mp_string_dup(const mp_Allocator *alloc, const mp_String *str) {
+    int len = snprintf(NULL, 0, "%s", str->cstr);
+    MEMPLUS_ASSERT_MSG(len >= 0 || (size_t) len != str->len, "Failed to count string length");
+    char *ptr = mp_dup(alloc, str->cstr, (size_t) len + 1);
+    if (ptr == NULL) return mp_string_invalid();
+    return (mp_String) { .len = (size_t) len, .cstr = ptr };
+}
+
+void mp_string_deinit(const mp_Allocator *alloc, mp_String *str) {
+    mp_free(alloc, str->cstr, str->len + 1);
+    ___MP_ZERO(str);
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */

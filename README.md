@@ -6,7 +6,7 @@
 - [x] Arena allocators (growing, static, temp)
 - [x] Heap allocator
 - [x] Dynamic array
-- [ ] Sized string
+- [x] Sized string
 - [ ] String builder
 - [ ] Fat pointer
 - [ ] Hash map

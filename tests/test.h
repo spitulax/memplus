@@ -25,5 +25,13 @@
         }                                                                                          \
     } while (0)
 
+#define expect_streq(a, b)                                                                         \
+    do {                                                                                           \
+        if (strcmp((a), (b)) != 0) {                                                               \
+            elogf("Expected `a == b`, got\n\ta = `%s`\n\tb = `%s`", (a), (b));                     \
+            goto fail;                                                                             \
+        }                                                                                          \
+    } while (0)
+
 #define expect_eq(a, b, fmt) expect_binop(==, a, b, fmt)
 #define expect_ne(a, b, fmt) expect_binop(!=, a, b, fmt)
