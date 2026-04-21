@@ -8,6 +8,7 @@
 - [x] Dynamic array
 - [x] Sized string
 - [ ] String builder
+- [ ] Unicode string
 - [ ] Fat pointer
 - [ ] Hash map
 - [ ] IO (file, socket)

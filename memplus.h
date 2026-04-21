@@ -341,6 +341,20 @@ mp_Allocator mp_heap_allocator(void);
         if ((a)->data != NULL) (a)->data[(a)->len - 1] = (item);                                   \
     } while (0)
 
+/* Resizes a dynamic array and appends multiple items to the end.
+ * `data` becomes NULL if allocation failed.
+ *
+ * a: DArray* (NO SIDE EFFECTS)
+ * ...: item type */
+#define mp_da_append_many(a, ...)                                                                  \
+    do {                                                                                           \
+        __typeof__(*(a)->data) items[]  = { __VA_ARGS__ };                                         \
+        size_t                 len      = sizeof(items) / sizeof(*items);                          \
+        size_t                 prev_len = (a)->len;                                                \
+        mp_da_grow((a), len);                                                                      \
+        if ((a)->data != NULL) memcpy((a)->data + prev_len, items, sizeof(items));                 \
+    } while (0)
+
 /* Gets an item at index `i`.
  * No bounds checking, use `mp_da_get_safe` for that.
  *
@@ -386,7 +400,6 @@ mp_Allocator mp_heap_allocator(void);
  * offset: size_t */
 #define mp_da_grow(a, offset)                                                                      \
     do {                                                                                           \
-        MEMPLUS_ASSERT_MSG((offset) >= 0, "`offset` is negative");                                 \
         size_t off = (offset);                                                                     \
         if ((a)->len + (off) > (a)->cap && (off) > 0) {                                            \
             size_t old_cap = (a)->cap;                                                             \
@@ -405,8 +418,7 @@ mp_Allocator mp_heap_allocator(void);
     } while (0)
 #define mp_da_shrink(a, offset)                                                                    \
     do {                                                                                           \
-        MEMPLUS_ASSERT_MSG((offset) >= 0 && (offset) <= (a)->len,                                  \
-                           "`offset` is negative and out of bounds");                              \
+        MEMPLUS_ASSERT_MSG((offset) <= (a)->len, "`offset` is  out of bounds");                    \
         size_t off = (offset);                                                                     \
         if ((a)->len - (off) > (a)->cap && (off) > 0) {                                            \
             size_t old_cap = (a)->cap;                                                             \
