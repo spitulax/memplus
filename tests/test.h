@@ -17,8 +17,10 @@
 
 #define expect_binop(op, a, b, fmt)                                                                \
     do {                                                                                           \
-        if (!((a) op(b))) {                                                                        \
-            elogf("Expected `a %s b`, got\n\ta = `" fmt "`\n\tb = `" fmt "`", #op, (a), (b));      \
+        typeof(a) _a = a;                                                                          \
+        typeof(b) _b = b;                                                                          \
+        if (!((_a) op(_b))) {                                                                      \
+            elogf("Expected `a %s b`, got\n\ta = `" fmt "`\n\tb = `" fmt "`", #op, (_a), (_b));    \
             goto fail;                                                                             \
         }                                                                                          \
     } while (0)

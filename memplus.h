@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <stdint.h>
 
+// TODO: Better assert func
 /* Must have the same signature as stdlib's `assert`. */
 #ifndef MEMPLUS_ASSERT
 #include <assert.h>
@@ -56,6 +57,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 
 #define MEMPLUS_VERSION (0x000100)
+
+#define ___MP_ZERO(ptr)            memset((ptr), 0, sizeof(*(ptr)))
+#define ___MP_BOUNDS_CHECK(i, len) MEMPLUS_ASSERT("index out of bounds" && (i) < (len) && (i) >= 0)
+
 
 /***********
  * ALLOCATORS
@@ -237,6 +242,228 @@ mp_Allocator mp_temp_allocator(const mp_Temp *t);
 /* HEAP ALLOCATOR */
 mp_Allocator mp_heap_allocator(void);
 
+// TODO: Fat pointer (slice)
+
+/***********
+ * DYNAMIC ARRAY
+ ***********/
+
+/* Starting capacity of a dynamic array. You can adjust this to your liking. */
+#ifndef MP_DARRAY_INIT_CAPACITY
+#define MP_DARRAY_INIT_CAPACITY 64
+#endif
+
+/* You can define a dynamic array struct with any type as long as it is in this format. */
+/*
+    ```c
+    typedef mp_da_create(int) ArrayName;
+    ```
+
+    Or manually,
+    ```c
+    struct {
+        mp_Allocator *alloc;    // The allocator that manages the allocation of the array
+        size_t       len;       // The size of the array
+        size_t       cap;       // The capacity of the array
+        <type>       *data;     // Pointer to the data (points to the first element)
+        // The data is continuous in memory.
+    };
+    ```
+*/
+
+/* Defines a dynamic array struct given of `type`.
+ * You can use it like:
+ * ```c
+ * typedef mp_da_create(int) ArrayInt;
+ * ```
+ *
+ * type: typename */
+#define mp_da_create(type)                                                                         \
+    struct {                                                                                       \
+        mp_Allocator *alloc;                                                                       \
+        size_t        len;                                                                         \
+        size_t        cap;                                                                         \
+        type         *data;                                                                        \
+    }
+
+/* Initializes a new dynamic array and tell it to use `alloc`.
+ *
+ * a: DArray* (NO SIDE EFFECTS)
+ * allocator: mp_Allocator* */
+#define mp_da_init(a, allocator)                                                                   \
+    do {                                                                                           \
+        (a)->alloc = (allocator);                                                                  \
+        (a)->len   = 0;                                                                            \
+        (a)->cap   = 0;                                                                            \
+        (a)->data  = NULL;                                                                         \
+    } while (0)
+
+/* Frees a dynamic array.
+ *
+ * a: DArray* (NO SIDE EFFECTS) */
+#define mp_da_deinit(a)                                                                            \
+    do {                                                                                           \
+        mp_free((a)->alloc, (a)->data, (a)->cap);                                                  \
+        ___MP_ZERO(a);                                                                             \
+    } while (0)
+
+/* Resizes a dynamic array and appends item to the end.
+ * `data` becomes NULL if allocation failed.
+ *
+ * a: DArray* (NO SIDE EFFECTS)
+ * item: item type */
+#define mp_da_append(a, item)                                                                      \
+    do {                                                                                           \
+        mp_da_grow((a), 1);                                                                        \
+        if ((a)->data != NULL) (a)->data[(a)->len - 1] = (item);                                   \
+    } while (0)
+
+/* Gets an item at index `i`.
+ * No bounds checking, use `mp_da_get_safe` for that.
+ *
+ * a: DArray*
+ * i: integer */
+#define mp_da_get(a, i) (a)->data[i]
+
+/* Gets an item at index `i`.
+ * Asserts that `i` is not out of bounds.
+ *
+ * a: DArray*
+ * i: integer */
+#define mp_da_get_safe(a, i) (___MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
+
+/* Gets the first or the last item in a dynamic array.
+ *
+ * a: DArray* (NO SIDE EFFECTS) */
+#define mp_da_first(a) (a)->data[0]
+#define mp_da_last(a)  (a)->data[(a)->len - 1]
+
+/* Deletes the last item in a dynamic array and returns it.
+ *
+ * a: DArray* (NO SIDE EFFECTS) */
+#define mp_da_pop(a) (--(a)->len, (a)->data[(a)->len])
+
+/* Sets the length of a dynamic array to 0.
+ *
+ * a: DArray* */
+#define mp_da_reset(a)                                                                             \
+    do {                                                                                           \
+        (a)->len = 0;                                                                              \
+    } while (0)
+
+/* Resizes a dynamic array to `offset` of the current `len`.
+ * If the current capacity is 0, allocates for `MP_DARRAY_INIT_CAPACITY` items.
+ * If the current capacity is not large enough, allocates for double the current capacity.
+ * `data` becomes NULL if allocation failed.
+ *
+ * `mp_da_grow` grows the array.
+ * `mp_da_shrink` shrinks the array (positive offset).
+ *
+ * a: DArray* (NO SIDE EFFECTS)
+ * offset: size_t */
+#define mp_da_grow(a, offset)                                                                      \
+    do {                                                                                           \
+        MEMPLUS_ASSERT((offset) >= 0);                                                             \
+        size_t off = (offset);                                                                     \
+        if ((a)->len + (off) > (a)->cap && (off) > 0) {                                            \
+            size_t old_cap = (a)->cap;                                                             \
+            if ((a)->cap == 0) {                                                                   \
+                (a)->cap = MP_DARRAY_INIT_CAPACITY;                                                \
+            }                                                                                      \
+            while ((a)->len + (off) > (a)->cap) {                                                  \
+                (a)->cap *= 2;                                                                     \
+            }                                                                                      \
+            (a)->data = mp_realloc((a)->alloc,                                                     \
+                                   (a)->data,                                                      \
+                                   old_cap * sizeof(*(a)->data),                                   \
+                                   (a)->cap * sizeof(*(a)->data));                                 \
+        }                                                                                          \
+        if ((a)->data != NULL) (a)->len += (off);                                                  \
+    } while (0)
+#define mp_da_shrink(a, offset)                                                                    \
+    do {                                                                                           \
+        MEMPLUS_ASSERT((offset) >= 0 && (offset) <= (a)->len);                                     \
+        size_t off = (offset);                                                                     \
+        if ((a)->len - (off) > (a)->cap && (off) > 0) {                                            \
+            size_t old_cap = (a)->cap;                                                             \
+            if ((a)->cap == 0) {                                                                   \
+                (a)->cap = MP_DARRAY_INIT_CAPACITY;                                                \
+            }                                                                                      \
+            (a)->data = mp_realloc((a)->alloc,                                                     \
+                                   (a)->data,                                                      \
+                                   old_cap * sizeof(*(a)->data),                                   \
+                                   (a)->cap * sizeof(*(a)->data));                                 \
+        }                                                                                          \
+        if ((a)->data != NULL) (a)->len -= (off);                                                  \
+    } while (0)
+
+/* Clones a dynamic array to `dest` to be managed by `allocator`.
+ * The `dest` array does not inherit the capacity of `src`. Instead it will only allocate with size
+ * `len` + `MP_DARRAY_INIT_CAPACITY`.
+ * `dest.data` becomes NULL if allocation failed.
+ *
+ * allocator: mp_Allocator* (NO SIDE EFFECTS)
+ * src: DArray* (NO SIDE EFFECTS)
+ * dest: DArray* (NO SIDE EFFECTS) */
+#define mp_da_clone(allocator, src, dest)                                                          \
+    do {                                                                                           \
+        (dest)->data = mp_dup((allocator), (src)->data, (src)->cap * sizeof(*(src)->data));        \
+        if ((dest)->data != NULL) {                                                                \
+            (dest)->alloc = (allocator);                                                           \
+            (dest)->len   = (src)->len;                                                            \
+            (dest)->cap   = (src)->len + MP_DARRAY_INIT_CAPACITY;                                  \
+        } else {                                                                                   \
+            (dest)->alloc = NULL;                                                                  \
+            (dest)->len   = 0;                                                                     \
+            (dest)->cap   = 0;                                                                     \
+        }                                                                                          \
+    } while (0)
+
+/* Inserts an item at the given `pos`.
+ * If `pos > len`, then it just puts the item at `len`.
+ * `data` becomes NULL if allocation failed.
+ *
+ * a: DArray* (NO SIDE EFFECTS)
+ * pos: size_t
+ * item: item type */
+#define mp_da_insert(a, pos, item)                                                                 \
+    do {                                                                                           \
+        MEMPLUS_ASSERT((pos) >= 0);                                                                \
+        size_t p        = (pos);                                                                   \
+        size_t actual_p = p > (a)->len ? (a)->len : p;                                             \
+        mp_da_grow((a), 1);                                                                        \
+        if ((a)->data != NULL) {                                                                   \
+            for (size_t i = (a)->len - 2; i > actual_p; --i)                                       \
+                (a)->data[i + 1] = (a)->data[i];                                                   \
+            (a)->data[actual_p + 1] = (a)->data[actual_p];                                         \
+            (a)->data[actual_p]     = (item);                                                      \
+        }                                                                                          \
+    } while (0)
+
+/* Deletes an item at the given `pos`. This operation is O(n) on the worst case.
+ *
+ * a: DArray* (NO SIDE EFFECTS)
+ * pos: size_t */
+#define mp_da_delete(a, pos)                                                                       \
+    do {                                                                                           \
+        ___MP_BOUNDS_CHECK((pos), (a)->len);                                                       \
+        size_t p = (pos);                                                                          \
+        mp_da_shrink((a), 1);                                                                      \
+        for (size_t i = (p) + 1; i < (a)->len + 1; ++i)                                            \
+            (a)->data[i - 1] = (a)->data[i];                                                       \
+    } while (0)
+
+/* Deletes an item at the given `pos`. This operation is O(1).
+ * a: Vector* (NO SIDE EFFECTS)
+ * pos: size_t */
+#define mp_da_unordered_delete(a, pos)                                                             \
+    do {                                                                                           \
+        ___MP_BOUNDS_CHECK((pos), (a)->len);                                                       \
+        size_t p = (pos);                                                                          \
+        mp_da_shrink((a), 1);                                                                      \
+        if ((p) != (a)->len) (a)->data[p] = (a)->data[(a)->len];                                   \
+    } while (0)
+
 /***********
  * IMPLEMENTATION
  ***********/
@@ -248,7 +475,6 @@ mp_Allocator mp_heap_allocator(void);
 #define DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
 #define ALIGN(a, inc)      (DIV_ROUNDUP((a), (inc)) * (inc))
 #define ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
-#define ZERO(ptr)          memset((ptr), 0, sizeof(*(ptr)))
 #define UNREACHABLE()      assert(0 && "unreachable")
 #define MAX(a, b)          ((a) > (b) ? (a) : (b))
 #define MIN(a, b)          ((a) < (b) ? (a) : (b))
@@ -257,7 +483,7 @@ mp_Allocator mp_heap_allocator(void);
         auto _a = (uintptr_t) a;                                                                   \
         auto _b = (uintptr_t) b;                                                                   \
         if (MAX((_a), (_b)) < MIN((_a) + (a_len), (_b) + (b_len))) {                               \
-            assert(0 && "Memory overlaps");                                                        \
+            MEMPLUS_ASSERT(0 && "Memory overlaps");                                                \
         }                                                                                          \
     } while (0)
 
@@ -319,7 +545,7 @@ void mp_arena_deinit(mp_Arena *a) {
         region                 = region->next;
         mp_region_deinit(region_temp);
     }
-    ZERO(a);
+    ___MP_ZERO(a);
 }
 
 mp_Allocator mp_arena_allocator(const mp_Arena *a) {
@@ -396,7 +622,7 @@ void mp_sarena_reset(mp_SArena *a) {
 
 void mp_sarena_deinit(mp_SArena *a) {
     mp_free(a->alloc, a->buf, a->cap);
-    ZERO(a);
+    ___MP_ZERO(a);
 }
 
 mp_Allocator mp_sarena_allocator(const mp_SArena *a) {

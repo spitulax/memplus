@@ -50,7 +50,7 @@ int main(void) {
     *mem          = 67;
     int64_t *mem2 = mp_realloc(&alloc, mem, 4, 8);
     expect_eq(arena.len, (size_t) align(4 + 8), "%zu");
-    expect_eq(*mem2, (int64_t) 67, "%ld");
+    expect_eq(*mem2, 67L, "%ld");
     expect_eq(*(int64_t *) mem, *mem2, "%ld");
 
     // Dup test
@@ -59,7 +59,7 @@ int main(void) {
     *mem          = 67;
     int32_t *mem3 = mp_dup(&alloc, mem, 4);
     expect_eq(arena.len, (size_t) align(4) + align(4), "%zu");
-    expect_eq(*mem3, (int32_t) 67, "%d");
+    expect_eq(*mem3, 67, "%d");
     expect_eq(*(int32_t *) mem, *mem3, "%d");
 
     mp_arena_deinit(&arena);
