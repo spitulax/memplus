@@ -32,7 +32,7 @@ run () {
                 FAILED+=("$f")
             fi
         else
-            echo -e "${YELLOW}WARNING: Unknown/unaccessible file \`$f\`${RESET}" >&2
+            echo -e "${YELLOW}warning: Unknown/unaccessible file \`$f\`${RESET}" >&2
         fi
         echo
     done

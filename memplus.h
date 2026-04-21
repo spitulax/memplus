@@ -29,13 +29,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 /* #define MEMPLUS_IMPLEMENTATION */
 
+#include <stddef.h>
 #include <stdint.h>
 
-// TODO: Better assert func
-/* Must have the same signature as stdlib's `assert`. */
+/* Define custom assert macro with `MEMPLUS_ASSERT`.
+ * The macro must accept the expression and the fail message. See the define below. */
 #ifndef MEMPLUS_ASSERT
-#include <assert.h>
-#define MEMPLUS_ASSERT assert
+
+#if __STDC_VERSION__ >= 201112L
+#define ___MP_NORETURN _Noreturn
+#elif __STDC_VERSION__ >= 202311L
+#define ___MP_NORETURN [[noreturn]]
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define MEMPLUS_ASSERT(expr)                                                                       \
+    ((expr) ? (void) 0 : ___mp_assert_fail(#expr, __FILE__, __func__, __LINE__, ""))
+
+#define MEMPLUS_ASSERT_MSG(expr, msg)                                                              \
+    ((expr) ? (void) 0 : ___mp_assert_fail(#expr, __FILE__, __func__, __LINE__, (msg)))
+
+___MP_NORETURN void ___mp_assert_fail(
+    const char *assertion, const char *file, const char *func, size_t line, const char *msg) {
+    fprintf(stderr, "%s:%s():%zu: [memplus] %s. `%s` failed.\n", file, func, line, msg, assertion);
+    abort();
+}
+
 #endif
 
 /* Assumed have the same behavior as stdlib's `calloc(..., 1)`. */
@@ -58,8 +79,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #define MEMPLUS_VERSION (0x000100)
 
-#define ___MP_ZERO(ptr)            memset((ptr), 0, sizeof(*(ptr)))
-#define ___MP_BOUNDS_CHECK(i, len) MEMPLUS_ASSERT("index out of bounds" && (i) < (len) && (i) >= 0)
+#define ___MP_ZERO(ptr) memset((ptr), 0, sizeof(*(ptr)))
+#define ___MP_BOUNDS_CHECK(i, len)                                                                 \
+    MEMPLUS_ASSERT_MSG((i) < (len) && (i) >= 0, "Array index out of bounds")
 
 
 /***********
@@ -237,12 +259,8 @@ void mp_temp_reset(mp_Temp *t);
 /* Returns an allocator that works with `mp_Temp`. */
 mp_Allocator mp_temp_allocator(const mp_Temp *t);
 
-// TODO: Tracked allocator
-
 /* HEAP ALLOCATOR */
 mp_Allocator mp_heap_allocator(void);
-
-// TODO: Fat pointer (slice)
 
 /***********
  * DYNAMIC ARRAY
@@ -363,7 +381,7 @@ mp_Allocator mp_heap_allocator(void);
  * offset: size_t */
 #define mp_da_grow(a, offset)                                                                      \
     do {                                                                                           \
-        MEMPLUS_ASSERT((offset) >= 0);                                                             \
+        MEMPLUS_ASSERT_MSG((offset) >= 0, "`offset` is negative");                                 \
         size_t off = (offset);                                                                     \
         if ((a)->len + (off) > (a)->cap && (off) > 0) {                                            \
             size_t old_cap = (a)->cap;                                                             \
@@ -382,7 +400,8 @@ mp_Allocator mp_heap_allocator(void);
     } while (0)
 #define mp_da_shrink(a, offset)                                                                    \
     do {                                                                                           \
-        MEMPLUS_ASSERT((offset) >= 0 && (offset) <= (a)->len);                                     \
+        MEMPLUS_ASSERT_MSG((offset) >= 0 && (offset) <= (a)->len,                                  \
+                           "`offset` is negative and out of bounds");                              \
         size_t off = (offset);                                                                     \
         if ((a)->len - (off) > (a)->cap && (off) > 0) {                                            \
             size_t old_cap = (a)->cap;                                                             \
@@ -428,7 +447,7 @@ mp_Allocator mp_heap_allocator(void);
  * item: item type */
 #define mp_da_insert(a, pos, item)                                                                 \
     do {                                                                                           \
-        MEMPLUS_ASSERT((pos) >= 0);                                                                \
+        MEMPLUS_ASSERT_MSG((pos) >= 0, "`pos` is negative");                                       \
         size_t p        = (pos);                                                                   \
         size_t actual_p = p > (a)->len ? (a)->len : p;                                             \
         mp_da_grow((a), 1);                                                                        \
@@ -475,7 +494,7 @@ mp_Allocator mp_heap_allocator(void);
 #define DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
 #define ALIGN(a, inc)      (DIV_ROUNDUP((a), (inc)) * (inc))
 #define ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
-#define UNREACHABLE()      assert(0 && "unreachable")
+#define UNREACHABLE()      MEMPLUS_ASSERT_MSG(0, "Unreachable")
 #define MAX(a, b)          ((a) > (b) ? (a) : (b))
 #define MIN(a, b)          ((a) < (b) ? (a) : (b))
 #define ASSERT_OVERLAP(a, a_len, b, b_len)                                                         \
@@ -483,7 +502,7 @@ mp_Allocator mp_heap_allocator(void);
         auto _a = (uintptr_t) a;                                                                   \
         auto _b = (uintptr_t) b;                                                                   \
         if (MAX((_a), (_b)) < MIN((_a) + (a_len), (_b) + (b_len))) {                               \
-            MEMPLUS_ASSERT(0 && "Memory overlaps");                                                \
+            MEMPLUS_ASSERT_MSG(0, "Memory overlaps");                                              \
         }                                                                                          \
     } while (0)
 
