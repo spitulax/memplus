@@ -7,6 +7,7 @@
 int main() {
     auto i = 67;
     logf("Hello, World! %d (Memplus %06X)\n", i, MEMPLUS_VERSION);
+    (void) i;
 
     return 0;
 }

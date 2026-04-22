@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 /* #define MEMPLUS_IMPLEMENTATION */
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -45,6 +46,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 
+// TODO: NDEBUG
 #define MEMPLUS_ASSERT(expr)                                                                       \
     ((expr) ? (void) 0 : ___mp_assert_fail(#expr, __FILE__, __func__, __LINE__, ""))
 
@@ -88,6 +90,8 @@ ___MP_NORETURN void ___mp_assert_fail(
 #define ___MP_PRINTF_FORMAT(fmt_index)
 #endif
 
+/* Indicates error return for `size_t`. */
+#define MP_ERROR ((size_t) -1)
 
 /***********
  * ALLOCATORS
@@ -518,22 +522,6 @@ mp_Allocator mp_heap_allocator(void);
         if ((p) != (a)->len) (a)->data[p] = (a)->data[(a)->len];                                   \
     } while (0)
 
-/* Iterates a dynamic array.
- * This will create a variable `it`, a pointer to the current item.
- *
- * Use it like
- * ```c
- * mp_da_iter(&array) {
- *     (void) it;
- * } mp_end()
- * ```
- *
- * a: Vector* (NO SIDE EFFECTS) */
-#define mp_da_iter(a)                                                                              \
-    for (size_t i = 0; i < (a)->len; ++i) {                                                        \
-        __typeof__((a)->data) it = mp_da_getp((a), i);
-#define mp_end() }
-
 /***********
  * STRING
  ***********/
@@ -595,6 +583,49 @@ void mp_string_builder_appendf(mp_StringBuilder *sb, const char *fmt, ...) ___MP
 /* Copies the buffer of a `mp_StringBuilder` into a null-terminated `mp_String`.
  * Returns invalid `mp_String` if allocation failed. */
 mp_String mp_string_builder_string(const mp_StringBuilder *sb, const mp_Allocator *alloc);
+
+/***********
+ * UTF-8
+ ***********/
+
+/* Calculate the length of a UTF-8 string.
+ * The string is NULL-TERMINATED.
+ * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
+size_t mp_utf8_len(const char *str);
+/* Calculate the length of a UTF-8 string with size (in bytes) parameter.
+ * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
+size_t mp_utf8_len_s(const char *str, size_t size);
+
+/* Iterator for UTF-8 string.
+ *
+ * `c` and `c_len` can be accessed to get the current character's information.
+ *
+ * Example usage:
+ * ```c
+ *  const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂ )⸝♡􏾀";
+ *  mp_Utf8Iter iter  = mp_utf8_iter_new(utf8);
+ *  while (mp_utf8_iter_next(&iter)) {
+ *      (void) iter.c;      // The current character (in char[4])
+ *      (void) iter.c_len;  // The current character size (in bytes)
+ *  }
+ * ```
+ * */
+typedef struct {
+    char c[4];     // Holds current character in iteration
+    char c_len;    // Holds current character's size (in bytes)
+
+    const char *_str;     // The UTF-8 string being iterated on
+    size_t      _size;    // The size of the string (in bytes)
+    size_t      _i;       // The current index of the iteration (in bytes)
+} mp_Utf8Iter;
+
+/* Creates a new `mp_Utf8Iter` that iterates over a UTF-8 string.
+ * The string is NULL-TERMINATED. */
+mp_Utf8Iter mp_utf8_iter_new(const char *str);
+/* Creates a new `mp_Utf8Iter` that iterates over a UTF-8 string with size parameter (in bytes). */
+mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
+/* See `mp_Utf8Iter`. */
+bool mp_utf8_iter_next(mp_Utf8Iter *it);
 
 /***********
  * IMPLEMENTATION
@@ -909,6 +940,100 @@ void mp_string_builder_appendf(mp_StringBuilder *sb, const char *fmt, ...) {
 
 mp_String mp_string_builder_string(const mp_StringBuilder *sb, const mp_Allocator *alloc) {
     return mp_string_new_len(alloc, sb->data, sb->len);
+}
+
+size_t mp_utf8_len(const char *str) {
+    return mp_utf8_len_s(str, strlen(str));
+}
+
+size_t mp_utf8_len_s(const char *str, size_t size) {
+    size_t len         = 0;
+    char   bytes_taken = 0;
+    for (size_t i = 0; i < size; ++i) {
+        char byte = str[i];
+        if (bytes_taken == 0) {
+            for (size_t j = 0; j < 4; ++j) {
+                char bit = (byte >> (7 - j)) & 0x1;
+                if (bit == 0) {
+                    break;
+                } else {
+                    ++bytes_taken;
+                }
+            }
+            if (bytes_taken == 0) {
+                bytes_taken = 1;
+            } else if (bytes_taken == 1) {
+                return MP_ERROR;
+            }
+        } else {
+            if ((byte & 0xC0) != 0x80) {
+                return MP_ERROR;
+            }
+        }
+
+        --bytes_taken;
+        if (bytes_taken == 0) {
+            ++len;
+        }
+    }
+
+    if (bytes_taken > 0) {
+        return MP_ERROR;
+    }
+
+    return len;
+}
+
+mp_Utf8Iter mp_utf8_iter_new(const char *str) {
+    return (mp_Utf8Iter) {
+        ._str  = str,
+        ._size = strlen(str),
+        ._i    = 0,
+    };
+}
+
+mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size) {
+    return (mp_Utf8Iter) {
+        ._str  = str,
+        ._size = size,
+        ._i    = 0,
+    };
+}
+
+bool mp_utf8_iter_next(mp_Utf8Iter *it) {
+    if (it->_i >= it->_size) {
+        return false;
+    }
+
+    char byte = it->_str[it->_i];
+
+    char bytes_taken = 0;
+    for (size_t j = 0; j < 4; ++j) {
+        char bit = (byte >> (7 - j)) & 0x1;
+        if (bit == 0) {
+            break;
+        } else {
+            ++bytes_taken;
+        }
+    }
+    if (bytes_taken == 0) {
+        bytes_taken = 1;
+    } else if (bytes_taken == 1) {
+        return false;
+    }
+
+    // We don't check if the following bytes is valid
+
+    if (it->_i + (size_t) bytes_taken > it->_size) {
+        return false;
+    }
+
+    memcpy(it->c, it->_str + it->_i, (size_t) bytes_taken);
+    it->c_len = bytes_taken;
+
+    it->_i += (size_t) bytes_taken;
+
+    return true;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */

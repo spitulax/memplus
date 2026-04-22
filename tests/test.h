@@ -6,17 +6,24 @@
 #define RED   "\033[31m"
 #define RESET "\033[0m"
 
+#ifdef QUIET
+#define logf(fmt, ...)
+#define logfn(fmt, ...)
+#else
 #define logf(fmt, ...)                                                                             \
     printf("%s:%s():%d: " fmt "\n", __FILE__, __func__, __LINE__ __VA_OPT__(, ) __VA_ARGS__);
+#define logfn(fmt, ...) printf(fmt __VA_OPT__(, ) __VA_ARGS__);
+#endif
+
 #define elogf(fmt, ...)                                                                            \
     fprintf(stderr,                                                                                \
             RED "%s:%s():%d: " fmt "\n" RESET,                                                     \
             __FILE__,                                                                              \
             __func__,                                                                              \
             __LINE__ __VA_OPT__(, ) __VA_ARGS__);
-#define logfn(fmt, ...)  printf(fmt __VA_OPT__(, ) __VA_ARGS__);
 #define elogfn(fmt, ...) fprintf(stderr, RED fmt RESET __VA_OPT__(, ) __VA_ARGS__);
-#define unr()            assert(0 && "unreachable");
+
+#define unr() assert(0 && "unreachable");
 
 #define expect_binop(op, a, b, fmt)                                                                \
     do {                                                                                           \

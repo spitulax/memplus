@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
+set -uo pipefail
+
 CCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb"
+if [[ "${QUIET:-}" -eq 1 ]]; then
+    CCARGS+=" -DQUIET"
+fi
+
 ACCENT="\033[35m"
 RED="\033[31m"
 GREEN="\033[32m"
