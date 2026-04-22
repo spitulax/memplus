@@ -113,7 +113,6 @@ typedef enum {
     MP_ALLOCTYPE_FREE,
 } mp_AllocType;
 
-// TODO: Mark constness on macro
 // TODO: Alloc location
 
 /*
@@ -176,7 +175,7 @@ typedef struct {
     ((alloc)->f(MP_ALLOCTYPE_FREE, (alloc)->context, (size), 0, (ptr)))
 /* Allocate a new chunk of memory for the given type.
  *
- * alloc: mp_Allocator*
+ * alloc: mp_Allocator* (NO SIDE EFFECTS)
  * type: typename
  * Returns `type`* */
 #define mp_create(alloc, type) (mp_alloc((alloc), sizeof(type)))
@@ -184,7 +183,7 @@ typedef struct {
  * data: pointer
  * size: number of bytes
  * Returns void* */
-void *mp_dup(const mp_Allocator *alloc, void *data, size_t size);
+void *mp_dup(mp_Allocator *alloc, void *data, size_t size);
 
 /* Creates a custom allocator given the context and the allocation function.
  *
@@ -304,7 +303,7 @@ mp_Allocator mp_heap_allocator(void);
 */
 
 /* Defines a dynamic array struct given of `type`.
- * You can use it like:
+ * Example usage:
  * ```c
  * typedef mp_da_create(int) ArrayInt;
  * ```
@@ -343,7 +342,7 @@ mp_Allocator mp_heap_allocator(void);
  * `data` becomes NULL if allocation failed.
  *
  * a: DArray* (NO SIDE EFFECTS)
- * item: item type */
+ * item: <item type> */
 #define mp_da_append(a, item)                                                                      \
     do {                                                                                           \
         mp_da_grow((a), 1);                                                                        \
@@ -354,7 +353,7 @@ mp_Allocator mp_heap_allocator(void);
  * `data` becomes NULL if allocation failed.
  *
  * a: DArray* (NO SIDE EFFECTS)
- * ...: item type */
+ * ...: <item type> */
 #define mp_da_append_many(a, ...)                                                                  \
     do {                                                                                           \
         __typeof__(*(a)->data) items[]  = { __VA_ARGS__ };                                         \
@@ -368,8 +367,8 @@ mp_Allocator mp_heap_allocator(void);
  * `data` becomes NULL if allocation failed.
  *
  * a: DArray* (NO SIDE EFFECTS)
- * items: array of item type
- * items_len: length of the array (size_t) */
+ * items: <array of item type>
+ * items_len: size_t */
 #define mp_da_append_array(a, items, items_len)                                                    \
     do {                                                                                           \
         size_t prev_len = (a)->len;                                                                \
@@ -381,7 +380,7 @@ mp_Allocator mp_heap_allocator(void);
 /* Gets an item or a pointer to an item at index `i`.
  * No bounds checking, use `mp_da_get_safe` for that.
  *
- * a: DArray*
+ * a: const DArray*
  * i: integer */
 #define mp_da_get(a, i)  (a)->data[i]
 #define mp_da_getp(a, i) ((a)->data + i)
@@ -389,14 +388,14 @@ mp_Allocator mp_heap_allocator(void);
 /* Gets an item or a pointer to an item at index `i`.
  * Asserts that `i` is not out of bounds.
  *
- * a: DArray*
+ * a: const DArray*
  * i: integer */
 #define mp_da_get_safe(a, i)  (___MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 #define mp_da_getp_safe(a, i) (___MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
 
 /* Gets the first or the last item in a dynamic array.
  *
- * a: DArray* (NO SIDE EFFECTS) */
+ * a: const DArray* (NO SIDE EFFECTS) */
 #define mp_da_first(a) (a)->data[0]
 #define mp_da_last(a)  (a)->data[(a)->len - 1]
 
@@ -486,7 +485,7 @@ mp_Allocator mp_heap_allocator(void);
  *
  * a: DArray* (NO SIDE EFFECTS)
  * pos: size_t
- * item: item type */
+ * item: <item type> */
 #define mp_da_insert(a, pos, item)                                                                 \
     do {                                                                                           \
         MEMPLUS_ASSERT_MSG((pos) >= 0, "`pos` is negative");                                       \
@@ -547,23 +546,23 @@ typedef struct {
 /* Tests if `s` is invalid (i.e. `cstr` == NULL).
  * Returns true if valid.
  *
- * s: mp_String* */
+ * s: const mp_String* */
 #define mp_string_is_valid(s) ((s)->cstr != NULL)
 
 /* Allocates and returns a new `mp_String` from a NULL-TERMINATED string.
  * Returns invalid string if allocation failed. */
-mp_String mp_string_new(const mp_Allocator *alloc, const char *str);
+mp_String mp_string_new(mp_Allocator *alloc, const char *str);
 /* Allocates and returns a new `mp_String` from a string.
  * Returns invalid string if allocation failed. */
-mp_String mp_string_new_len(const mp_Allocator *alloc, const char *str, size_t len);
+mp_String mp_string_new_len(mp_Allocator *alloc, const char *str, size_t len);
 /* Allocates and returns a new `mp_String` from formatted input.
  * Returns invalid string if allocation failed. */
-mp_String mp_string_newf(const mp_Allocator *alloc, const char *fmt, ...) ___MP_PRINTF_FORMAT(2);
+mp_String mp_string_newf(mp_Allocator *alloc, const char *fmt, ...) ___MP_PRINTF_FORMAT(2);
 /* Allocates and returns a clone of `str`.
  * Returns invalid string if allocation failed. */
-mp_String mp_string_clone(const mp_Allocator *alloc, const mp_String *str);
+mp_String mp_string_clone(mp_Allocator *alloc, const mp_String *str);
 /* Frees an `mp_String`. */
-void mp_string_deinit(const mp_Allocator *alloc, mp_String *str);
+void mp_string_deinit(mp_Allocator *alloc, mp_String *str);
 
 /***********
  * STRING BUILDER
@@ -586,7 +585,7 @@ void mp_string_builder_append(mp_StringBuilder *sb, const char *str);
 void mp_string_builder_appendf(mp_StringBuilder *sb, const char *fmt, ...) ___MP_PRINTF_FORMAT(2);
 /* Copies the buffer of a `mp_StringBuilder` into a null-terminated `mp_String`.
  * Returns invalid `mp_String` if allocation failed. */
-mp_String mp_string_builder_string(const mp_StringBuilder *sb, const mp_Allocator *alloc);
+mp_String mp_string_builder_string(const mp_StringBuilder *sb, mp_Allocator *alloc);
 
 /***********
  * UTF-8
@@ -662,7 +661,7 @@ mp_sarena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t o
 static void *
 mp_heap_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
 
-void *mp_dup(const mp_Allocator *alloc, void *data, size_t size) {
+void *mp_dup(mp_Allocator *alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
     if (buf == NULL) return NULL;
     return memcpy(buf, data, size);
@@ -872,13 +871,13 @@ mp_heap_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old
     UNREACHABLE();
 }
 
-mp_String mp_string_new(const mp_Allocator *alloc, const char *str) {
+mp_String mp_string_new(mp_Allocator *alloc, const char *str) {
     int len = snprintf(NULL, 0, "%s", str);
     MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
     return mp_string_new_len(alloc, str, (size_t) len);
 }
 
-mp_String mp_string_new_len(const mp_Allocator *alloc, const char *str, size_t len) {
+mp_String mp_string_new_len(mp_Allocator *alloc, const char *str, size_t len) {
     char *result = mp_alloc(alloc, (size_t) (len + 1));
     if (result == NULL) return mp_string_invalid();
     int result_len = snprintf(result, (size_t) (len + 1), "%.*s", (int) len, str);
@@ -886,7 +885,7 @@ mp_String mp_string_new_len(const mp_Allocator *alloc, const char *str, size_t l
     return (mp_String) { .len = (size_t) result_len, .cstr = result };
 }
 
-mp_String mp_string_newf(const mp_Allocator *alloc, const char *fmt, ...) {
+mp_String mp_string_newf(mp_Allocator *alloc, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
@@ -905,7 +904,7 @@ mp_String mp_string_newf(const mp_Allocator *alloc, const char *fmt, ...) {
     return (mp_String) { .len = (size_t) result_len, .cstr = result };
 }
 
-mp_String mp_string_clone(const mp_Allocator *alloc, const mp_String *str) {
+mp_String mp_string_clone(mp_Allocator *alloc, const mp_String *str) {
     int len = snprintf(NULL, 0, "%s", str->cstr);
     MEMPLUS_ASSERT_MSG(len >= 0 || (size_t) len != str->len, "Failed to count string length");
     char *ptr = mp_dup(alloc, str->cstr, (size_t) len + 1);
@@ -913,7 +912,7 @@ mp_String mp_string_clone(const mp_Allocator *alloc, const mp_String *str) {
     return (mp_String) { .len = (size_t) len, .cstr = ptr };
 }
 
-void mp_string_deinit(const mp_Allocator *alloc, mp_String *str) {
+void mp_string_deinit(mp_Allocator *alloc, mp_String *str) {
     mp_free(alloc, str->cstr, str->len + 1);
     ___MP_ZERO(str);
 }
@@ -942,7 +941,7 @@ void mp_string_builder_appendf(mp_StringBuilder *sb, const char *fmt, ...) {
     }
 }
 
-mp_String mp_string_builder_string(const mp_StringBuilder *sb, const mp_Allocator *alloc) {
+mp_String mp_string_builder_string(const mp_StringBuilder *sb, mp_Allocator *alloc) {
     return mp_string_new_len(alloc, sb->data, sb->len);
 }
 
