@@ -5,7 +5,7 @@
 typedef mp_da_create(int32_t) ArrayInt32;
 
 int main(void) {
-    mp_Allocator alloc = mp_heap_allocator();
+    mp_Alloc alloc = mp_heap_allocator();
 
     ArrayInt32 array;
     mp_da_init(&array, &alloc);

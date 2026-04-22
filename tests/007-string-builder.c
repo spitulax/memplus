@@ -3,26 +3,26 @@
 #include "test.h"
 
 int main(void) {
-    mp_Allocator alloc = mp_heap_allocator();
+    mp_Alloc alloc = mp_heap_allocator();
 
-    mp_StringBuilder sb;
+    mp_StrBuilder sb;
     mp_da_init(&sb, &alloc);
 
-    mp_string_builder_append(&sb, "Hello, World!");
+    mp_str_builder_append(&sb, "Hello, World!");
     expect_eq(sb.len, 13ul, "%zu");
     expect_memeq(sb.data, "Hello, World!", 13);
 
-    mp_string_builder_appendf(&sb, " %d", 67);
+    mp_str_builder_appendf(&sb, " %d", 67);
     expect_eq(sb.len, 16ul, "%zu");
     expect_memeq(sb.data, "Hello, World! 67", 16);
 
     // Other functions should work like dynamic arrays, I hope
 
-    mp_String str = mp_string_builder_string(&sb, &alloc);
+    mp_Str str = mp_str_builder_string(&sb, &alloc);
     expect_eq(str.len, (size_t) strlen(str.cstr), "%zu");
     expect_streq(str.cstr, "Hello, World! 67");
 
-    mp_string_deinit(&alloc, &str);
+    mp_str_deinit(&alloc, &str);
     mp_da_deinit(&sb);
 
     return 0;

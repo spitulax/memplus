@@ -6,7 +6,7 @@
 #define align(a)      (DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
 #define align_down(a) (((a) / sizeof(uintptr_t)) * sizeof(uintptr_t))
 
-void test(mp_Allocator *alloc, mp_Temp *arena) {
+void test(mp_Alloc *alloc, mp_Temp *arena) {
     // First allocation
     mp_alloc(alloc, 10);
     expect_eq(arena->len, (size_t) align(10), "%zu");
@@ -48,11 +48,11 @@ fail:
 int main(void) {
     mp_Arena parent_arena;
     mp_arena_init(&parent_arena);
-    mp_Allocator parent_alloc = mp_arena_allocator(&parent_arena);
+    mp_Alloc parent_alloc = mp_arena_alloc(&parent_arena);
 
     mp_SArena s_arena;
     mp_sarena_init(&s_arena, &parent_alloc, MP_REGION_DEFAULT_SIZE);
-    mp_Allocator s_alloc = mp_sarena_allocator(&s_arena);
+    mp_Alloc s_alloc = mp_sarena_allocator(&s_arena);
     expect_eq(s_arena.cap, (size_t) align(MP_REGION_DEFAULT_SIZE), "%zu");
     test(&s_alloc, (mp_Temp *) &s_arena);
     mp_sarena_deinit(&s_arena);
@@ -61,7 +61,7 @@ int main(void) {
     mp_Temp t_arena;
     char    buf[1050];
     mp_temp_init(&t_arena, buf, sizeof(buf));
-    mp_Allocator t_alloc = mp_temp_allocator(&t_arena);
+    mp_Alloc t_alloc = mp_temp_alloc(&t_arena);
     expect_eq(t_arena.cap, (size_t) align_down(1050), "%zu");
     test(&t_alloc, &t_arena);
 
