@@ -33,9 +33,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <stddef.h>
 #include <stdint.h>
 
-/* Define custom assert macro with `MEMPLUS_ASSERT`.
+/* Define custom assert macro with `MEMPLUS_ASSERT` and `MEMPLUS_ASSERT_MSG`.
  * The macro must accept the expression and the fail message. See the define below. */
-#ifndef MEMPLUS_ASSERT
+#if !(defined(MEMPLUS_ASSERT) && defined(MEMPLUS_ASSERT_MSG))
 
 #if __STDC_VERSION__ >= 201112L
 #define ___MP_NORETURN _Noreturn
@@ -46,7 +46,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 
-// TODO: NDEBUG
+#ifdef NDEBUG
+#define MEMPLUS_ASSERT(expr)
+#define MEMPLUS_ASSERT_MSG(expr, msg)
+#else
 #define MEMPLUS_ASSERT(expr)                                                                       \
     ((expr) ? (void) 0 : ___mp_assert_fail(#expr, __FILE__, __func__, __LINE__, ""))
 
@@ -58,6 +61,7 @@ ___MP_NORETURN void ___mp_assert_fail(
     fprintf(stderr, "%s:%s():%zu: [memplus] %s. `%s` failed.\n", file, func, line, msg, assertion);
     abort();
 }
+#endif
 
 #endif
 

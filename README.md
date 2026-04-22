@@ -9,7 +9,6 @@
 - [x] Sized string
 - [x] String builder
 - [x] UTF-8 string support
-- [ ] Fat pointer
 - [ ] Hash map
 - [ ] IO (file, socket)
 - [ ] Tracking allocator
