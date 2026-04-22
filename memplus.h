@@ -370,19 +370,21 @@ mp_Allocator mp_heap_allocator(void);
             memcpy((a)->data + prev_len, (items), (items_len) * sizeof(*(a)->data));               \
     } while (0)
 
-/* Gets an item at index `i`.
+/* Gets an item or a pointer to an item at index `i`.
  * No bounds checking, use `mp_da_get_safe` for that.
  *
  * a: DArray*
  * i: integer */
-#define mp_da_get(a, i) (a)->data[i]
+#define mp_da_get(a, i)  (a)->data[i]
+#define mp_da_getp(a, i) ((a)->data + i)
 
-/* Gets an item at index `i`.
+/* Gets an item or a pointer to an item at index `i`.
  * Asserts that `i` is not out of bounds.
  *
  * a: DArray*
  * i: integer */
-#define mp_da_get_safe(a, i) (___MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
+#define mp_da_get_safe(a, i)  (___MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
+#define mp_da_getp_safe(a, i) (___MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
 
 /* Gets the first or the last item in a dynamic array.
  *
@@ -515,6 +517,22 @@ mp_Allocator mp_heap_allocator(void);
         mp_da_shrink((a), 1);                                                                      \
         if ((p) != (a)->len) (a)->data[p] = (a)->data[(a)->len];                                   \
     } while (0)
+
+/* Iterates a dynamic array.
+ * This will create a variable `it`, a pointer to the current item.
+ *
+ * Use it like
+ * ```c
+ * mp_da_iter(&array) {
+ *     (void) it;
+ * } mp_end()
+ * ```
+ *
+ * a: Vector* (NO SIDE EFFECTS) */
+#define mp_da_iter(a)                                                                              \
+    for (size_t i = 0; i < (a)->len; ++i) {                                                        \
+        __typeof__((a)->data) it = mp_da_getp((a), i);
+#define mp_end() }
 
 /***********
  * STRING
