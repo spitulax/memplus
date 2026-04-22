@@ -14,11 +14,17 @@ int main(void) {
     expect_streq(s2.cstr, "Hello, World!, 69");
     expect_eq(s2.len, 17uL, "%zu");
 
-    mp_String s3 = mp_string_dup(&alloc, &s2);
+    mp_String s3 = mp_string_clone(&alloc, &s2);
     expect_streq(s3.cstr, "Hello, World!, 69");
     expect_ne((void *) s3.cstr, (void *) s2.cstr, "%p");
     expect_eq(s3.len, 17uL, "%zu");
 
+    char      non_null[] = { 'h', 'e', 'l', 'l', 'o' };
+    mp_String s4         = mp_string_new_len(&alloc, non_null, 5);
+    expect_streq(s4.cstr, "hello");
+    expect_eq(s4.len, 5uL, "%zu");
+
+    mp_string_deinit(&alloc, &s4);
     mp_string_deinit(&alloc, &s3);
     mp_string_deinit(&alloc, &s2);
     mp_string_deinit(&alloc, &s1);

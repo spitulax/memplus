@@ -7,7 +7,7 @@
 - [x] Heap allocator
 - [x] Dynamic array
 - [x] Sized string
-- [ ] String builder
+- [x] String builder
 - [ ] Unicode string
 - [ ] Fat pointer
 - [ ] Hash map
