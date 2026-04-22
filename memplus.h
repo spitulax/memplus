@@ -935,7 +935,7 @@ void mp_string_builder_appendf(mp_StringBuilder *sb, const char *fmt, ...) {
     if (sb->data != NULL) {
         va_start(args, fmt);
         int result_len = vsnprintf(sb->data + prev_len, (size_t) (len + 1), fmt, args);
-        mp_da_shrink(sb, 1uL);
+        mp_da_shrink(sb, 1ul);
         MEMPLUS_ASSERT(result_len == len);
         va_end(args);
     }

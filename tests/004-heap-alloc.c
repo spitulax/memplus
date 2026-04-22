@@ -12,10 +12,10 @@ int main(void) {
 
     uint64_t *p2 = mp_realloc(&alloc, p1, sizeof(*p1), sizeof(*p2));
     *p2          = 69;
-    expect_eq(*p2, 69uL, "%zu");
+    expect_eq(*p2, 69ul, "%zu");
 
     uint64_t *p3 = mp_dup(&alloc, p2, sizeof(*p2));
-    expect_eq(*p3, 69uL, "%zu");
+    expect_eq(*p3, 69ul, "%zu");
     mp_free(&alloc, p2, sizeof(*p2));
     mp_free(&alloc, p3, sizeof(*p3));
 

@@ -4,8 +4,8 @@
 
 int main(void) {
     const char *s1 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂ )⸝♡􏾀";
-    expect_eq(strlen(s1), 58uL, "%lu");
-    expect_eq(mp_utf8_len(s1), 23uL, "%zu");
+    expect_eq(strlen(s1), 58ul, "%lu");
+    expect_eq(mp_utf8_len(s1), 23ul, "%zu");
 
     // `110` prefix indicates a byte will follow, but nothing follows
     const char s2[] = { (char) 0xC0 /*11000000*/ };
@@ -24,7 +24,7 @@ int main(void) {
     while (mp_utf8_iter_next(&iter)) {
         ++count;
     }
-    expect_eq(count, 23uL, "%zu");
+    expect_eq(count, 23ul, "%zu");
 
     return 0;
 
