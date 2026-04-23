@@ -352,11 +352,11 @@ mp_Alloc mp_heap_alloc(void);
  * ...: <item type> */
 #define mp_da_append_many(a, ...)                                                                  \
     do {                                                                                           \
-        __typeof__(*(a)->data) items[]  = { __VA_ARGS__ };                                         \
-        size_t                 len      = sizeof(items) / sizeof(*items);                          \
-        size_t                 prev_len = (a)->len;                                                \
-        mp_da_grow((a), len);                                                                      \
-        if ((a)->data != NULL) memcpy((a)->data + prev_len, items, sizeof(items));                 \
+        __typeof__(*(a)->data) ___items[]  = { __VA_ARGS__ };                                      \
+        size_t                 ___len      = sizeof(___items) / sizeof(*___items);                 \
+        size_t                 ___prev_len = (a)->len;                                             \
+        mp_da_grow((a), ___len);                                                                   \
+        if ((a)->data != NULL) memcpy((a)->data + ___prev_len, ___items, sizeof(___items));        \
     } while (0)
 
 /* Resizes a dynamic array and appends items in an array to the end.
@@ -367,10 +367,10 @@ mp_Alloc mp_heap_alloc(void);
  * items_len: size_t */
 #define mp_da_append_array(a, items, items_len)                                                    \
     do {                                                                                           \
-        size_t prev_len = (a)->len;                                                                \
+        size_t ___prev_len = (a)->len;                                                             \
         mp_da_grow((a), (items_len));                                                              \
         if ((a)->data != NULL)                                                                     \
-            memcpy((a)->data + prev_len, (items), (items_len) * sizeof(*(a)->data));               \
+            memcpy((a)->data + ___prev_len, (items), (items_len) * sizeof(*(a)->data));            \
     } while (0)
 
 /* Gets an item or a pointer to an item at index `i`.
@@ -420,37 +420,37 @@ mp_Alloc mp_heap_alloc(void);
  * offset: size_t */
 #define mp_da_grow(a, offset)                                                                      \
     do {                                                                                           \
-        size_t off = (offset);                                                                     \
-        if ((a)->len + (off) > (a)->cap && (off) > 0) {                                            \
-            size_t old_cap = (a)->cap;                                                             \
+        size_t ___off = (offset);                                                                  \
+        if ((a)->len + ___off > (a)->cap && ___off > 0) {                                          \
+            size_t ___old_cap = (a)->cap;                                                          \
             if ((a)->cap == 0) {                                                                   \
                 (a)->cap = MP_DARRAY_INIT_CAPACITY;                                                \
             }                                                                                      \
-            while ((a)->len + (off) > (a)->cap) {                                                  \
+            while ((a)->len + ___off > (a)->cap) {                                                 \
                 (a)->cap *= 2;                                                                     \
             }                                                                                      \
             (a)->data = mp_realloc((a)->alloc,                                                     \
                                    (a)->data,                                                      \
-                                   old_cap * sizeof(*(a)->data),                                   \
+                                   ___old_cap * sizeof(*(a)->data),                                \
                                    (a)->cap * sizeof(*(a)->data));                                 \
         }                                                                                          \
-        if ((a)->data != NULL) (a)->len += (off);                                                  \
+        if ((a)->data != NULL) (a)->len += ___off;                                                 \
     } while (0)
 #define mp_da_shrink(a, offset)                                                                    \
     do {                                                                                           \
         MEMPLUS_ASSERT_MSG((offset) <= (a)->len, "`offset` is  out of bounds");                    \
-        size_t off = (offset);                                                                     \
-        if ((a)->len - (off) > (a)->cap && (off) > 0) {                                            \
-            size_t old_cap = (a)->cap;                                                             \
+        size_t ___off = (offset);                                                                  \
+        if ((a)->len - ___off > (a)->cap && ___off > 0) {                                          \
+            size_t ___old_cap = (a)->cap;                                                          \
             if ((a)->cap == 0) {                                                                   \
                 (a)->cap = MP_DARRAY_INIT_CAPACITY;                                                \
             }                                                                                      \
             (a)->data = mp_realloc((a)->alloc,                                                     \
                                    (a)->data,                                                      \
-                                   old_cap * sizeof(*(a)->data),                                   \
+                                   ___old_cap * sizeof(*(a)->data),                                \
                                    (a)->cap * sizeof(*(a)->data));                                 \
         }                                                                                          \
-        if ((a)->data != NULL) (a)->len -= (off);                                                  \
+        if ((a)->data != NULL) (a)->len -= ___off;                                                 \
     } while (0)
 
 /* Clones a dynamic array to `dest` to be managed by `allocator`.
@@ -485,14 +485,14 @@ mp_Alloc mp_heap_alloc(void);
 #define mp_da_insert(a, pos, item)                                                                 \
     do {                                                                                           \
         MEMPLUS_ASSERT_MSG((pos) >= 0, "`pos` is negative");                                       \
-        size_t p        = (pos);                                                                   \
-        size_t actual_p = p > (a)->len ? (a)->len : p;                                             \
+        size_t ___p        = (pos);                                                                \
+        size_t ___actual_p = ___p > (a)->len ? (a)->len : ___p;                                    \
         mp_da_grow((a), 1);                                                                        \
         if ((a)->data != NULL) {                                                                   \
-            for (size_t i = (a)->len - 2; i > actual_p; --i)                                       \
-                (a)->data[i + 1] = (a)->data[i];                                                   \
-            (a)->data[actual_p + 1] = (a)->data[actual_p];                                         \
-            (a)->data[actual_p]     = (item);                                                      \
+            for (size_t ___i = (a)->len - 2; ___i > ___actual_p; --___i)                           \
+                (a)->data[___i + 1] = (a)->data[___i];                                             \
+            (a)->data[___actual_p + 1] = (a)->data[___actual_p];                                   \
+            (a)->data[___actual_p]     = (item);                                                   \
         }                                                                                          \
     } while (0)
 
@@ -503,10 +503,10 @@ mp_Alloc mp_heap_alloc(void);
 #define mp_da_delete(a, pos)                                                                       \
     do {                                                                                           \
         ___MP_BOUNDS_CHECK((pos), (a)->len);                                                       \
-        size_t p = (pos);                                                                          \
+        size_t ___p = (pos);                                                                       \
         mp_da_shrink((a), 1);                                                                      \
-        for (size_t i = (p) + 1; i < (a)->len + 1; ++i)                                            \
-            (a)->data[i - 1] = (a)->data[i];                                                       \
+        for (size_t ___i = ___p + 1; ___i < (a)->len + 1; ++___i)                                  \
+            (a)->data[___i - 1] = (a)->data[___i];                                                 \
     } while (0)
 
 /* Deletes an item at the given `pos`. This operation is O(1).
@@ -516,9 +516,9 @@ mp_Alloc mp_heap_alloc(void);
 #define mp_da_unordered_delete(a, pos)                                                             \
     do {                                                                                           \
         ___MP_BOUNDS_CHECK((pos), (a)->len);                                                       \
-        size_t p = (pos);                                                                          \
+        size_t ___p = (pos);                                                                       \
         mp_da_shrink((a), 1);                                                                      \
-        if ((p) != (a)->len) (a)->data[p] = (a)->data[(a)->len];                                   \
+        if (___p != (a)->len) (a)->data[___p] = (a)->data[(a)->len];                               \
     } while (0)
 
 /***********
