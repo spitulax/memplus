@@ -70,12 +70,6 @@ ___MP_NORETURN void ___mp_assert_fail(
 #define MEMPLUS_ALLOC(size) calloc((size), 1)
 #endif
 
-/* Assumed have the same behavior as stdlib's `realloc`. */
-#ifndef MEMPLUS_REALLOC
-#include <stdlib.h>
-#define MEMPLUS_REALLOC(ptr, new_size) realloc((ptr), (new_size))
-#endif
-
 /* Must have the same signature and behavior as stdlib's `free`. */
 #ifndef MEMPLUS_FREE
 #include <stdlib.h>
@@ -128,6 +122,7 @@ typedef enum {
  *    If `old_size` <= `new_size`, reallocation does not happen and the function just return `ptr`.
  *    Otherwise, allocates with size `new_size` and frees the memory pointed by `ptr`.
  *    Does nothing and returns NULL if `new_size` == 0
+ *    Should behave like `MP_ALLOCOP_ALLOC` if `old_size` == 0 or `ptr` == NULL.
  *       - `context`: The allocator context
  *       - `ptr`: The pointer to the data
  *       - `old_size`: The size of that data
@@ -911,6 +906,7 @@ mp_Alloc mp_heap_alloc(void) {
 static void *
 mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr) {
     (void) context;
+    mp_Alloc alloc = mp_alloc_new(NULL, mp_heap_alloc_func);
 
     switch (op) {
         case MP_ALLOCOP_ALLOC: {
@@ -922,11 +918,7 @@ mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_siz
             return MEMPLUS_ALLOC(new_size);
         } break;
         case MP_ALLOCOP_REALLOC: {
-            if (new_size == 0) {
-                return NULL;
-            }
-            if (new_size <= old_size) return ptr;
-            return MEMPLUS_REALLOC(ptr, new_size);
+            return mp_alloc_handle_realloc(&alloc, ptr, old_size, new_size);
         } break;
         case MP_ALLOCOP_FREE: {
             (void) old_size;
