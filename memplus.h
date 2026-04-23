@@ -530,8 +530,8 @@ mp_Alloc mp_heap_alloc(void);
  * STRING
  ***********/
 
-/* Holds a NULL-TERMINATED string and the size of the string (excluding the null-terminator).
- * If its allocation has failed, `cstr` == NULL and `len` == 0. */
+/* Holds a pointer to NULL-TERMINATED string and the size of the string (excluding the
+ * null-terminator). */
 typedef struct {
     size_t len;
     char  *cstr;
@@ -550,6 +550,15 @@ typedef struct {
  * s: const mp_Str* */
 #define mp_str_is_valid(s) ((s)->cstr != NULL)
 
+/* Create a `mp_Str` from a C-string.
+ *
+ * str: const char* (NULL-TERMINATED) */
+#define mp_str(str)                                                                                \
+    ((mp_Str) {                                                                                    \
+        .len  = strlen(str),                                                                       \
+        .cstr = (str),                                                                             \
+    })
+
 /* Allocates and returns a new `mp_Str` from a NULL-TERMINATED string.
  * Returns invalid string if allocation failed. */
 mp_Str mp_str_new(mp_Alloc *alloc, const char *str);
@@ -559,10 +568,11 @@ mp_Str mp_str_new_len(mp_Alloc *alloc, const char *str, size_t len);
 /* Allocates and returns a new `mp_Str` from formatted input.
  * Returns invalid string if allocation failed. */
 mp_Str mp_str_newf(mp_Alloc *alloc, const char *fmt, ...) ___MP_PRINTF_FORMAT(2);
+// TODO: Change parameter order
 /* Allocates and returns a clone of `str`.
  * Returns invalid string if allocation failed. */
 mp_Str mp_str_clone(mp_Alloc *alloc, const mp_Str *str);
-/* Frees an `mp_Str`. */
+/* Frees an allocated `mp_Str`. */
 void mp_str_deinit(mp_Alloc *alloc, mp_Str *str);
 
 /***********
@@ -630,6 +640,47 @@ mp_Utf8Iter mp_utf8_iter_new(const char *str);
 mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
 /* See `mp_Utf8Iter`. */
 bool mp_utf8_iter_next(mp_Utf8Iter *it);
+
+/***********
+ * HASH TABLE
+ ***********/
+
+#define mp_ht_create(key_type, value_type, name)                                                   \
+    typedef struct {                                                                               \
+        key_type    key;                                                                           \
+        value_type *value;                                                                         \
+    } ___##name##Entry;                                                                            \
+    typedef struct {                                                                               \
+        mp_Alloc         *alloc;                                                                   \
+        ___##name##Entry *entries;                                                                 \
+        size_t            len;                                                                     \
+        size_t            cap;                                                                     \
+        uint64_t (*f)(mp_HtOp op, key_type v);                                                     \
+    } name;                                                                                        \
+    typedef struct {                                                                               \
+        key_type    key;                                                                           \
+        value_type *value;                                                                         \
+        name       *_table;                                                                        \
+        size_t      _i;                                                                            \
+    } name##Iter
+
+typedef enum {
+    MP_HTOP_EQ,
+    MP_HTOP_HASH,
+} mp_HtOp;
+
+#define mp_ht_init(ht, allocator, ht_fn)                                                           \
+    do {                                                                                           \
+        ___MP_ZERO(ht);                                                                            \
+        (ht)->alloc = (allocator);                                                                 \
+        (ht)->f     = (ht_fn);                                                                     \
+    } while (0)
+
+#define mp_ht_deinit(ht)                                                                           \
+    do {                                                                                           \
+        mp_free((ht)->alloc, (ht)->entries, (ht)->cap);                                            \
+        ___MP_ZERO(ht);                                                                            \
+    } while (0)
 
 /***********
  * IMPLEMENTATION
@@ -799,7 +850,7 @@ void mp_sarena_deinit(mp_SArena *a) {
     ___MP_ZERO(a);
 }
 
-mp_Alloc mp_sarena_allocator(const mp_SArena *a) {
+mp_Alloc mp_sarena_alloc(const mp_SArena *a) {
     return mp_alloc_new(a, mp_sarena_alloc_func);
 }
 
@@ -853,7 +904,7 @@ mp_Alloc mp_temp_alloc(const mp_Temp *t) {
     return mp_alloc_new(t, mp_sarena_alloc_func);
 }
 
-mp_Alloc mp_heap_allocator(void) {
+mp_Alloc mp_heap_alloc(void) {
     return mp_alloc_new(NULL, mp_heap_alloc_func);
 }
 

@@ -52,7 +52,7 @@ int main(void) {
 
     mp_SArena s_arena;
     mp_sarena_init(&s_arena, &parent_alloc, MP_REGION_DEFAULT_SIZE);
-    mp_Alloc s_alloc = mp_sarena_allocator(&s_arena);
+    mp_Alloc s_alloc = mp_sarena_alloc(&s_arena);
     expect_eq(s_arena.cap, (size_t) align(MP_REGION_DEFAULT_SIZE), "%zu");
     test(&s_alloc, (mp_Temp *) &s_arena);
     mp_sarena_deinit(&s_arena);

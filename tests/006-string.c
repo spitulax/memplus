@@ -3,7 +3,11 @@
 #include "test.h"
 
 int main(void) {
-    mp_Alloc alloc = mp_heap_allocator();
+    mp_Alloc alloc = mp_heap_alloc();
+
+    mp_Str sv = mp_str("Hello");
+    expect_streq(sv.cstr, "Hello");
+    expect_eq(sv.len, 5ul, "%zu");
 
     mp_Str s1 = mp_str_new(&alloc, "Hello, World!");
     expect_streq(s1.cstr, "Hello, World!");

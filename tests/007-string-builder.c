@@ -3,7 +3,7 @@
 #include "test.h"
 
 int main(void) {
-    mp_Alloc alloc = mp_heap_allocator();
+    mp_Alloc alloc = mp_heap_alloc();
 
     mp_StrBuilder sb;
     mp_da_init(&sb, &alloc);
