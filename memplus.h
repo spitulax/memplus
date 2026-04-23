@@ -17,7 +17,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 /*
- *
  * Changelog:
  *
  * # Version 0.1.0
@@ -108,10 +107,10 @@ ___MP_NORETURN void ___mp_assert_fail(
 #endif
 
 typedef enum {
-    MP_ALLOCTYPE_ALLOC,
-    MP_ALLOCTYPE_REALLOC,
-    MP_ALLOCTYPE_FREE,
-} mp_AllocType;
+    MP_ALLOCOP_ALLOC,
+    MP_ALLOCOP_REALLOC,
+    MP_ALLOCOP_FREE,
+} mp_AllocOp;
 
 // TODO: Alloc location
 
@@ -120,27 +119,27 @@ typedef enum {
  * They also use their parameters differently on each type.
  *
  *  Types:
- *  - MP_ALLOCTYPE_ALLOC: Allocates
+ *  - MP_ALLOCOP_ALLOC: Allocates
  *       - `context`: The allocator context
  *       - `new_size`: The size of the allocated memory
  *       - ignores other parameters
- *  - MP_ALLOCTYPE_REALLOC: Reallocates a data
+ *  - MP_ALLOCOP_REALLOC: Reallocates a data
  *    If `old_size` <= `new_size`, reallocation does not happen and the function just return `ptr`.
  *    Otherwise, allocates with size `new_size` and frees the memory pointed by `ptr`.
  *       - `context`: The allocator context
  *       - `ptr`: The pointer to the data
  *       - `old_size`: The size of that data
  *       - `new_size`: The new size of the data
- *  - MP_ALLOCTYPE_FREE: Frees a data that has been allocated
+ *  - MP_ALLOCOP_FREE: Frees a data that has been allocated
  *       - `context`: The allocator context
  *       - `ptr`: The data to be freed
  *       - `new_size`: The size of the data (mostly for logging purpose)
  *       - ignores other parameters
  *
  *  Returns the pointer to the newly allocated memory. May return NULL if allocation failed.
- *  Always returns NULL on MP_ALLOCTYPE_FREE. */
+ *  Always returns NULL on MP_ALLOCOP_FREE. */
 typedef void *(*mp_AllocFunc)(
-    mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
+    mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 
 /* Interface to wrap functions to allocate memory.
  * The method of allocation can be customized by the user. */
@@ -159,20 +158,19 @@ typedef struct {
 /* alloc: mp_Alloc* (NO SIDE EFFECTS)
  * size: number of bytes
  * Returns void* */
-#define mp_alloc(alloc, size) ((alloc)->f(MP_ALLOCTYPE_ALLOC, (alloc)->context, (size), 0, NULL))
+#define mp_alloc(alloc, size) ((alloc)->f(MP_ALLOCOP_ALLOC, (alloc)->context, (size), 0, NULL))
 /* alloc: mp_Alloc* (NO SIDE EFFECTS)
  * old_ptr: pointer
  * old_size: number of bytes
  * new_size: number of bytes
  * Returns void* */
 #define mp_realloc(alloc, old_ptr, old_size, new_size)                                             \
-    ((alloc)->f(MP_ALLOCTYPE_REALLOC, (alloc)->context, (new_size), (old_size), (old_ptr)))
+    ((alloc)->f(MP_ALLOCOP_REALLOC, (alloc)->context, (new_size), (old_size), (old_ptr)))
 /* alloc: mp_Alloc* (NO SIDE EFFECTS)
  * ptr: pointer (nullability depends on the allocator implementation)
  * size: number of bytes
  * Returns NULL */
-#define mp_free(alloc, ptr, size)                                                                  \
-    ((alloc)->f(MP_ALLOCTYPE_FREE, (alloc)->context, (size), 0, (ptr)))
+#define mp_free(alloc, ptr, size) ((alloc)->f(MP_ALLOCOP_FREE, (alloc)->context, (size), 0, (ptr)))
 /* Allocate a new chunk of memory for the given type.
  *
  * alloc: mp_Alloc* (NO SIDE EFFECTS)
@@ -654,11 +652,11 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
     } while (0)
 
 static void *
-mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
+mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 static void *
-mp_sarena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
+mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 static void *
-mp_heap_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr);
+mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 
 void *mp_dup(mp_Alloc *alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
@@ -719,12 +717,12 @@ mp_Alloc mp_arena_alloc(const mp_Arena *a) {
 }
 
 static void *
-mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr) {
+mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr) {
     mp_Arena *ctx   = context;
     mp_Alloc  alloc = mp_alloc_new(ctx, mp_arena_alloc_func);
 
-    switch (type) {
-        case MP_ALLOCTYPE_ALLOC: {
+    switch (op) {
+        case MP_ALLOCOP_ALLOC: {
             (void) old_size;
             (void) ptr;
 
@@ -760,10 +758,10 @@ mp_arena_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t ol
             ctx->len += alloc_size;
             return result;
         } break;
-        case MP_ALLOCTYPE_REALLOC: {
+        case MP_ALLOCOP_REALLOC: {
             return mp_allocator_handle_realloc(&alloc, ptr, old_size, new_size);
         } break;
-        case MP_ALLOCTYPE_FREE: {
+        case MP_ALLOCOP_FREE: {
             (void) old_size;
 
             return NULL;
@@ -795,13 +793,13 @@ mp_Alloc mp_sarena_allocator(const mp_SArena *a) {
     return mp_alloc_new(a, mp_sarena_alloc_func);
 }
 
-static void *mp_sarena_alloc_func(
-    mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr) {
+static void *
+mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr) {
     mp_SArena *ctx   = context;
     mp_Alloc   alloc = mp_alloc_new(ctx, mp_sarena_alloc_func);
 
-    switch (type) {
-        case MP_ALLOCTYPE_ALLOC: {
+    switch (op) {
+        case MP_ALLOCOP_ALLOC: {
             (void) old_size;
             (void) ptr;
 
@@ -814,10 +812,10 @@ static void *mp_sarena_alloc_func(
             ctx->len += alloc_size;
             return result;
         } break;
-        case MP_ALLOCTYPE_REALLOC: {
+        case MP_ALLOCOP_REALLOC: {
             return mp_allocator_handle_realloc(&alloc, ptr, old_size, new_size);
         } break;
-        case MP_ALLOCTYPE_FREE: {
+        case MP_ALLOCOP_FREE: {
             (void) old_size;
 
             return NULL;
@@ -846,21 +844,21 @@ mp_Alloc mp_heap_allocator(void) {
 }
 
 static void *
-mp_heap_alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr) {
+mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr) {
     (void) context;
 
-    switch (type) {
-        case MP_ALLOCTYPE_ALLOC: {
+    switch (op) {
+        case MP_ALLOCOP_ALLOC: {
             (void) old_size;
             (void) ptr;
 
             return MEMPLUS_ALLOC(new_size);
         } break;
-        case MP_ALLOCTYPE_REALLOC: {
+        case MP_ALLOCOP_REALLOC: {
             if (new_size <= old_size) return ptr;
             return MEMPLUS_REALLOC(ptr, new_size);
         } break;
-        case MP_ALLOCTYPE_FREE: {
+        case MP_ALLOCOP_FREE: {
             (void) old_size;
             // `new_size` is unused
             MEMPLUS_FREE(ptr);

@@ -3,12 +3,12 @@
 #include "test.h"
 #include <stdint.h>
 
-void *alloc_func(mp_AllocType type, void *context, size_t new_size, size_t old_size, void *ptr) {
+void *alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr) {
     expect_eq(context, (void *) 69, "%p");
-    switch (type) {
-        case MP_ALLOCTYPE_ALLOC:   return (void *) new_size;
-        case MP_ALLOCTYPE_REALLOC: return (void *) (new_size + old_size + (uintptr_t) ptr);
-        case MP_ALLOCTYPE_FREE:    return (void *) (new_size + (uintptr_t) ptr);
+    switch (op) {
+        case MP_ALLOCOP_ALLOC:   return (void *) new_size;
+        case MP_ALLOCOP_REALLOC: return (void *) (new_size + old_size + (uintptr_t) ptr);
+        case MP_ALLOCOP_FREE:    return (void *) (new_size + (uintptr_t) ptr);
     }
     unr();
 
