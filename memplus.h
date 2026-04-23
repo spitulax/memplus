@@ -120,17 +120,20 @@ typedef enum {
  *
  *  Types:
  *  - MP_ALLOCOP_ALLOC: Allocates
+ *    Does nothing and returns NULL if `new_size` == 0.
  *       - `context`: The allocator context
  *       - `new_size`: The size of the allocated memory
  *       - ignores other parameters
  *  - MP_ALLOCOP_REALLOC: Reallocates a data
  *    If `old_size` <= `new_size`, reallocation does not happen and the function just return `ptr`.
  *    Otherwise, allocates with size `new_size` and frees the memory pointed by `ptr`.
+ *    Does nothing and returns NULL if `new_size` == 0
  *       - `context`: The allocator context
  *       - `ptr`: The pointer to the data
  *       - `old_size`: The size of that data
  *       - `new_size`: The new size of the data
  *  - MP_ALLOCOP_FREE: Frees a data that has been allocated
+ *    Does nothing if `ptr` == NULL.
  *       - `context`: The allocator context
  *       - `ptr`: The data to be freed
  *       - `new_size`: The size of the data (mostly for logging purpose)
@@ -196,7 +199,8 @@ void *mp_dup(mp_Alloc *alloc, void *data, size_t size);
 
 /* Handles reallocation for custom allocators.
  * You can slot this into your allocator function as long as alloc and free functionalities are
- * defined. For details see the implementation. */
+ * defined. For details see the implementation.
+ * Does nothing and returns NULL if `new_size` == 0 */
 void *mp_alloc_handle_realloc(mp_Alloc *alloc, void *old_ptr, size_t old_size, size_t new_size);
 
 typedef struct mp_Region mp_Region;
@@ -664,8 +668,10 @@ void *mp_dup(mp_Alloc *alloc, void *data, size_t size) {
     return memcpy(buf, data, size);
 }
 
-void *
-mp_allocator_handle_realloc(mp_Alloc *alloc, void *old_ptr, size_t old_size, size_t new_size) {
+void *mp_alloc_handle_realloc(mp_Alloc *alloc, void *old_ptr, size_t old_size, size_t new_size) {
+    if (new_size == 0) {
+        return NULL;
+    }
     if (new_size <= old_size) return old_ptr;
     void *new_ptr = mp_alloc(alloc, new_size);
     if (new_ptr == NULL) return NULL;
@@ -726,6 +732,10 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
             (void) old_size;
             (void) ptr;
 
+            if (new_size == 0) {
+                return NULL;
+            }
+
             size_t alloc_size = ALIGN(new_size, sizeof(uintptr_t));
 
             if (ctx->end == NULL) {
@@ -759,7 +769,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
             return result;
         } break;
         case MP_ALLOCOP_REALLOC: {
-            return mp_allocator_handle_realloc(&alloc, ptr, old_size, new_size);
+            return mp_alloc_handle_realloc(&alloc, ptr, old_size, new_size);
         } break;
         case MP_ALLOCOP_FREE: {
             (void) old_size;
@@ -803,6 +813,10 @@ mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_s
             (void) old_size;
             (void) ptr;
 
+            if (new_size == 0) {
+                return NULL;
+            }
+
             size_t alloc_size = ALIGN(new_size, sizeof(uintptr_t));
 
             MEMPLUS_ASSERT(ctx->len % sizeof(uintptr_t) == 0);
@@ -813,7 +827,7 @@ mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_s
             return result;
         } break;
         case MP_ALLOCOP_REALLOC: {
-            return mp_allocator_handle_realloc(&alloc, ptr, old_size, new_size);
+            return mp_alloc_handle_realloc(&alloc, ptr, old_size, new_size);
         } break;
         case MP_ALLOCOP_FREE: {
             (void) old_size;
@@ -851,15 +865,23 @@ mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_siz
         case MP_ALLOCOP_ALLOC: {
             (void) old_size;
             (void) ptr;
-
+            if (new_size == 0) {
+                return NULL;
+            }
             return MEMPLUS_ALLOC(new_size);
         } break;
         case MP_ALLOCOP_REALLOC: {
+            if (new_size == 0) {
+                return NULL;
+            }
             if (new_size <= old_size) return ptr;
             return MEMPLUS_REALLOC(ptr, new_size);
         } break;
         case MP_ALLOCOP_FREE: {
             (void) old_size;
+            if (ptr == NULL) {
+                return NULL;
+            }
             // `new_size` is unused
             MEMPLUS_FREE(ptr);
             return NULL;
