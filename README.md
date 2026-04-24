@@ -14,7 +14,6 @@
 - [ ] Tracking allocator
 - [ ] Subprocess
 - [ ] Other kinds of allocators
-- [ ] Linear algebra?
 
 ## Usage
 

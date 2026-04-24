@@ -19,8 +19,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /*
  * Changelog:
  *
- * # Version 0.1.0
- * - Rewritten the library.
  */
 
 #ifndef MEMPLUS_H__
