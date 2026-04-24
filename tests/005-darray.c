@@ -2,7 +2,7 @@
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 
-typedef mp_da_create(int32_t) ArrayInt32;
+mp_da_create(int32_t, ArrayInt32);
 
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();

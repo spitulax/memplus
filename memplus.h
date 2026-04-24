@@ -298,21 +298,21 @@ mp_Alloc mp_heap_alloc(void);
     ```
 */
 
-// TODO: Maybe just do typedef here to be consistent with `mp_ht`
 /* Defines a dynamic array struct given of `type`.
  * Example usage:
  * ```c
- * typedef mp_da_create(int) ArrayInt;
+ * mp_da_create(int, ArrayInt);
  * ```
  *
- * type: typename */
-#define mp_da_create(type)                                                                         \
-    struct {                                                                                       \
+ * type: typename
+ * name: identifier */
+#define mp_da_create(type, name)                                                                   \
+    typedef struct {                                                                               \
         mp_Alloc *alloc;                                                                           \
         size_t    len;                                                                             \
         size_t    cap;                                                                             \
         type     *data;                                                                            \
-    }
+    } name
 
 /* Initializes a new dynamic array managed by `allocator`.
  *
@@ -577,7 +577,7 @@ void mp_str_deinit(mp_Alloc *alloc, mp_Str *str);
  *
  * To convert `mp_StrBuilder` to C string, use `mp_str_builder_string()` which returns a
  * null-terminated `mp_Str`. */
-typedef mp_da_create(char) mp_StrBuilder;
+mp_da_create(char, mp_StrBuilder);
 
 /* Appends a NULL-TERMINATED string to a `mp_StrBuilder`.
  * `data` becomes NULL if allocation failed. */
@@ -659,7 +659,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
         mp_Str     key;                                                                            \
         value_type val;                                                                            \
     } __##name##Entry;                                                                             \
-    typedef mp_da_create(__##name##Entry) name
+    mp_da_create(__##name##Entry, name)
 
 /* Initializes a new hash table managed by `allocator`.
  *
@@ -878,7 +878,6 @@ static void *
 mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 static void *
 mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
-static uint64_t mp_ht_hash_str(const mp_Str *str);
 
 void *mp_dup(mp_Alloc *alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
