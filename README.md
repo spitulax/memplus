@@ -9,7 +9,7 @@
 - [x] Sized string
 - [x] String builder
 - [x] UTF-8 string support
-- [ ] Hash map
+- [x] Hash table
 - [ ] IO (file, socket)
 - [ ] Tracking allocator
 - [ ] Subprocess

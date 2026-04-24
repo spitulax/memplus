@@ -64,12 +64,12 @@ __MP_NORETURN void __mp_assert_fail(
 
 #endif
 
+/* Please do not use these two defines inside a macro in this library. */
 /* Assumed have the same behavior as stdlib's `calloc(..., 1)`. */
 #ifndef MEMPLUS_ALLOC
 #include <stdlib.h>
 #define MEMPLUS_ALLOC(size) calloc((size), 1)
 #endif
-
 /* Must have the same signature and behavior as stdlib's `free`. */
 #ifndef MEMPLUS_FREE
 #include <stdlib.h>
@@ -94,7 +94,7 @@ __MP_NORETURN void __mp_assert_fail(
  * ALLOCATORS
  ***********/
 
-/* Default size of a single region in bytes. You can adjust this to your liking.
+/* Default size of a single region in bytes.
  * Will be aligned to the nearest increment of `sizeof(uintptr_t)`. */
 #ifndef MP_REGION_DEFAULT_SIZE
 #define MP_REGION_DEFAULT_SIZE (64 * 1024)
@@ -275,7 +275,7 @@ mp_Alloc mp_heap_alloc(void);
  * DYNAMIC ARRAY
  ***********/
 
-/* Starting capacity of a dynamic array. You can adjust this to your liking. */
+/* Starting capacity of a dynamic array. */
 #ifndef MP_DARRAY_INIT_CAPACITY
 #define MP_DARRAY_INIT_CAPACITY 64
 #endif
@@ -314,7 +314,7 @@ mp_Alloc mp_heap_alloc(void);
         type     *data;                                                                            \
     }
 
-/* Initializes a new dynamic array and tell it to use `alloc`.
+/* Initializes a new dynamic array managed by `allocator`.
  *
  * a: DArray* (NO SIDE EFFECTS)
  * allocator: mp_Alloc* */
@@ -424,12 +424,9 @@ mp_Alloc mp_heap_alloc(void);
         size_t __off = (offset);                                                                   \
         if ((a)->len + __off > (a)->cap && __off > 0) {                                            \
             size_t __old_cap = (a)->cap;                                                           \
-            if ((a)->cap == 0) {                                                                   \
-                (a)->cap = MP_DARRAY_INIT_CAPACITY;                                                \
-            }                                                                                      \
-            while ((a)->len + __off > (a)->cap) {                                                  \
+            if ((a)->cap == 0) (a)->cap = MP_DARRAY_INIT_CAPACITY;                                 \
+            while ((a)->len + __off > (a)->cap)                                                    \
                 (a)->cap *= 2;                                                                     \
-            }                                                                                      \
             (a)->data = mp_realloc((a)->alloc,                                                     \
                                    (a)->data,                                                      \
                                    __old_cap * sizeof(*(a)->data),                                 \
@@ -443,9 +440,7 @@ mp_Alloc mp_heap_alloc(void);
         size_t __off = (offset);                                                                   \
         if ((a)->len - __off > (a)->cap && __off > 0) {                                            \
             size_t __old_cap = (a)->cap;                                                           \
-            if ((a)->cap == 0) {                                                                   \
-                (a)->cap = MP_DARRAY_INIT_CAPACITY;                                                \
-            }                                                                                      \
+            if ((a)->cap == 0) (a)->cap = MP_DARRAY_INIT_CAPACITY;                                 \
             (a)->data = mp_realloc((a)->alloc,                                                     \
                                    (a)->data,                                                      \
                                    __old_cap * sizeof(*(a)->data),                                 \
@@ -638,45 +633,220 @@ mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
 bool mp_utf8_iter_next(mp_Utf8Iter *it);
 
 /***********
- * HASH TABLE
+ * HASH TABLE (STRING KEY)
  ***********/
 
-#define mp_ht_create(key_type, value_type, name)                                                   \
-    typedef struct {                                                                               \
-        key_type    key;                                                                           \
-        value_type *value;                                                                         \
-    } ___##name##Entry;                                                                            \
-    typedef struct {                                                                               \
-        mp_Alloc         *alloc;                                                                   \
-        ___##name##Entry *entries;                                                                 \
-        size_t            len;                                                                     \
-        size_t            cap;                                                                     \
-        uint64_t (*f)(mp_HtOp op, key_type v);                                                     \
-    } name;                                                                                        \
-    typedef struct {                                                                               \
-        key_type    key;                                                                           \
-        value_type *value;                                                                         \
-        name       *_table;                                                                        \
-        size_t      _i;                                                                            \
-    } name##Iter
+/* Percentage of elements in a hash table before it resizes. */
+#ifndef MP_HASH_TABLE_MAX_LOAD
+#define MP_HASH_TABLE_MAX_LOAD 0.75
+#endif
 
-typedef enum {
-    MP_HTOP_EQ,
-    MP_HTOP_HASH,
-} mp_HtOp;
+/* Starting capacity of a hash table. */
+#ifndef MP_HASH_TABLE_INIT_CAPACITY
+#define MP_HASH_TABLE_INIT_CAPACITY MP_DARRAY_INIT_CAPACITY
+#endif
 
-#define mp_ht_init(ht, allocator, ht_fn)                                                           \
-    do {                                                                                           \
-        ___MP_ZERO(ht);                                                                            \
-        (ht)->alloc = (allocator);                                                                 \
-        (ht)->f     = (ht_fn);                                                                     \
-    } while (0)
+/* Defines a hash table struct with value of type `value_type`.
+ * Example usage:
+ * ```c
+ * mp_ht_create(int, HashTableInt);
+ * ```
+ *
+ * value_type: typename
+ * name: identifier */
+#define mp_ht_create(value_type, name)                                                             \
+    typedef struct {                                                                               \
+        mp_Str     key;                                                                            \
+        value_type val;                                                                            \
+    } __##name##Entry;                                                                             \
+    typedef mp_da_create(__##name##Entry) name
 
+/* Initializes a new hash table managed by `allocator`.
+ *
+ * ht: HashTable* (NO SIDE EFFECTS)
+ * allocator: mp_Alloc* */
+#define mp_ht_init(ht, allocator) mp_da_init(ht, allocator)
+
+/* Frees a hash table.
+ *
+ * ht: HashTable* (NO SIDE EFFECTS) */
 #define mp_ht_deinit(ht)                                                                           \
     do {                                                                                           \
-        mp_free((ht)->alloc, (ht)->entries, (ht)->cap);                                            \
-        ___MP_ZERO(ht);                                                                            \
+        for (size_t __i = 0; __i < (ht)->cap; __i++) {                                             \
+            if (mp_str_is_valid(&(ht)->data[__i].key))                                             \
+                mp_str_deinit((ht)->alloc, &(ht)->data[__i].key);                                  \
+        }                                                                                          \
+        mp_da_deinit(ht);                                                                          \
     } while (0)
+
+/* Gets a pointer to an item with key `k` and put it into `res`.
+ * `res` becomes NULL if it could not retrieve the item.
+ *
+ * ht: const DArray*
+ * k: const char* (NON-NULL)
+ * res: <value type>* */
+#define mp_ht_get(ht, k, res) mp_ht_get_s((ht), &mp_str(k), (res))
+
+/* The same as above but accepts `mp_Str*`.
+ *
+ * ht: const DArray*
+ * k: mp_Str*
+ * res: <value type>* */
+#define mp_ht_get_s(ht, k, res)                                                                    \
+    do {                                                                                           \
+        bool __found = false;                                                                      \
+        if ((k) != NULL) {                                                                         \
+            mp_Str   __key  = *(k);                                                                \
+            uint64_t __hash = mp_ht_hash_str(&__key);                                              \
+            size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
+            while (__i < (ht)->cap && (mp_str_is_valid(&(ht)->data[__i].key) ||                    \
+                                       *(char *) &(ht)->data[__i].val == 1)) {                     \
+                if (mp_str_is_valid(&(ht)->data[__i].key) &&                                       \
+                    strcmp(__key.cstr, (ht)->data[__i].key.cstr) == 0) {                           \
+                    (res)   = &(ht)->data[__i].val;                                                \
+                    __found = true;                                                                \
+                    break;                                                                         \
+                }                                                                                  \
+                ++__i;                                                                             \
+                if (__i >= (ht)->cap) __i = 0;                                                     \
+            }                                                                                      \
+        }                                                                                          \
+        if (!__found) (res) = NULL;                                                                \
+    } while (0)
+
+/* Sets the value at key `k` to `v`.
+ * When the item at `k` has not been initialized before, the key is cloned.
+ * `data` becomes NULL if allocation failed.
+ *
+ * ht: const DArray*
+ * k: const char*
+ * res: <value type>* */
+#define mp_ht_set(ht, k, v) mp_ht_set_s((ht), &mp_str(k), (v))
+
+/* The same as above but accepts `mp_Str*`.
+ *
+ * ht: const DArray*
+ * k: mp_Str*
+ * v: <value type> */
+#define mp_ht_set_s(ht, k, v)                                                                      \
+    do {                                                                                           \
+        mp_Str __key = *(k);                                                                       \
+        mp_ht_grow((ht), 1);                                                                       \
+        if ((ht)->data != NULL) {                                                                  \
+            uint64_t __hash = mp_ht_hash_str(&__key);                                              \
+            size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
+            for (;;) {                                                                             \
+                if (!mp_str_is_valid(&(ht)->data[__i].key)) {                                      \
+                    (ht)->data[__i].key = mp_str_clone((ht)->alloc, &__key);                       \
+                    (ht)->data[__i].val = (v);                                                     \
+                    break;                                                                         \
+                } else if (strcmp((ht)->data[__i].key.cstr, __key.cstr) == 0) {                    \
+                    (ht)->data[__i].val = (v);                                                     \
+                    --(ht)->len;                                                                   \
+                    break;                                                                         \
+                } else {                                                                           \
+                    ++__i;                                                                         \
+                }                                                                                  \
+                if (__i >= (ht)->cap) __i = 0;                                                     \
+            }                                                                                      \
+        }                                                                                          \
+    } while (0)
+
+/* Resizes a dynamic array to `offset` of the current `len`.
+ * If the current capacity is 0, allocates for `MP_DARRAY_INIT_CAPACITY` items.
+ * If the current capacity is not large enough, allocates for double the current capacity.
+ * `data` becomes NULL if allocation failed.
+ * `offset` must be POSITIVE.
+ *
+ * ht: HashTable* (NO SIDE EFFECTS)
+ * offset: size_t */
+#define mp_ht_grow(ht, offset)                                                                     \
+    do {                                                                                           \
+        size_t __off = (offset);                                                                   \
+        if ((ht)->len + __off > (size_t) ((double) (ht)->cap * MP_HASH_TABLE_MAX_LOAD) &&          \
+            __off > 0) {                                                                           \
+            size_t __old_cap = (ht)->cap;                                                          \
+            if ((ht)->cap == 0) (ht)->cap = MP_HASH_TABLE_INIT_CAPACITY;                           \
+            while ((ht)->len + __off > (size_t) ((double) (ht)->cap * MP_HASH_TABLE_MAX_LOAD))     \
+                (ht)->cap *= 2;                                                                    \
+            __typeof__((ht)->data) __new_data =                                                    \
+                mp_alloc((ht)->alloc, (ht)->cap * sizeof(*(ht)->data));                            \
+            for (size_t __i = 0; __i < __old_cap; ++__i) {                                         \
+                if (mp_str_is_valid(&(ht)->data[__i].key)) {                                       \
+                    uint64_t __hash  = mp_ht_hash_str(&(ht)->data[__i].key);                       \
+                    size_t   __new_i = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));             \
+                    for (;;) {                                                                     \
+                        if (!mp_str_is_valid(&__new_data[__new_i].key)) {                          \
+                            __new_data[__new_i].key =                                              \
+                                mp_str_clone((ht)->alloc, &(ht)->data[__i].key);                   \
+                            __new_data[__new_i].val = (ht)->data[__i].val;                         \
+                            break;                                                                 \
+                        } else {                                                                   \
+                            ++__new_i;                                                             \
+                        }                                                                          \
+                        if (__new_i >= (ht)->cap) __new_i = 0;                                     \
+                    }                                                                              \
+                }                                                                                  \
+            }                                                                                      \
+            __mp_ht_free_entries((ht)->data, (ht)->alloc, __old_cap);                              \
+            mp_free((ht)->alloc, (ht)->data, __old_cap);                                           \
+            (ht)->data = __new_data;                                                               \
+        }                                                                                          \
+        if ((ht)->data != NULL) (ht)->len += __off;                                                \
+    } while (0)
+
+#define __mp_ht_free_entries(entries, alloc, cap)                                                  \
+    do {                                                                                           \
+        for (size_t __i = 0; __i < (cap); ++__i) {                                                 \
+            if (mp_str_is_valid(&(entries)[__i].key)) {                                            \
+                mp_str_deinit((alloc), &(entries)[__i].key);                                       \
+                MEMPLUS_ASSERT(!mp_str_is_valid(&(entries)[__i].key));                             \
+            }                                                                                      \
+        }                                                                                          \
+    } while (0)
+
+/* Sets the length of a dynamic array to 0 and frees its keys.
+ *
+ * ht: HashTable* */
+#define mp_ht_reset(ht)                                                                            \
+    do {                                                                                           \
+        __mp_ht_free_entries((ht)->data, (ht)->alloc, (ht)->cap);                                  \
+        mp_da_reset(ht);                                                                           \
+    } while (0)
+
+/* Deletes an item at key `k`.
+ * This does not shrink the hash table, but it just marks the spot as "deleted", which may be
+ * overridden by subsequent sets.
+ *
+ * ht: HashTable*
+ * k: const char* */
+#define mp_ht_delete(ht, k) mp_ht_delete_s((ht), &mp_str(k))
+
+/* The same as above but accepts `mp_Str*`.
+ *
+ * ht: const DArray*
+ * k: mp_Str* */
+#define mp_ht_delete_s(ht, k)                                                                      \
+    do {                                                                                           \
+        if ((k) != NULL) {                                                                         \
+            mp_Str   __key  = *(k);                                                                \
+            uint64_t __hash = mp_ht_hash_str(&__key);                                              \
+            size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
+            while (__i < (ht)->cap && mp_str_is_valid(&(ht)->data[__i].key)) {                     \
+                if (strcmp(__key.cstr, (ht)->data[__i].key.cstr) == 0) {                           \
+                    mp_str_deinit((ht)->alloc, &(ht)->data[__i].key);                              \
+                    MEMPLUS_ASSERT(!mp_str_is_valid(&(ht)->data[__i].key));                        \
+                    memset(&(ht)->data[__i].val, 1, 1);                                            \
+                    break;                                                                         \
+                }                                                                                  \
+                ++__i;                                                                             \
+                if (__i >= (ht)->cap) __i = 0;                                                     \
+            }                                                                                      \
+        }                                                                                          \
+    } while (0)
+
+/* Hashes a string with FNV-1a hash algorithm. */
+uint64_t mp_ht_hash_str(const mp_Str *str);
 
 /***********
  * IMPLEMENTATION
@@ -708,6 +878,7 @@ static void *
 mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 static void *
 mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
+static uint64_t mp_ht_hash_str(const mp_Str *str);
 
 void *mp_dup(mp_Alloc *alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
@@ -1100,6 +1271,18 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it) {
     it->_i += (size_t) bytes_taken;
 
     return true;
+}
+
+#define __FNV_OFFSET 14695981039346656037UL
+#define __FNV_PRIME  1099511628211UL
+
+uint64_t mp_ht_hash_str(const mp_Str *str) {
+    uint64_t hash = __FNV_OFFSET;
+    for (const char *p = str->cstr; *p; p++) {
+        hash ^= (uint64_t) (unsigned char) (*p);
+        hash *= __FNV_PRIME;
+    }
+    return hash;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
