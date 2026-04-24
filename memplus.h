@@ -329,7 +329,7 @@ mp_Alloc mp_heap_alloc(void);
  * a: DArray* (NO SIDE EFFECTS) */
 #define mp_da_deinit(a)                                                                            \
     do {                                                                                           \
-        mp_free((a)->alloc, (a)->data, (a)->cap);                                                  \
+        mp_free((a)->alloc, (a)->data, (a)->cap * sizeof(*(a)->data));                             \
         __MP_ZERO(a);                                                                              \
     } while (0)
 
@@ -786,7 +786,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
                 }                                                                                  \
             }                                                                                      \
             __mp_ht_free_entries((ht)->data, (ht)->alloc, __old_cap);                              \
-            mp_free((ht)->alloc, (ht)->data, __old_cap);                                           \
+            mp_free((ht)->alloc, (ht)->data, __old_cap * sizeof(*(ht)->data));                     \
             (ht)->data = __new_data;                                                               \
         }                                                                                          \
         if ((ht)->data != NULL) (ht)->len += __off;                                                \
@@ -1009,7 +1009,7 @@ void mp_sarena_reset(mp_SArena *a) {
 }
 
 void mp_sarena_deinit(mp_SArena *a) {
-    mp_free(a->alloc, a->buf, a->cap);
+    mp_free(a->alloc, a->buf, a->cap * sizeof(*(a)->buf));
     __MP_ZERO(a);
 }
 
