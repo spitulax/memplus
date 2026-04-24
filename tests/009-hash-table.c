@@ -53,7 +53,7 @@ int main(void) {
     for (int i = 0; i < MP_HASH_TABLE_INIT_CAPACITY * MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
         mp_Str key = mp_str_newf(&alloc, "key_%d", i);
         mp_ht_set_s(&ht, &key, i);
-        mp_str_deinit(&alloc, &key);
+        mp_str_deinit(&key, &alloc);
     }
 
     expect_eq(ht.len, (size_t) (MP_HASH_TABLE_INIT_CAPACITY * MP_HASH_TABLE_MAX_LOAD + 1), "%zu");
@@ -71,7 +71,7 @@ int main(void) {
         mp_ht_get_s(&ht, &key, val);
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
-        mp_str_deinit(&alloc, &key);
+        mp_str_deinit(&key, &alloc);
     }
 
     mp_ht_deinit(&ht);

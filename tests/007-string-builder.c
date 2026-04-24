@@ -22,7 +22,7 @@ int main(void) {
     expect_eq(str.len, (size_t) strlen(str.cstr), "%zu");
     expect_streq(str.cstr, "Hello, World! 67");
 
-    mp_str_deinit(&alloc, &str);
+    mp_str_deinit(&str, &alloc);
     mp_da_deinit(&sb);
 
     return 0;

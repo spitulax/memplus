@@ -559,12 +559,11 @@ mp_Str mp_str_new_len(mp_Alloc *alloc, const char *str, size_t len);
 /* Allocates and returns a new `mp_Str` from formatted input.
  * Returns invalid string if allocation failed. */
 mp_Str mp_str_newf(mp_Alloc *alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
-// TODO: Change parameter order
 /* Allocates and returns a clone of `str`.
  * Returns invalid string if allocation failed. */
-mp_Str mp_str_clone(mp_Alloc *alloc, const mp_Str *str);
+mp_Str mp_str_clone(const mp_Str *str, mp_Alloc *alloc);
 /* Frees an allocated `mp_Str`. */
-void mp_str_deinit(mp_Alloc *alloc, mp_Str *str);
+void mp_str_deinit(mp_Str *str, mp_Alloc *alloc);
 
 /***********
  * STRING BUILDER
@@ -674,7 +673,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
     do {                                                                                           \
         for (size_t __i = 0; __i < (ht)->cap; __i++) {                                             \
             if (mp_str_is_valid(&(ht)->data[__i].key))                                             \
-                mp_str_deinit((ht)->alloc, &(ht)->data[__i].key);                                  \
+                mp_str_deinit(&(ht)->data[__i].key, (ht)->alloc);                                  \
         }                                                                                          \
         mp_da_deinit(ht);                                                                          \
     } while (0)
@@ -737,7 +736,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
             size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
             for (;;) {                                                                             \
                 if (!mp_str_is_valid(&(ht)->data[__i].key)) {                                      \
-                    (ht)->data[__i].key = mp_str_clone((ht)->alloc, &__key);                       \
+                    (ht)->data[__i].key = mp_str_clone(&__key, (ht)->alloc);                       \
                     (ht)->data[__i].val = (v);                                                     \
                     break;                                                                         \
                 } else if (strcmp((ht)->data[__i].key.cstr, __key.cstr) == 0) {                    \
@@ -778,7 +777,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
                     for (;;) {                                                                     \
                         if (!mp_str_is_valid(&__new_data[__new_i].key)) {                          \
                             __new_data[__new_i].key =                                              \
-                                mp_str_clone((ht)->alloc, &(ht)->data[__i].key);                   \
+                                mp_str_clone(&(ht)->data[__i].key, (ht)->alloc);                   \
                             __new_data[__new_i].val = (ht)->data[__i].val;                         \
                             break;                                                                 \
                         } else {                                                                   \
@@ -799,7 +798,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
     do {                                                                                           \
         for (size_t __i = 0; __i < (cap); ++__i) {                                                 \
             if (mp_str_is_valid(&(entries)[__i].key)) {                                            \
-                mp_str_deinit((alloc), &(entries)[__i].key);                                       \
+                mp_str_deinit(&(entries)[__i].key, (alloc));                                       \
                 MEMPLUS_ASSERT(!mp_str_is_valid(&(entries)[__i].key));                             \
             }                                                                                      \
         }                                                                                          \
@@ -834,7 +833,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
             size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
             while (__i < (ht)->cap && mp_str_is_valid(&(ht)->data[__i].key)) {                     \
                 if (strcmp(__key.cstr, (ht)->data[__i].key.cstr) == 0) {                           \
-                    mp_str_deinit((ht)->alloc, &(ht)->data[__i].key);                              \
+                    mp_str_deinit(&(ht)->data[__i].key, (ht)->alloc);                              \
                     MEMPLUS_ASSERT(!mp_str_is_valid(&(ht)->data[__i].key));                        \
                     memset(&(ht)->data[__i].val, 1, 1);                                            \
                     break;                                                                         \
@@ -1137,7 +1136,7 @@ mp_Str mp_str_newf(mp_Alloc *alloc, const char *fmt, ...) {
     return (mp_Str) { .len = (size_t) result_len, .cstr = result };
 }
 
-mp_Str mp_str_clone(mp_Alloc *alloc, const mp_Str *str) {
+mp_Str mp_str_clone(const mp_Str *str, mp_Alloc *alloc) {
     int len = snprintf(NULL, 0, "%s", str->cstr);
     MEMPLUS_ASSERT_MSG(len >= 0 || (size_t) len != str->len, "Failed to count string length");
     char *ptr = mp_dup(alloc, str->cstr, (size_t) len + 1);
@@ -1145,7 +1144,7 @@ mp_Str mp_str_clone(mp_Alloc *alloc, const mp_Str *str) {
     return (mp_Str) { .len = (size_t) len, .cstr = ptr };
 }
 
-void mp_str_deinit(mp_Alloc *alloc, mp_Str *str) {
+void mp_str_deinit(mp_Str *str, mp_Alloc *alloc) {
     mp_free(alloc, str->cstr, str->len + 1);
     __MP_ZERO(str);
 }

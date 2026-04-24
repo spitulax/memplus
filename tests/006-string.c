@@ -18,7 +18,7 @@ int main(void) {
     expect_streq(s2.cstr, "Hello, World!, 69");
     expect_eq(s2.len, 17ul, "%zu");
 
-    mp_Str s3 = mp_str_clone(&alloc, &s2);
+    mp_Str s3 = mp_str_clone(&s2, &alloc);
     expect_streq(s3.cstr, "Hello, World!, 69");
     expect_ne((void *) s3.cstr, (void *) s2.cstr, "%p");
     expect_eq(s3.len, 17ul, "%zu");
@@ -28,10 +28,10 @@ int main(void) {
     expect_streq(s4.cstr, "hello");
     expect_eq(s4.len, 5ul, "%zu");
 
-    mp_str_deinit(&alloc, &s4);
-    mp_str_deinit(&alloc, &s3);
-    mp_str_deinit(&alloc, &s2);
-    mp_str_deinit(&alloc, &s1);
+    mp_str_deinit(&s4, &alloc);
+    mp_str_deinit(&s3, &alloc);
+    mp_str_deinit(&s2, &alloc);
+    mp_str_deinit(&s1, &alloc);
 
     return 0;
 
