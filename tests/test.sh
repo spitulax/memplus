@@ -26,11 +26,15 @@ run () {
             echo -e "${ACCENT}=== Running $f ===${RESET}"
             cc $CCARGS -o ".build/${f%.c}" "$f"
             if [[ $? -eq 0 ]]; then
+                local start=$(date +%s%N)
                 "./.build/${f%.c}"
+                local done=$(date +%s%N)
+                local dur_ns=$(($done - $start))
+                local dur_us=$(($dur_ns / 1000))
                 if [[ $? -eq 0 ]]; then
-                    echo -e "${GREEN}>> $f successful${RESET}"
+                    echo -e "${GREEN}>> $f successful in ${dur_us} microseconds${RESET}"
                 else
-                    echo -e "${RED}>> $f failed${RESET}"
+                    echo -e "${RED}>> $f failed in ${dur_us} microseconds${RESET}"
                     FAILED+=("$f")
                 fi
             else
