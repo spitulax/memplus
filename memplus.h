@@ -64,7 +64,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define __MP_NORETURN [[noreturn]]
 #endif
 
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -1028,7 +1027,7 @@ typedef enum {
     MP_IOOP_SETPOS,
 } mp_IoOp;
 
-typedef intptr_t (*mp_IoFunc)(mp_IoOp op, void *context, void *ptr, size_t n);
+typedef mp_Err (*mp_IoFunc)(mp_IoOp op, void *context, void *ptr, size_t n);
 
 typedef struct {
     void *context;
@@ -1040,11 +1039,18 @@ typedef struct {
  * FILE IO
  ***********/
 
+// TODO: For now these functions return `mp_Err`. We will create a separate `mp_FileErr` type after
+// we're done with Windows.
+// mp_FileErr      mp_file_err(mp_Err e);
+// const char *mp_file_err_str(mp_Err e);
+
 typedef struct {
     FILE *file;
 } mp_File;
 
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
+// TODO: mp_file_open_from_fd
+void mp_file_close(mp_File *f);
 
 /***********
  * IMPLEMENTATION
@@ -1052,13 +1058,16 @@ mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
 
 #ifdef MEMPLUS_IMPLEMENTATION
 
+#include <errno.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
+#define UNREACHABLE()      MEMPLUS_ASSERT_MSG(0, "Unreachable")
+#define TODO(msg)          MEMPLUS_ASSERT_MSG(0, "TODO: " msg)
 #define DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
 #define ALIGN(a, inc)      (DIV_ROUNDUP((a), (inc)) * (inc))
 #define ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
-#define UNREACHABLE()      MEMPLUS_ASSERT_MSG(0, "Unreachable")
 #define MAX(a, b)          ((a) > (b) ? (a) : (b))
 #define MIN(a, b)          ((a) < (b) ? (a) : (b))
 #define ASSERT_OVERLAP(a, a_len, b, b_len)                                                         \
@@ -1639,6 +1648,7 @@ mp_Err mp_err(int errnum) {
 const char *mp_err_str(mp_Err e) {
     // Sort this!
     switch (e) {
+        case MP_ERR_NONE:              return "MP_ERR_NONE";
         case MP_ERR_UNKNOWN:           return "MP_ERR_UNKNOWN";
         case MP_ERR_INVALID_WIDE_CHAR: return "MP_ERR_INVALID_WIDE_CHAR";
         case MP_ERR_OUT_OF_DOMAIN:     return "MP_ERR_OUT_OF_DOMAIN";
@@ -1774,6 +1784,24 @@ const char *mp_err_str(mp_Err e) {
 #error "Unimplemented"
 #endif
     }
+
+    UNREACHABLE();
+}
+
+mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode) {
+    __MP_ZERO(f);
+    FILE *file;
+    if ((file = fopen(filename, mode)) != NULL) {
+        f->file = file;
+        return MP_ERR_NONE;
+    } else {
+        return mp_err(errno);
+    }
+}
+
+void mp_file_close(mp_File *f) {
+    fclose(f->file);
+    __MP_ZERO(f);
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
