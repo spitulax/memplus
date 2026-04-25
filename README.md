@@ -10,7 +10,7 @@
 - [x] String builder
 - [x] UTF-8 string support
 - [x] Hash table
-- [ ] IO (file, socket)
+- [ ] File IO
 - [ ] Tracking allocator
 - [ ] Subprocess
 - [ ] Other kinds of allocators
