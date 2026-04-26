@@ -655,6 +655,9 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
  * HASH TABLE (STRING KEY)
  ***********/
 
+// TODO: hash table iterator
+// TODO: hash table clone
+
 /* Percentage of elements in a hash table before it resizes. */
 #ifndef MP_HASH_TABLE_MAX_LOAD
 #define MP_HASH_TABLE_MAX_LOAD 0.75
