@@ -55,7 +55,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #endif /* if defined(__POSIX__) || defined(__unix__) || (defined(__APPLE__) ... */
 
-#if __STDC_VERSION__ >= 201112L
+#if __STDC_VERSION__ >= 202311L
+#define __MP_STATIC_ASSERT(...) static_assert(__VA_ARGS__)
+#elif __STDC_VERSION__ >= 201112L
 #define __MP_STATIC_ASSERT(...) _Static_assert(__VA_ARGS__)
 #else
 #define __MP_STATIC_ASSERT(...)
@@ -131,6 +133,7 @@ typedef enum {
     MP_ALLOCOP_ALLOC,
     MP_ALLOCOP_REALLOC,
     MP_ALLOCOP_FREE,
+    __MP_ALLOCOP_COUNT,
 } mp_AllocOp;
 
 // TODO: Alloc location
@@ -324,6 +327,8 @@ mp_Alloc mp_heap_alloc(void);
     };
     ```
 */
+
+// TODO: Mark out parameters as `ret_`
 
 /* Defines a dynamic array struct given of `type`.
  * Example usage:
@@ -881,7 +886,7 @@ uint64_t mp_ht_hash_str(const mp_Str *str);
  * ERRORS
  ***********/
 
-/* Error names for POSIX & Linux taken from manpage `errno(3)`.
+/* Error names for POSIX & Linux taken from Linux manpage `errno(3)`.
  * Error names for Windows taken from
  * https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants
  *
@@ -1042,7 +1047,7 @@ typedef enum {
 
 #endif /* if defined(__MP_SYSTEM_POSIX) */
 
-    MP_ERR_COUNT,
+    __MP_ERR_COUNT,
 } mp_Err;
 
 mp_Err      mp_err(int errnum);
@@ -1052,16 +1057,42 @@ const char *mp_err_str(mp_Err e);
  * IO INTERFACE
  ***********/
 
+// TODO: getc and putc
 typedef enum {
     MP_IOOP_FLUSH,
     MP_IOOP_SETBUF,
-    MP_IOOP_READ,
+    MP_IOOP_READ,    // ret < count, if successful, it is EOF
     MP_IOOP_WRITE,
     MP_IOOP_GETPOS,
     MP_IOOP_SETPOS,
+    __MP_IOOP_COUNT,
 } mp_IoOp;
 
-typedef mp_Err (*mp_IoFunc)(mp_IoOp op, void *context, void *ptr, size_t n);
+typedef enum {
+    MP_IOERR_NONE = 0,
+    MP_IOERR_CANNOT_FLUSH,
+    MP_IOERR_CANNOT_SET_BUF,
+    MP_IOERR_CANNOT_READ,
+    MP_IOERR_CANNOT_WRITE,
+    MP_IOERR_CANNOT_GET_POS,
+    MP_IOERR_CANNOT_SET_POS,
+    __MP_IOERR_COUNT,
+} mp_IoErr;
+
+typedef enum {
+    MP_SETBUF_MODE_NONE,
+    MP_SETBUF_MODE_FULL,
+    MP_SETBUF_MODE_LINE,
+} mp_SetbufMode;
+
+typedef enum {
+    MP_SETPOS_ORIGIN_START,
+    MP_SETPOS_ORIGIN_CURRENT,
+    MP_SETPOS_ORIGIN_END,
+} mp_SetposOrigin;
+
+typedef mp_IoErr (*mp_IoFunc)(
+    mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size_t *ret);
 
 typedef struct {
     void *context;
@@ -1069,14 +1100,26 @@ typedef struct {
     mp_IoFunc f;
 } mp_Io;
 
+#define mp_io_flush(io) ((io)->f(MP_IOOP_FLUSH, (io)->context, NULL, 0, 0, NULL))
+#define mp_io_setbuf(io, buf, bufsize, mode)                                                       \
+    ((io)->f(MP_IOOP_SETBUF, (io)->context, (buf), (bufsize), (mode), NULL))
+#define mp_io_read(io, buf, size, count, ret_n)                                                    \
+    ((io)->f(MP_IOOP_READ, (io)->context, (buf), (size), (count), (ret_n)))
+#define mp_io_write(io, buf, size, count, ret_n)                                                   \
+    ((io)->f(MP_IOOP_WRITE, (io)->context, (buf), (size), (count), (ret_n)))
+#define mp_io_getpos(io, ret_n) ((io)->f(MP_IOOP_GETPOS, (io)->context, NULL, 0, 0, (ret_n)))
+#define mp_io_setpos(io, offset, origin)                                                           \
+    ((io)->f(MP_IOOP_SETPOS, (io)->context, NULL, (offset), (origin), NULL))
+
+#define mp_io_new(ctx, func)                                                                       \
+    ((mp_Io) {                                                                                     \
+        .context = (void *) (ctx),                                                                 \
+        .f       = (func),                                                                         \
+    })
+
 /***********
  * FILE IO
  ***********/
-
-// TODO: For now these functions return `mp_Err`. We will create a separate `mp_FileErr` type after
-// we're done with Windows.
-// mp_FileErr      mp_file_err(mp_Err e);
-// const char *mp_file_err_str(mp_Err e);
 
 typedef struct {
     FILE *file;
@@ -1084,7 +1127,8 @@ typedef struct {
 
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
 // TODO: mp_file_open_from_fd
-void mp_file_close(mp_File *f);
+void  mp_file_deinit(mp_File *f);
+mp_Io mp_file_io(mp_File *f);
 
 /***********
  * IMPLEMENTATION
@@ -1119,6 +1163,9 @@ static void *
 mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 static void *
 mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
+
+static mp_IoErr
+mp_file_io_func(mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size_t *ret);
 
 #ifdef __MP_NEED_ASSERT
 __MP_NORETURN void __mp_assert_fail(
@@ -1193,6 +1240,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
     mp_Arena *ctx   = context;
     mp_Alloc  alloc = mp_alloc_new(ctx, mp_arena_alloc_func);
 
+    __MP_STATIC_ASSERT(__MP_ALLOCOP_COUNT == 3);
     switch (op) {
         case MP_ALLOCOP_ALLOC: {
             (void) old_size;
@@ -1242,6 +1290,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
 
             return NULL;
         } break;
+        case __MP_ALLOCOP_COUNT: UNREACHABLE();
     }
     UNREACHABLE();
 }
@@ -1274,6 +1323,7 @@ mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_s
     mp_SArena *ctx   = context;
     mp_Alloc   alloc = mp_alloc_new(ctx, mp_sarena_alloc_func);
 
+    __MP_STATIC_ASSERT(__MP_ALLOCOP_COUNT == 3);
     switch (op) {
         case MP_ALLOCOP_ALLOC: {
             (void) old_size;
@@ -1300,6 +1350,7 @@ mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_s
 
             return NULL;
         } break;
+        case __MP_ALLOCOP_COUNT: UNREACHABLE();
     }
     UNREACHABLE();
 }
@@ -1328,6 +1379,7 @@ mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_siz
     (void) context;
     mp_Alloc alloc = mp_alloc_new(NULL, mp_heap_alloc_func);
 
+    __MP_STATIC_ASSERT(__MP_ALLOCOP_COUNT == 3);
     switch (op) {
         case MP_ALLOCOP_ALLOC: {
             (void) old_size;
@@ -1349,6 +1401,7 @@ mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_siz
             MEMPLUS_FREE(ptr);
             return NULL;
         } break;
+        case __MP_ALLOCOP_COUNT: UNREACHABLE();
     }
     UNREACHABLE();
 }
@@ -1698,7 +1751,7 @@ mp_Err mp_err(int errnum) {
     }
 }
 
-// Error messages taken from manpage `errno(3)`
+// Error messages taken from Linux manpage `errno(3)`
 const char *mp_err_str(mp_Err e) {
     // Sort this!
     switch (e) {
@@ -1858,7 +1911,7 @@ const char *mp_err_str(mp_Err e) {
 
 #endif /* if defined(__MP_SYSTEM_POSIX) */
 
-        case MP_ERR_COUNT: UNREACHABLE();
+        case __MP_ERR_COUNT: UNREACHABLE();
     }
 
     UNREACHABLE();
@@ -1876,11 +1929,107 @@ mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode) {
     }
 }
 
-void mp_file_close(mp_File *f) {
+void mp_file_deinit(mp_File *f) {
     if (f->file != NULL) {
         fclose(f->file);
     }
     __MP_ZERO(f);
+}
+
+mp_Io mp_file_io(mp_File *f) {
+    return mp_io_new(f, mp_file_io_func);
+}
+
+static mp_IoErr
+mp_file_io_func(mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size_t *ret) {
+    mp_File *ctx = context;
+
+    __MP_STATIC_ASSERT(__MP_IOOP_COUNT == 6);
+    switch (op) {
+        case MP_IOOP_FLUSH: {
+            (void) ptr;
+            (void) n1;
+            (void) n2;
+            (void) ret;
+
+            if (fflush(ctx->file) == EOF && ferror(ctx->file)) {
+                return MP_IOERR_CANNOT_FLUSH;
+            };
+        } break;
+        case MP_IOOP_SETBUF: {
+            (void) ret;
+
+            int           mode    = 0;
+            mp_SetbufMode mp_mode = n2;
+            switch (mp_mode) {
+                case MP_SETBUF_MODE_NONE: {
+                    mode = _IONBF;
+                } break;
+                case MP_SETBUF_MODE_FULL: {
+                    mode = _IOFBF;
+                } break;
+                case MP_SETBUF_MODE_LINE: {
+                    mode = _IOLBF;
+                } break;
+            }
+            if (setvbuf(ctx->file, ptr, (int) mode, n1)) {
+                return MP_IOERR_CANNOT_SET_BUF;
+            };
+        } break;
+        case MP_IOOP_READ: {
+            size_t res = fread(ptr, n1, n2, ctx->file);
+            if (ret != NULL) {
+                *ret = res;
+            }
+            if (res < n2 && ferror(ctx->file)) {
+                return MP_IOERR_CANNOT_READ;
+            }
+        } break;
+        case MP_IOOP_WRITE: {
+            size_t res = fwrite(ptr, n1, n2, ctx->file);
+            if (ret != NULL) {
+                *ret = res;
+            }
+            if (res < n2) {
+                return MP_IOERR_CANNOT_WRITE;
+            }
+        } break;
+        case MP_IOOP_GETPOS: {
+            (void) ptr;
+            (void) n1;
+            (void) n2;
+
+            long res = ftell(ctx->file);
+            if (res == -1l) {
+                return MP_IOERR_CANNOT_GET_POS;
+            }
+            *ret = (size_t) res;
+        } break;
+        case MP_IOOP_SETPOS: {
+            (void) ptr;
+            (void) ret;
+
+            int             origin    = 0;
+            mp_SetposOrigin mp_origin = n2;
+            switch (mp_origin) {
+                case MP_SETPOS_ORIGIN_START: {
+                    origin = SEEK_SET;
+                } break;
+                case MP_SETPOS_ORIGIN_CURRENT: {
+                    origin = SEEK_CUR;
+                } break;
+                case MP_SETPOS_ORIGIN_END: {
+                    origin = SEEK_END;
+                } break;
+            }
+            if (fseek(ctx->file, (long) n1, origin)) {
+                return MP_IOERR_CANNOT_SET_POS;
+            }
+        } break;
+        case __MP_IOOP_COUNT: UNREACHABLE();
+    }
+
+    return MP_IOERR_NONE;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
