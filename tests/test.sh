@@ -34,7 +34,7 @@ run () {
             echo -e "${ACCENT}=== Running $f ===${RESET}"
             local name=".build/${f%.c}"
             if [[ $WINDOWS -eq 1 ]]; then
-                cl $MSVCARGS /Fo:"$name.obj" /Fe:"$name.exe" "$f" &>/dev/null
+                cl $MSVCARGS /Fo:"$name.obj" /Fe:"$name.exe" "$f"
             else
                 cc $GCCARGS -o "$name" "$f"
             fi
