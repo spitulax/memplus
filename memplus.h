@@ -55,6 +55,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #endif /* if defined(__POSIX__) || defined(__unix__) || (defined(__APPLE__) ... */
 
+#if __STDC_VERSION__ >= 201112L
+#define __MP_STATIC_ASSERT(...) _Static_assert(__VA_ARGS__)
+#else
+#define __MP_STATIC_ASSERT(...)
+#endif
+
 /* Define custom assert macro with `MEMPLUS_ASSERT` and `MEMPLUS_ASSERT_MSG`.
  * The macro must accept the expression and the fail message. See the define below. */
 #if !(defined(MEMPLUS_ASSERT) && defined(MEMPLUS_ASSERT_MSG))
@@ -877,7 +883,9 @@ uint64_t mp_ht_hash_str(const mp_Str *str);
 
 /* Error names for POSIX & Linux taken from manpage `errno(3)`.
  * Error names for Windows taken from
- * https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants */
+ * https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants
+ *
+ * Don't forget `mp_err()` and `mp_err_str()`! */
 // Sort this!
 typedef enum {
     MP_ERR_NONE    = 0,
@@ -915,6 +923,7 @@ typedef enum {
     MP_ERR_INAPPROPRIATE_IO_CONTROL,    // ENOTTY
     MP_ERR_IN_PROGRESS,                 // EINPROGRESS
     MP_ERR_INTERRUPTED_CALL,            // EINTR
+    MP_ERR_INVALID_ARG,                 // EINVAL
     MP_ERR_INVALID_CROSSDEVICE_LINK,    // EXDEV
     MP_ERR_INVALID_SEEK,                // ESPIPE
     MP_ERR_IO_ERR,                      // EIO
@@ -938,7 +947,9 @@ typedef enum {
     MP_ERR_NOT_ENOUGH_MEM,              // ENOMEM
     MP_ERR_NOT_PERMITTED,               // EPERM
     MP_ERR_NOT_SOCKET,                  // ENOTSOCK
+    MP_ERR_NOT_STREAM,                  // ENOSTR
     MP_ERR_NOT_SUPPORTED,               // ENOTSUP
+    MP_ERR_NOT_SUPPORTED_ON_SOCKET,     // EOPNOTSUPP
     MP_ERR_OWNER_DIED,                  // EOWNERDEAD
     MP_ERR_PERM_DENIED,                 // EACCES
     MP_ERR_PROTOCOL_ERR,                // EPROTO
@@ -969,12 +980,9 @@ typedef enum {
 #endif /* if defined(__MP_SYSTEM_POSIX) || defined(__MP_SYSTEM_WINDOWS) */
 
 #if defined(__MP_SYSTEM_POSIX)
-    MP_ERR_DISK_QUOTA_EXCEEDED,        // EDQUOT
-    MP_ERR_INVALID_ARG,                // EINVAL
-    MP_ERR_MULTIHOP_ATTEMPTED,         // EMULTIHOP
-    MP_ERR_NOT_STREAM,                 // ENOSTR
-    MP_ERR_NOT_SUPPORTED_ON_SOCKET,    // EOPNOTSUPP
-    MP_ERR_STALE_FILE_HANDLE,          // ESTALE
+    MP_ERR_DISK_QUOTA_EXCEEDED,    // EDQUOT
+    MP_ERR_MULTIHOP_ATTEMPTED,     // EMULTIHOP
+    MP_ERR_STALE_FILE_HANDLE,      // ESTALE
 
 #if defined(__MP_SYSTEM_LINUX)
     MP_ERR_ACCESS_CORRUPT_LIB,          // ELIBBAD
@@ -1033,6 +1041,8 @@ typedef enum {
 #error "Unimplemented"
 
 #endif /* if defined(__MP_SYSTEM_POSIX) */
+
+    MP_ERR_COUNT,
 } mp_Err;
 
 mp_Err      mp_err(int errnum);
@@ -1088,7 +1098,7 @@ void mp_file_close(mp_File *f);
 #include <string.h>
 
 #define UNREACHABLE()      MEMPLUS_ASSERT_MSG(0, "Unreachable")
-#define TODO(msg)          MEMPLUS_ASSERT_MSG(0, "TODO: " msg)
+#define TODO(msg)          MEMPLUS_ASSERT_MSG(0, "todo: " msg)
 #define DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
 #define ALIGN(a, inc)      (DIV_ROUNDUP((a), (inc)) * (inc))
 #define ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
@@ -1688,162 +1698,167 @@ mp_Err mp_err(int errnum) {
     }
 }
 
+// Error messages taken from manpage `errno(3)`
 const char *mp_err_str(mp_Err e) {
     // Sort this!
     switch (e) {
-        case MP_ERR_NONE:    return "MP_ERR_NONE";
-        case MP_ERR_UNKNOWN: return "MP_ERR_UNKNOWN";
+        case MP_ERR_NONE:    return "Success";
+        case MP_ERR_UNKNOWN: return "Unknown error";
 
-        case MP_ERR_INVALID_WIDE_CHAR: return "MP_ERR_INVALID_WIDE_CHAR";
-        case MP_ERR_OUT_OF_DOMAIN:     return "MP_ERR_OUT_OF_DOMAIN";
-        case MP_ERR_RESULT_TOO_LARGE:  return "MP_ERR_RESULT_TOO_LARGE";
+        case MP_ERR_INVALID_WIDE_CHAR: return "Invalid or incomplete multibyte or wide character";
+        case MP_ERR_OUT_OF_DOMAIN:     return "Mathematics argument out of domain of function";
+        case MP_ERR_RESULT_TOO_LARGE:  return "Result too large";
 
 #if defined(__MP_SYSTEM_POSIX) || defined(__MP_SYSTEM_WINDOWS)
-        case MP_ERR_ADDR_IN_USE:              return "MP_ERR_ADDR_IN_USE";
-        case MP_ERR_ADDR_UNAVAILABLE:         return "MP_ERR_ADDR_UNAVAILABLE";
-        case MP_ERR_AF_NOT_SUPPORTED:         return "MP_ERR_AF_NOT_SUPPORTED";
-        case MP_ERR_ARG_TOO_LONG:             return "MP_ERR_ARG_TOO_LONG";
-        case MP_ERR_BAD_ADDR:                 return "MP_ERR_BAD_ADDR";
-        case MP_ERR_BAD_FD:                   return "MP_ERR_BAD_FD";
-        case MP_ERR_BAD_MSG:                  return "MP_ERR_BAD_MSG";
-        case MP_ERR_BROKEN_PIPE:              return "MP_ERR_BROKEN_PIPE";
-        case MP_ERR_BUSY:                     return "MP_ERR_BUSY";
-        case MP_ERR_CANCELED:                 return "MP_ERR_CANCELED";
-        case MP_ERR_CONNECTION_ABORTED:       return "MP_ERR_CONNECTION_ABORTED";
-        case MP_ERR_CONNECTION_IN_PROGRESS:   return "MP_ERR_CONNECTION_IN_PROGRESS";
-        case MP_ERR_CONNECTION_REFUSED:       return "MP_ERR_CONNECTION_REFUSED";
-        case MP_ERR_CONNECTION_RESET:         return "MP_ERR_CONNECTION_RESET";
-        case MP_ERR_CONNECTION_TIMED_OUT:     return "MP_ERR_CONNECTION_TIMED_OUT";
-        case MP_ERR_DEST_ADDR_REQUIRED:       return "MP_ERR_DEST_ADDR_REQUIRED";
-        case MP_ERR_DIR_NOT_EMPTY:            return "MP_ERR_DIR_NOT_EMPTY";
-        case MP_ERR_EXEC_FORMAT_ERR:          return "MP_ERR_EXEC_FORMAT_ERR";
-        case MP_ERR_FILE_EXISTS:              return "MP_ERR_FILE_EXISTS";
-        case MP_ERR_FILENAME_TOO_LONG:        return "MP_ERR_FILENAME_TOO_LONG";
-        case MP_ERR_FILE_TOO_LARGE:           return "MP_ERR_FILE_TOO_LARGE";
-        case MP_ERR_FUNCTION_UNIMPLEMENTED:   return "MP_ERR_FUNCTION_UNIMPLEMENTED";
-        case MP_ERR_HOST_IS_UNREACHABLE:      return "MP_ERR_HOST_IS_UNREACHABLE";
-        case MP_ERR_ID_REMOVED:               return "MP_ERR_ID_REMOVED";
-        case MP_ERR_INAPPROPRIATE_IO_CONTROL: return "MP_ERR_INAPPROPRIATE_IO_CONTROL";
-        case MP_ERR_IN_PROGRESS:              return "MP_ERR_IN_PROGRESS";
-        case MP_ERR_INTERRUPTED_CALL:         return "MP_ERR_INTERRUPTED_CALL";
-        case MP_ERR_INVALID_CROSSDEVICE_LINK: return "MP_ERR_INVALID_CROSSDEVICE_LINK";
-        case MP_ERR_INVALID_SEEK:             return "MP_ERR_INVALID_SEEK";
-        case MP_ERR_IO_ERR:                   return "MP_ERR_IO_ERR";
-        case MP_ERR_IS_DIR:                   return "MP_ERR_IS_DIR";
-        case MP_ERR_LINK_SEVERED:             return "MP_ERR_LINK_SEVERED";
-        case MP_ERR_LOCK_UNAVAILABLE:         return "MP_ERR_LOCK_UNAVAILABLE";
-        case MP_ERR_MESSAGE_TOO_LONG:         return "MP_ERR_MESSAGE_TOO_LONG";
-        case MP_ERR_NET_CONNECTION_ABORTED:   return "MP_ERR_NET_CONNECTION_ABORTED";
-        case MP_ERR_NET_IS_DOWN:              return "MP_ERR_NET_IS_DOWN";
-        case MP_ERR_NET_UNREACHABLE:          return "MP_ERR_NET_UNREACHABLE";
-        case MP_ERR_NO_BUFFER_SPACE:          return "MP_ERR_NO_BUFFER_SPACE";
-        case MP_ERR_NO_CHILD:                 return "MP_ERR_NO_CHILD";
-        case MP_ERR_NO_DEVICE:                return "MP_ERR_NO_DEVICE";
-        case MP_ERR_NO_DEVICE_OR_ADDR:        return "MP_ERR_NO_DEVICE_OR_ADDR";
-        case MP_ERR_NO_FILE_OR_DIR:           return "MP_ERR_NO_FILE_OR_DIR";
-        case MP_ERR_NO_MSG_OF_DESIRED_TYPE:   return "MP_ERR_NO_MSG_OF_DESIRED_TYPE";
-        case MP_ERR_NO_PROCESS:               return "MP_ERR_NO_PROCESS";
-        case MP_ERR_NO_SPACE_LEFT:            return "MP_ERR_NO_SPACE_LEFT";
-        case MP_ERR_NO_STREAM_RESOURCES:      return "MP_ERR_NO_STREAM_RESOURCES";
-        case MP_ERR_NOT_DIR:                  return "MP_ERR_NOT_DIR";
-        case MP_ERR_NOT_ENOUGH_MEM:           return "MP_ERR_NOT_ENOUGH_MEM";
-        case MP_ERR_NOT_PERMITTED:            return "MP_ERR_NOT_PERMITTED";
-        case MP_ERR_NOT_SOCKET:               return "MP_ERR_NOT_SOCKET";
-        case MP_ERR_NOT_SUPPORTED:            return "MP_ERR_NOT_SUPPORTED";
-        case MP_ERR_OWNER_DIED:               return "MP_ERR_OWNER_DIED";
-        case MP_ERR_PERM_DENIED:              return "MP_ERR_PERM_DENIED";
-        case MP_ERR_PROTOCOL_ERR:             return "MP_ERR_PROTOCOL_ERR";
-        case MP_ERR_PROTOCOL_NOT_SUPPORTED:   return "MP_ERR_PROTOCOL_NOT_SUPPORTED";
-        case MP_ERR_PROTOCOL_UNAVAILABLE:     return "MP_ERR_PROTOCOL_UNAVAILABLE";
-        case MP_ERR_READ_ONLY_FILESYSTEM:     return "MP_ERR_READ_ONLY_FILESYSTEM";
-        case MP_ERR_RESOURCE_DEADLOCK:        return "MP_ERR_RESOURCE_DEADLOCK";
-        case MP_ERR_SOCKET_IS_CONNECTED:      return "MP_ERR_SOCKET_IS_CONNECTED";
-        case MP_ERR_SOCKET_NOT_CONNECTED:     return "MP_ERR_SOCKET_NOT_CONNECTED";
-        case MP_ERR_STATE_UNRECOVERABLE:      return "MP_ERR_STATE_UNRECOVERABLE";
-        case MP_ERR_SYMLINK_TOO_DEEP:         return "MP_ERR_SYMLINK_TOO_DEEP";
-        case MP_ERR_TEMPORARILY_UNAVAILABLE:  return "MP_ERR_TEMPORARILY_UNAVAILABLE";
-        case MP_ERR_TEXT_FILE_BUSY:           return "MP_ERR_TEXT_FILE_BUSY";
-        case MP_ERR_TIMER_EXPIRED:            return "MP_ERR_TIMER_EXPIRED";
-        case MP_ERR_TOO_MANY_LINKS:           return "MP_ERR_TOO_MANY_LINKS";
-        case MP_ERR_TOO_MANY_OPEN_FILES:      return "MP_ERR_TOO_MANY_OPEN_FILES";
-        case MP_ERR_TOO_MANY_OPEN_FILES_SYS:  return "MP_ERR_TOO_MANY_OPEN_FILES_SYS";
-        case MP_ERR_VALUE_OVERFLOW:           return "MP_ERR_VALUE_OVERFLOW";
-        case MP_ERR_WOULD_BLOCK:              return "MP_ERR_WOULD_BLOCK";
-        case MP_ERR_WRONG_PROTOCOL_TYPE:      return "MP_ERR_WRONG_PROTOCOL_TYPE";
+        case MP_ERR_ADDR_IN_USE:              return "Address already in use";
+        case MP_ERR_ADDR_UNAVAILABLE:         return "Address not available";
+        case MP_ERR_AF_NOT_SUPPORTED:         return "Address family not supported";
+        case MP_ERR_ARG_TOO_LONG:             return "Argument list too long";
+        case MP_ERR_BAD_ADDR:                 return "Bad address";
+        case MP_ERR_BAD_FD:                   return "Bad file descriptor";
+        case MP_ERR_BAD_MSG:                  return "Bad message";
+        case MP_ERR_BROKEN_PIPE:              return "Broken pipe";
+        case MP_ERR_BUSY:                     return "Device or resource busy";
+        case MP_ERR_CANCELED:                 return "Operation canceled";
+        case MP_ERR_CONNECTION_ABORTED:       return "Connection aborted";
+        case MP_ERR_CONNECTION_IN_PROGRESS:   return "Connection already in progress";
+        case MP_ERR_CONNECTION_REFUSED:       return "Connection refused";
+        case MP_ERR_CONNECTION_RESET:         return "Connection reset";
+        case MP_ERR_CONNECTION_TIMED_OUT:     return "Connection timed out";
+        case MP_ERR_DEST_ADDR_REQUIRED:       return "Destination address required";
+        case MP_ERR_DIR_NOT_EMPTY:            return "Directory not empty";
+        case MP_ERR_EXEC_FORMAT_ERR:          return "Exec format error";
+        case MP_ERR_FILE_EXISTS:              return "File exists";
+        case MP_ERR_FILENAME_TOO_LONG:        return "Filename too long";
+        case MP_ERR_FILE_TOO_LARGE:           return "File too large";
+        case MP_ERR_FUNCTION_UNIMPLEMENTED:   return "Function not implemented";
+        case MP_ERR_HOST_IS_UNREACHABLE:      return "Host is unreachable";
+        case MP_ERR_ID_REMOVED:               return "Identifier removed";
+        case MP_ERR_INAPPROPRIATE_IO_CONTROL: return "Inappropriate I/O control operation";
+        case MP_ERR_IN_PROGRESS:              return "Operation in progress";
+        case MP_ERR_INTERRUPTED_CALL:         return "Interrupted function call";
+        case MP_ERR_INVALID_ARG:              return "Invalid argument";
+        case MP_ERR_INVALID_CROSSDEVICE_LINK: return "Invalid cross-device link";
+        case MP_ERR_INVALID_SEEK:             return "Invalid seek";
+        case MP_ERR_IO_ERR:                   return "Input/output error";
+        case MP_ERR_IS_DIR:                   return "Is a directory";
+        case MP_ERR_LINK_SEVERED:             return "Link has been severed";
+        case MP_ERR_LOCK_UNAVAILABLE:         return "No locks available";
+        case MP_ERR_MESSAGE_TOO_LONG:         return "Message too long";
+        case MP_ERR_NET_CONNECTION_ABORTED:   return "Connection aborted by network";
+        case MP_ERR_NET_IS_DOWN:              return "Network is down";
+        case MP_ERR_NET_UNREACHABLE:          return "Network unreachable";
+        case MP_ERR_NO_BUFFER_SPACE:          return "No buffer space available";
+        case MP_ERR_NO_CHILD:                 return "No child processes";
+        case MP_ERR_NO_DEVICE:                return "No such device";
+        case MP_ERR_NO_DEVICE_OR_ADDR:        return "No such device or address";
+        case MP_ERR_NO_FILE_OR_DIR:           return "No such file or directory";
+        case MP_ERR_NO_MSG_OF_DESIRED_TYPE:   return "No message of the desired type";
+        case MP_ERR_NO_PROCESS:               return "No such process";
+        case MP_ERR_NO_SPACE_LEFT:            return "No space left on device";
+        case MP_ERR_NO_STREAM_RESOURCES:      return "No STREAM resources";
+        case MP_ERR_NOT_DIR:                  return "Not a directory";
+        case MP_ERR_NOT_ENOUGH_MEM:           return "Not enough space/cannot allocate memory";
+        case MP_ERR_NOT_PERMITTED:            return "Operation not permitted";
+        case MP_ERR_NOT_SOCKET:               return "Not a socket";
+        case MP_ERR_NOT_STREAM:               return "Not a STREAM";
+        case MP_ERR_NOT_SUPPORTED:            return "Operation not supported";
+        case MP_ERR_NOT_SUPPORTED_ON_SOCKET:  return "Operation not supported on socket";
+        case MP_ERR_OWNER_DIED:               return "Owner died";
+        case MP_ERR_PERM_DENIED:              return "Permission denied";
+        case MP_ERR_PROTOCOL_ERR:             return "Protocol error";
+        case MP_ERR_PROTOCOL_NOT_SUPPORTED:   return "Protocol not supported";
+        case MP_ERR_PROTOCOL_UNAVAILABLE:     return "Protocol not available";
+        case MP_ERR_READ_ONLY_FILESYSTEM:     return "Read-only filesystem";
+        case MP_ERR_RESOURCE_DEADLOCK:        return "Resource deadlock avoided";
+        case MP_ERR_SOCKET_IS_CONNECTED:      return "Socket is connected";
+        case MP_ERR_SOCKET_NOT_CONNECTED:     return "The socket is not connected";
+        case MP_ERR_STATE_UNRECOVERABLE:      return "State not recoverable";
+        case MP_ERR_SYMLINK_TOO_DEEP:         return "Too many levels of symbolic links";
+        case MP_ERR_TEMPORARILY_UNAVAILABLE:  return "Resource temporarily unavailable";
+        case MP_ERR_TEXT_FILE_BUSY:           return "Text file busy";
+        case MP_ERR_TIMER_EXPIRED:            return "Timer expired";
+        case MP_ERR_TOO_MANY_LINKS:           return "Too many links";
+        case MP_ERR_TOO_MANY_OPEN_FILES:      return "Too many open files";
+        case MP_ERR_TOO_MANY_OPEN_FILES_SYS:  return "Too many open files in system";
+        case MP_ERR_VALUE_OVERFLOW:           return "Value too large to be stored in data type";
+        case MP_ERR_WOULD_BLOCK:              return "Operation would block";
+        case MP_ERR_WRONG_PROTOCOL_TYPE:      return "Protocol wrong type for socket";
 
 #if defined(__MP_SYSTEM_LINUX)
-        case MP_ERR_CANNOT_ACCESS_ATTRIB: return "MP_ERR_CANNOT_ACCESS_ATTRIB";
-        case MP_ERR_RESOURCE_DEADLOCK2:   return "MP_ERR_RESOURCE_DEADLOCK2";
+        case MP_ERR_CANNOT_ACCESS_ATTRIB:
+            return "The named attribute does not exist, or the process has no access to this attribute";
+        case MP_ERR_RESOURCE_DEADLOCK2: return "File locking dead‐lock error";
 
 #endif /* if defined(__MP_SYSTEM_LINUX) */
 
 #endif /* if defined(__MP_SYSTEM_POSIX) || defined(__MP_SYSTEM_WINDOWS) */
 
 #if defined(__MP_SYSTEM_POSIX)
-        case MP_ERR_DISK_QUOTA_EXCEEDED:     return "MP_ERR_DISK_QUOTA_EXCEEDED";
-        case MP_ERR_INVALID_ARG:             return "MP_ERR_INVALID_ARG";
-        case MP_ERR_MULTIHOP_ATTEMPTED:      return "MP_ERR_MULTIHOP_ATTEMPTED";
-        case MP_ERR_NOT_STREAM:              return "MP_ERR_NOT_STREAM";
-        case MP_ERR_NOT_SUPPORTED_ON_SOCKET: return "MP_ERR_NOT_SUPPORTED_ON_SOCKET";
-        case MP_ERR_STALE_FILE_HANDLE:       return "MP_ERR_STALE_FILE_HANDLE";
+        case MP_ERR_DISK_QUOTA_EXCEEDED: return "Disk quota exceeded";
+        case MP_ERR_MULTIHOP_ATTEMPTED:  return "Multihop attempted";
+        case MP_ERR_STALE_FILE_HANDLE:   return "Stale file handle";
 
 #if defined(__MP_SYSTEM_LINUX)
-        case MP_ERR_ACCESS_CORRUPT_LIB:       return "MP_ERR_ACCESS_CORRUPT_LIB";
-        case MP_ERR_ACCESS_TOO_MANY_LIBS:     return "MP_ERR_ACCESS_TOO_MANY_LIBS";
-        case MP_ERR_BLOCK_DEVICE_REQUIRED:    return "MP_ERR_BLOCK_DEVICE_REQUIRED";
-        case MP_ERR_CANNOT_ACCESS_LIB:        return "MP_ERR_CANNOT_ACCESS_LIB";
-        case MP_ERR_CANNOT_EXEC_LIB:          return "MP_ERR_CANNOT_EXEC_LIB";
-        case MP_ERR_CHANNEL_NUM_OUT_OF_RANGE: return "MP_ERR_CHANNEL_NUM_OUT_OF_RANGE";
-        case MP_ERR_EXCHANGE_FULL:            return "MP_ERR_EXCHANGE_FULL";
-        case MP_ERR_HOST_IS_DOWN:             return "MP_ERR_HOST_IS_DOWN";
-        case MP_ERR_INTERRUPTED_SYSCALL:      return "MP_ERR_INTERRUPTED_SYSCALL";
-        case MP_ERR_INVALID_EXCHANGE:         return "MP_ERR_INVALID_EXCHANGE";
-        case MP_ERR_INVALID_FD:               return "MP_ERR_INVALID_FD";
-        case MP_ERR_INVALID_REQUEST_CODE:     return "MP_ERR_INVALID_REQUEST_CODE";
-        case MP_ERR_INVALID_REQUEST:          return "MP_ERR_INVALID_REQUEST";
-        case MP_ERR_INVALID_SLOT:             return "MP_ERR_INVALID_SLOT";
-        case MP_ERR_IS_NAMED_TYPE_FILE:       return "MP_ERR_IS_NAMED_TYPE_FILE";
-        case MP_ERR_KEY_EXPIRED:              return "MP_ERR_KEY_EXPIRED";
-        case MP_ERR_KEY_REJECTED:             return "MP_ERR_KEY_REJECTED";
-        case MP_ERR_KEY_REVOKED:              return "MP_ERR_KEY_REVOKED";
-        case MP_ERR_KEY_UNAVAILABLE:          return "MP_ERR_KEY_UNAVAILABLE";
-        case MP_ERR_LEVEL_2_HALTED:           return "MP_ERR_LEVEL_2_HALTED";
-        case MP_ERR_LEVEL_2_NOT_SYNC:         return "MP_ERR_LEVEL_2_NOT_SYNC";
-        case MP_ERR_LEVEL_3_HALTED:           return "MP_ERR_LEVEL_3_HALTED";
-        case MP_ERR_LEVEL_3_RESET:            return "MP_ERR_LEVEL_3_RESET";
-        case MP_ERR_LIB_SECTION_CORRUPT:      return "MP_ERR_LIB_SECTION_CORRUPT";
-        case MP_ERR_LINK_NUM_OUT_OF_RANGE:    return "MP_ERR_LINK_NUM_OUT_OF_RANGE";
-        case MP_ERR_MEM_PAGE_HARDWARE_ERR:    return "MP_ERR_MEM_PAGE_HARDWARE_ERR";
-        case MP_ERR_NAME_NOT_UNIQUE:          return "MP_ERR_NAME_NOT_UNIQUE";
-        case MP_ERR_NO_ANODE:                 return "MP_ERR_NO_ANODE";
-        case MP_ERR_NO_MEDIUM_FOUND:          return "MP_ERR_NO_MEDIUM_FOUND";
-        case MP_ERR_NOT_ON_NETWORK:           return "MP_ERR_NOT_ON_NETWORK";
-        case MP_ERR_NOT_POSSIBLE_BY_RFKILL:   return "MP_ERR_NOT_POSSIBLE_BY_RFKILL";
-        case MP_ERR_OBJECT_IS_REMOTE:         return "MP_ERR_OBJECT_IS_REMOTE";
-        case MP_ERR_PACKAGE_NOT_INSTALLED:    return "MP_ERR_PACKAGE_NOT_INSTALLED";
-        case MP_ERR_PROTO_DRIVER_UNATTACHED:  return "MP_ERR_PROTO_DRIVER_UNATTACHED";
-        case MP_ERR_PROTO_FAMILY_UNSUPPORTED: return "MP_ERR_PROTO_FAMILY_UNSUPPORTED";
-        case MP_ERR_REMOTE_ADDR_CHANGED:      return "MP_ERR_REMOTE_ADDR_CHANGED";
-        case MP_ERR_REMOTE_IO_ERR:            return "MP_ERR_REMOTE_IO_ERR";
-        case MP_ERR_SEND_AFTER_SHUTDOWN:      return "MP_ERR_SEND_AFTER_SHUTDOWN";
-        case MP_ERR_SEND_COMM_ERR:            return "MP_ERR_SEND_COMM_ERR";
-        case MP_ERR_SOCKET_TYPE_UNSUPPORTED:  return "MP_ERR_SOCKET_TYPE_UNSUPPORTED";
-        case MP_ERR_STREAM_PIPE_ERR:          return "MP_ERR_STREAM_PIPE_ERR";
-        case MP_ERR_STRUCT_NEED_CLEANING:     return "MP_ERR_STRUCT_NEED_CLEANING";
-        case MP_ERR_TOO_MANY_REFERENCES:      return "MP_ERR_TOO_MANY_REFERENCES";
-        case MP_ERR_TOO_MANY_USERS:           return "MP_ERR_TOO_MANY_USERS";
-        case MP_ERR_WRONG_MEDIUM_TYPE:        return "MP_ERR_WRONG_MEDIUM_TYPE";
+        case MP_ERR_ACCESS_CORRUPT_LIB:       return "Accessing a corrupted shared library";
+        case MP_ERR_ACCESS_TOO_MANY_LIBS:     return "Attempting to link in too many shared libraries";
+        case MP_ERR_BLOCK_DEVICE_REQUIRED:    return "Block device required";
+        case MP_ERR_CANNOT_ACCESS_LIB:        return "Cannot access a needed shared library";
+        case MP_ERR_CANNOT_EXEC_LIB:          return "Cannot exec a shared library directly";
+        case MP_ERR_CHANNEL_NUM_OUT_OF_RANGE: return "Channel number out of range";
+        case MP_ERR_EXCHANGE_FULL:            return "Exchange full";
+        case MP_ERR_HOST_IS_DOWN:             return "Host is down";
+        case MP_ERR_INTERRUPTED_SYSCALL:      return "Interrupted system call should be restarted";
+        case MP_ERR_INVALID_EXCHANGE:         return "Invalid exchange";
+        case MP_ERR_INVALID_FD:               return "File descriptor in bad state";
+        case MP_ERR_INVALID_REQUEST_CODE:     return "Invalid request code";
+        case MP_ERR_INVALID_REQUEST:          return "Invalid request descriptor";
+        case MP_ERR_INVALID_SLOT:             return "Invalid slot";
+        case MP_ERR_IS_NAMED_TYPE_FILE:       return "Is a named type file";
+        case MP_ERR_KEY_EXPIRED:              return "Key has expired";
+        case MP_ERR_KEY_REJECTED:             return "Key was rejected by service";
+        case MP_ERR_KEY_REVOKED:              return "Key has been revoked";
+        case MP_ERR_KEY_UNAVAILABLE:          return "Required key not available";
+        case MP_ERR_LEVEL_2_HALTED:           return "Level 2 halted";
+        case MP_ERR_LEVEL_2_NOT_SYNC:         return "Level 2 not synchronized";
+        case MP_ERR_LEVEL_3_HALTED:           return "Level 3 halted";
+        case MP_ERR_LEVEL_3_RESET:            return "Level 3 reset";
+        case MP_ERR_LIB_SECTION_CORRUPT:      return ".lib section in a.out corrupted";
+        case MP_ERR_LINK_NUM_OUT_OF_RANGE:    return "Link number out of range";
+        case MP_ERR_MEM_PAGE_HARDWARE_ERR:    return "Memory page has hardware error";
+        case MP_ERR_NAME_NOT_UNIQUE:          return "Name not unique on network";
+        case MP_ERR_NO_ANODE:                 return "No anode";
+        case MP_ERR_NO_MEDIUM_FOUND:          return "No medium found";
+        case MP_ERR_NOT_ON_NETWORK:           return "Machine is not on the network";
+        case MP_ERR_NOT_POSSIBLE_BY_RFKILL:   return "Operation not possible due to RF-kill";
+        case MP_ERR_OBJECT_IS_REMOTE:         return "Object is remote";
+        case MP_ERR_PACKAGE_NOT_INSTALLED:    return "Package not installed";
+        case MP_ERR_PROTO_DRIVER_UNATTACHED:  return "Protocol driver not attached";
+        case MP_ERR_PROTO_FAMILY_UNSUPPORTED: return "Protocol family not supported";
+        case MP_ERR_REMOTE_ADDR_CHANGED:      return "Remote address changed";
+        case MP_ERR_REMOTE_IO_ERR:            return "Remote I/O error";
+        case MP_ERR_SEND_AFTER_SHUTDOWN:      return "Cannot send after transport endpoint shutdown";
+        case MP_ERR_SEND_COMM_ERR:            return "Communication error on send";
+        case MP_ERR_SOCKET_TYPE_UNSUPPORTED:  return "Socket type not supported";
+        case MP_ERR_STREAM_PIPE_ERR:          return "Streams pipe error";
+        case MP_ERR_STRUCT_NEED_CLEANING:     return "Structure needs cleaning";
+        case MP_ERR_TOO_MANY_REFERENCES:      return "Too many references: cannot splice";
+        case MP_ERR_TOO_MANY_USERS:           return "Too many users";
+        case MP_ERR_WRONG_MEDIUM_TYPE:        return "Wrong medium type";
 
 #endif /* if defined(__MP_SYSTEM_LINUX) */
 
 #elif defined(__MP_SYSTEM_WINDOWS)
-        case MP_ERR_OTHER:            return "MP_ERR_OTHER";
-        case MP_ERR_TRUNCATED_STRING: return "MP_ERR_TRUNCATED_STRING";
+        case MP_ERR_OTHER: return "Other";
+        case MP_ERR_TRUNCATED_STRING:
+            return "A string copy or concatenation resulted in a truncated string";
 
 #else
 #error "Unimplemented"
 
 #endif /* if defined(__MP_SYSTEM_POSIX) */
+
+        case MP_ERR_COUNT: UNREACHABLE();
     }
 
     UNREACHABLE();
