@@ -2,9 +2,17 @@
 
 set -uo pipefail
 
-CCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb"
-if [[ "${QUIET:-}" -eq 1 ]]; then
-    CCARGS+=" -DQUIET"
+# Env vars
+QUIET=${QUIET:-}
+WINDOWS=${WINDOWS:-}
+export WINEDEBUG=-all
+
+GCCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb"
+MSVCARGS="/nologo /std:clatest /I. /I.. /TC"
+
+if [[ $QUIET -eq 1 ]]; then
+    GCCARGS+=" -DQUIET"
+    MSVCARGS+=" /DQUIET"
 fi
 
 ACCENT="\033[35m"
@@ -24,10 +32,19 @@ run () {
             exit 1
         elif [[ -r "$f" ]]; then
             echo -e "${ACCENT}=== Running $f ===${RESET}"
-            cc $CCARGS -o ".build/${f%.c}" "$f"
+            local name=".build/${f%.c}"
+            if [[ $WINDOWS -eq 1 ]]; then
+                cl $MSVCARGS /Fo:"$name.obj" /Fe:"$name.exe" "$f" &>/dev/null
+            else
+                cc $GCCARGS -o "$name" "$f"
+            fi
             if [[ $? -eq 0 ]]; then
                 local start=$(date +%s%N)
-                "./.build/${f%.c}"
+                if [[ $WINDOWS -eq 1 ]]; then
+                    wine "$name.exe"
+                else
+                    "$name"
+                fi
                 local done=$(date +%s%N)
                 local dur_ns=$(($done - $start))
                 local dur_us=$(($dur_ns / 1000))

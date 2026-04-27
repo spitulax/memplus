@@ -17,7 +17,7 @@ fail:
 }
 
 int main(void) {
-    auto allocator = mp_alloc_new((void *) 69, alloc_func);
+    mp_Alloc allocator = mp_alloc_new((void *) 69, alloc_func);
 
     void *alloc_res = mp_alloc(&allocator, 10);
     expect_eq(alloc_res, (void *) 10, "%p");

@@ -9,11 +9,11 @@ int main(void) {
     mp_da_init(&sb, &alloc);
 
     mp_str_builder_append(&sb, "Hello, World!");
-    expect_eq(sb.len, 13ul, "%zu");
+    expect_eq(sb.len, (size_t) 13, "%zu");
     expect_memeq(sb.data, "Hello, World!", 13);
 
     mp_str_builder_appendf(&sb, " %d", 67);
-    expect_eq(sb.len, 16ul, "%zu");
+    expect_eq(sb.len, (size_t) 16, "%zu");
     expect_memeq(sb.data, "Hello, World! 67", 16);
 
     // Other functions should work like dynamic arrays, I hope

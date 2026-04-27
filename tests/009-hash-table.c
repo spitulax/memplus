@@ -34,7 +34,7 @@ int main(void) {
     mp_ht_get(&ht, "nonexistent", val);
     expect_eq((void *) val, NULL, "%p");
 
-    expect_eq(ht.len, 2ul, "%zu");
+    expect_eq(ht.len, (size_t) 2, "%zu");
     expect_eq(ht.cap, (size_t) MP_HASH_TABLE_INIT_CAPACITY, "%zu");
 
     // Delete test

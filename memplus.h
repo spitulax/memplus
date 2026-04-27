@@ -1010,7 +1010,8 @@ typedef enum {
     MP_ERR_WRONG_MEDIUM_TYPE,           // EMEDIUMTYPE
 #endif
 #else
-#error "Unimplemented"
+// #error "Unimplemented"
+    MP_ERR_TODO
 #endif
 } mp_Err;
 
@@ -1642,7 +1643,7 @@ mp_Err mp_err(int errnum) {
         case EXFULL:          return MP_ERR_EXCHANGE_FULL;
 #endif
 #else
-#error "Unimplemented"
+// #error "Unimplemented"
 #endif
         default: return MP_ERR_UNKNOWN;
     }
@@ -1784,7 +1785,7 @@ const char *mp_err_str(mp_Err e) {
         case MP_ERR_WRONG_MEDIUM_TYPE:        return "MP_ERR_WRONG_MEDIUM_TYPE";
 #endif
 #else
-#error "Unimplemented"
+// #error "Unimplemented"
 #endif
     }
 

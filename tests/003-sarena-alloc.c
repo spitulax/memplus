@@ -1,4 +1,5 @@
 #include "test.h"
+#include <inttypes.h>
 #include <stdint.h>
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
@@ -27,8 +28,8 @@ void test(mp_Alloc *alloc, mp_Temp *arena) {
     *mem          = 67;
     int64_t *mem2 = mp_realloc(alloc, mem, 4, 8);
     expect_eq(arena->len, (size_t) align(4 + 8), "%zu");
-    expect_eq(*mem2, 67L, "%ld");
-    expect_eq(*(int64_t *) mem, *mem2, "%ld");
+    expect_eq(*mem2, (int64_t) 67, "%" PRId64);
+    expect_eq(*(int64_t *) mem, *mem2, "%" PRId64);
 
     // Dup test
     mp_temp_reset(arena);
