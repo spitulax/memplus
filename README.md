@@ -14,6 +14,7 @@
 - [ ] Tracking allocator
 - [ ] Subprocess
 - [ ] Other kinds of allocators
+- [ ] Socket IO
 
 ## Usage
 

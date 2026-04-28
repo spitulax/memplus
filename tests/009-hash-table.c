@@ -74,6 +74,16 @@ int main(void) {
         mp_str_deinit(&key, &alloc);
     }
 
+    // Iterator test
+    HashTableIntIter it;
+    mp_ht_iter_init(&it, &ht);
+    size_t counter = 0;
+    while (it.ok) {
+        ++counter;
+        mp_ht_iter_next(&it);
+    }
+    expect_eq(counter, ht.len, "%zu");
+
     mp_ht_deinit(&ht);
 
     return 0;

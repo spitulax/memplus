@@ -673,7 +673,6 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
  * HASH TABLE (STRING KEY)
  ***********/
 
-// TODO: hash table iterator
 // TODO: hash table clone
 
 /* Percentage of elements in a hash table before it resizes. */
@@ -692,6 +691,19 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
  * mp_ht_create(int, HashTableInt);
  * ```
  *
+ * This also defines the hash table's iterator type, named by suffixing `Iter` after the hash
+ * table's type name.
+ * Example usage:
+ * ```c
+ * HashTableIntIter it;
+ * mp_ht_iter_init(&it, &ht);
+ * while (it.ok) {
+ *     (void) it.key;
+ *     (void) it.val;
+ *     mp_ht_iter_next(&it);
+ * }
+ * ```
+ *
  * value_type: typename
  * name: identifier */
 #define mp_ht_create(value_type, name)                                                             \
@@ -699,7 +711,14 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
         mp_Str     key;                                                                            \
         value_type val;                                                                            \
     } __##name##Entry;                                                                             \
-    mp_da_create(__##name##Entry, name)
+    mp_da_create(__##name##Entry, name);                                                           \
+    typedef struct {                                                                               \
+        mp_Str      key;                                                                           \
+        value_type  val;                                                                           \
+        bool        ok;                                                                            \
+        const name *_h;                                                                            \
+        size_t      _i;                                                                            \
+    } name##Iter
 
 /* Initializes a new hash table managed by `allocator`.
  * Deinit with `mp_ht_deinit`.
@@ -865,7 +884,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
 
 /* The same as above but accepts `mp_Str*`.
  *
- * ht: const DArray*
+ * ht: const HashTable*
  * k: mp_Str* */
 #define mp_ht_delete_s(ht, k)                                                                      \
     do {                                                                                           \
@@ -883,6 +902,38 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
                 ++__i;                                                                             \
                 if (__i >= (ht)->cap) __i = 0;                                                     \
             }                                                                                      \
+        }                                                                                          \
+    } while (0)
+
+/* Initializes an iterator on a hash table.
+ * To use the iterator, see `mp_ht_create`.
+ *
+ * it: HashTableIter* (NO SIDE EFFECTS)
+ * ht: const HashTable* */
+#define mp_ht_iter_init(it, ht)                                                                    \
+    do {                                                                                           \
+        __MP_ZERO(it);                                                                             \
+        (it)->_h = (ht);                                                                           \
+        mp_ht_iter_next(it);                                                                       \
+    } while (0)
+
+/* Get next element in a hash table iterator.
+ * To use the iterator, see `mp_ht_create`.
+ *
+ * it: HashTableIter* (NO SIDE EFFECTS) */
+#define mp_ht_iter_next(it)                                                                        \
+    do {                                                                                           \
+        (it)->ok = false;                                                                          \
+        while ((it)->_i < (it)->_h->cap) {                                                         \
+            __typeof__((it)->_h->data) __entry = (it)->_h->data + (it)->_i;                        \
+            if (mp_str_is_valid(&__entry->key)) {                                                  \
+                (it)->key = __entry->key;                                                          \
+                (it)->val = __entry->val;                                                          \
+                (it)->ok  = true;                                                                  \
+                ++(it)->_i;                                                                        \
+                break;                                                                             \
+            }                                                                                      \
+            ++(it)->_i;                                                                            \
         }                                                                                          \
     } while (0)
 
