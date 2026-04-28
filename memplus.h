@@ -893,13 +893,13 @@ uint64_t mp_ht_hash_str(const mp_Str *str);
  * ERRORS
  ***********/
 
-// TODO: Copy messages to comments for these error types
-
 /* Errors from errno.
  *
  * Error names for POSIX & Linux taken from Linux manpage `errno(3)`.
  * Error names for Windows taken from
  * https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants
+ *
+ * For error messages see `mp_err_str()`.
  *
  * Don't forget `mp_err()` and `mp_err_str()`! */
 // Sort this!
@@ -1083,7 +1083,10 @@ typedef enum {
     __MP_IOOP_COUNT,
 } mp_IoOp;
 
-/* Errors that may occur when using IO functions. */
+/* Errors that may occur when using IO functions.
+ *
+ * For error messages see `mp_ioerr_str()`.
+ * */
 typedef enum {
     MP_IOERR_NONE = 0,
     MP_IOERR_UNSUPPORTED,
