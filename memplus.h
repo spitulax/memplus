@@ -673,8 +673,6 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
  * HASH TABLE (STRING KEY)
  ***********/
 
-// TODO: hash table clone
-
 /* Percentage of elements in a hash table before it resizes. */
 #ifndef MP_HASH_TABLE_MAX_LOAD
 #define MP_HASH_TABLE_MAX_LOAD 0.75
@@ -719,6 +717,8 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
         const name *_h;                                                                            \
         size_t      _i;                                                                            \
     } name##Iter
+
+// TODO: STORE THE KEYS IN AN ARENA
 
 /* Initializes a new hash table managed by `allocator`.
  * Deinit with `mp_ht_deinit`.
@@ -902,6 +902,33 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
                 ++__i;                                                                             \
                 if (__i >= (ht)->cap) __i = 0;                                                     \
             }                                                                                      \
+        }                                                                                          \
+    } while (0)
+
+/* Clones a hash table to `dest` to be managed by `allocator`.
+ * `dest` inherits all fields of `src`.
+ * `dest.data` becomes NULL if allocation failed.
+ *
+ * allocator: mp_Alloc* (NO SIDE EFFECTS)
+ * src: HashTable* (NO SIDE EFFECTS)
+ * dest: HashTable* (NO SIDE EFFECTS) */
+#define mp_ht_clone(allocator, src, dest)                                                          \
+    do {                                                                                           \
+        (dest)->data = mp_dup((allocator), (src)->data, (src)->cap * sizeof(*(src)->data));        \
+        if ((dest)->data != NULL) {                                                                \
+            (dest)->alloc = (allocator);                                                           \
+            (dest)->len   = (src)->len;                                                            \
+            (dest)->cap   = (src)->cap;                                                            \
+            for (size_t __i = 0; __i < (src)->cap; ++__i) {                                        \
+                if (mp_str_is_valid(&(src)->data[__i].key)) {                                      \
+                    (dest)->data[__i].key = mp_str_clone(&(src)->data[__i].key, (allocator));      \
+                    MEMPLUS_ASSERT((dest)->data[__i].key.cstr != (src)->data[__i].key.cstr);       \
+                }                                                                                  \
+            }                                                                                      \
+        } else {                                                                                   \
+            (dest)->alloc = NULL;                                                                  \
+            (dest)->len   = 0;                                                                     \
+            (dest)->cap   = 0;                                                                     \
         }                                                                                          \
     } while (0)
 

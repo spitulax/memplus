@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #define MEMPLUS_IMPLEMENTATION
 #define MP_HASH_TABLE_MAX_LOAD 1    // test when any conflict arises
 #include "memplus.h"
@@ -83,6 +84,23 @@ int main(void) {
         mp_ht_iter_next(&it);
     }
     expect_eq(counter, ht.len, "%zu");
+
+    // Clone test
+    HashTableInt ht2;
+    mp_ht_clone(&alloc, &ht, &ht2);
+    expect_eq(ht.len, ht2.len, "%zu");
+    expect_eq(ht.cap, ht2.cap, "%zu");
+    expect_ne((void *) ht.data, (void *) ht2.data, "%p");
+
+    mp_ht_iter_init(&it, &ht);
+    while (it.ok) {
+        __HashTableIntEntry *o = ht.data + (it._i - 1);
+        expect_streq(it.key.cstr, o->key.cstr);
+        expect_eq(it.val, o->val, "%d");
+        mp_ht_iter_next(&it);
+    }
+
+    mp_ht_deinit(&ht2);
 
     mp_ht_deinit(&ht);
 
