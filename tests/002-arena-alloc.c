@@ -4,7 +4,7 @@
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 
-#define align(a) (DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
+#define align(a) (__MP_DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
 
 int main(void) {
     mp_Arena arena;

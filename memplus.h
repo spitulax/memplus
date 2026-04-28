@@ -1324,19 +1324,18 @@ mp_Io mp_file_io(mp_File *f, mp_IoType type);
 #include <stdio.h>
 #include <string.h>
 
-// TODO: namespace this
-#define UNREACHABLE()      MEMPLUS_ASSERT_MSG(0, "Unreachable")
-#define TODO(msg)          MEMPLUS_ASSERT_MSG(0, "todo: " msg)
-#define DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
-#define ALIGN(a, inc)      (DIV_ROUNDUP((a), (inc)) * (inc))
-#define ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
-#define MAX(a, b)          ((a) > (b) ? (a) : (b))
-#define MIN(a, b)          ((a) < (b) ? (a) : (b))
-#define ASSERT_OVERLAP(a, a_len, b, b_len)                                                         \
+#define __MP_UNREACHABLE()      MEMPLUS_ASSERT_MSG(0, "Unreachable")
+#define __MP_TODO(msg)          MEMPLUS_ASSERT_MSG(0, "todo: " msg)
+#define __MP_DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
+#define __MP_ALIGN(a, inc)      (__MP_DIV_ROUNDUP((a), (inc)) * (inc))
+#define __MP_ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
+#define __MP_MAX(a, b)          ((a) > (b) ? (a) : (b))
+#define __MP_MIN(a, b)          ((a) < (b) ? (a) : (b))
+#define __MP_ASSERT_OVERLAP(a, a_len, b, b_len)                                                    \
     do {                                                                                           \
         auto _a = (uintptr_t) a;                                                                   \
         auto _b = (uintptr_t) b;                                                                   \
-        if (MAX((_a), (_b)) < MIN((_a) + (a_len), (_b) + (b_len))) {                               \
+        if (__MP_MAX((_a), (_b)) < __MP_MIN((_a) + (a_len), (_b) + (b_len))) {                     \
             MEMPLUS_ASSERT_MSG(0, "Memory overlaps");                                              \
         }                                                                                          \
     } while (0)
@@ -1372,14 +1371,14 @@ void *mp_alloc_handle_realloc(mp_Alloc *alloc, void *old_ptr, size_t old_size, s
     if (new_size <= old_size) return old_ptr;
     void *new_ptr = mp_alloc(alloc, new_size);
     if (new_ptr == NULL) return NULL;
-    ASSERT_OVERLAP(old_ptr, old_size, new_ptr, new_size);
+    __MP_ASSERT_OVERLAP(old_ptr, old_size, new_ptr, new_size);
     memcpy(new_ptr, old_ptr, old_size);
     mp_free(alloc, old_ptr, old_size);
     return new_ptr;
 }
 
 mp_Region *mp_region_init(size_t cap) {
-    size_t     bytes  = ALIGN(cap, sizeof(uintptr_t));
+    size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
     mp_Region *region = MEMPLUS_ALLOC(bytes);
     region->next      = NULL;
     region->len       = 0;
@@ -1434,7 +1433,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
                 return NULL;
             }
 
-            size_t alloc_size = ALIGN(new_size, sizeof(uintptr_t));
+            size_t alloc_size = __MP_ALIGN(new_size, sizeof(uintptr_t));
 
             if (ctx->end == NULL) {
                 MEMPLUS_ASSERT(ctx->begin == NULL);
@@ -1445,12 +1444,12 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
                 ctx->begin = ctx->end;
             }
 
-            while (ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap &&
+            while (__MP_ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap &&
                    ctx->end->next != NULL) {
                 ctx->end = ctx->end->next;
             }
 
-            if (ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap) {
+            if (__MP_ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap) {
                 MEMPLUS_ASSERT(ctx->end->next == NULL);
                 size_t capacity = MP_REGION_DEFAULT_SIZE;
                 if (capacity < alloc_size) capacity = alloc_size;
@@ -1460,7 +1459,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
             }
 
             MEMPLUS_ASSERT(ctx->end->len % sizeof(uintptr_t) == 0);
-            size_t len_words = DIV_ROUNDUP(ctx->end->len, sizeof(uintptr_t));
+            size_t len_words = __MP_DIV_ROUNDUP(ctx->end->len, sizeof(uintptr_t));
             void  *result    = &ctx->end->data[len_words];
             ctx->end->len += alloc_size;
             ctx->len += alloc_size;
@@ -1474,13 +1473,13 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
 
             return NULL;
         } break;
-        case __MP_ALLOCOP_COUNT: UNREACHABLE();
+        case __MP_ALLOCOP_COUNT: __MP_UNREACHABLE();
     }
-    UNREACHABLE();
+    __MP_UNREACHABLE();
 }
 
 void mp_sarena_init(mp_SArena *a, mp_Alloc *alloc, size_t cap) {
-    size_t     bytes  = ALIGN(cap, sizeof(uintptr_t));
+    size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
     uintptr_t *buffer = mp_alloc(alloc, bytes);
     a->alloc          = alloc;
     a->buf            = buffer;
@@ -1517,7 +1516,7 @@ mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_s
                 return NULL;
             }
 
-            size_t alloc_size = ALIGN(new_size, sizeof(uintptr_t));
+            size_t alloc_size = __MP_ALIGN(new_size, sizeof(uintptr_t));
 
             MEMPLUS_ASSERT(ctx->len % sizeof(uintptr_t) == 0);
             if (ctx->len + alloc_size > ctx->cap) return NULL;
@@ -1534,16 +1533,16 @@ mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_s
 
             return NULL;
         } break;
-        case __MP_ALLOCOP_COUNT: UNREACHABLE();
+        case __MP_ALLOCOP_COUNT: __MP_UNREACHABLE();
     }
-    UNREACHABLE();
+    __MP_UNREACHABLE();
 }
 
 void mp_temp_init(mp_Temp *t, char *buf, size_t cap) {
     memset(buf, 0, cap);
     t->buf = (uintptr_t *) buf;
     t->len = 0;
-    t->cap = ALIGN_DOWN(cap, sizeof(uintptr_t));
+    t->cap = __MP_ALIGN_DOWN(cap, sizeof(uintptr_t));
 }
 
 void mp_temp_reset(mp_Temp *t) {
@@ -1585,9 +1584,9 @@ mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_siz
             MEMPLUS_FREE(ptr);
             return NULL;
         } break;
-        case __MP_ALLOCOP_COUNT: UNREACHABLE();
+        case __MP_ALLOCOP_COUNT: __MP_UNREACHABLE();
     }
-    UNREACHABLE();
+    __MP_UNREACHABLE();
 }
 
 mp_Str mp_str_new(mp_Alloc *alloc, const char *str) {
@@ -2095,10 +2094,10 @@ const char *mp_err_str(mp_Err e) {
 
 #endif /* if defined(__MP_SYSTEM_POSIX) */
 
-        case __MP_ERR_COUNT: UNREACHABLE();
+        case __MP_ERR_COUNT: __MP_UNREACHABLE();
     }
 
-    UNREACHABLE();
+    __MP_UNREACHABLE();
 }
 
 const char *mp_ioerr_str(mp_IoErr e) {
@@ -2112,10 +2111,10 @@ const char *mp_ioerr_str(mp_IoErr e) {
         case MP_IOERR_CANNOT_WRITE:   return "Cannot write to stream";
         case MP_IOERR_CANNOT_GET_POS: return "Cannot get file position indicator";
         case MP_IOERR_CANNOT_SET_POS: return "Cannot set file position indicator";
-        case __MP_IOERR_COUNT:        UNREACHABLE();
+        case __MP_IOERR_COUNT:        __MP_UNREACHABLE();
     }
 
-    UNREACHABLE();
+    __MP_UNREACHABLE();
 }
 
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode) {
@@ -2316,7 +2315,7 @@ mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2, size_t *
                 return MP_IOERR_CANNOT_WRITE;
             }
         } break;
-        case __MP_IOOP_COUNT: UNREACHABLE();
+        case __MP_IOOP_COUNT: __MP_UNREACHABLE();
     }
 
     return MP_IOERR_NONE;
