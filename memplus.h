@@ -123,12 +123,16 @@ __MP_NORETURN void __mp_assert_fail(
  * ALLOCATORS
  ***********/
 
+// TODO: add deinit notice to funcs that allocate
+// TODO: check for funcs that may accept uninitialized value that is not an init func
+
 /* Default size of a single region in bytes.
  * Will be aligned to the nearest increment of `sizeof(uintptr_t)`. */
 #ifndef MP_REGION_DEFAULT_SIZE
 #define MP_REGION_DEFAULT_SIZE (64 * 1024)
 #endif
 
+/* See `mp_AllocFunc` below. */
 typedef enum {
     MP_ALLOCOP_ALLOC,
     MP_ALLOCOP_REALLOC,
@@ -138,11 +142,13 @@ typedef enum {
 
 // TODO: Alloc location
 
-/*
- * Functions of this type does different things depending on the `type` given.
+/* Functions of this type do different things depending on the `op` given.
  * They also use their parameters differently on each type.
  *
- *  Types:
+ * Returns the pointer to the newly allocated memory. May return NULL if allocation failed.
+ * Always returns NULL on MP_ALLOCOP_FREE.
+ *
+ *  Operations:
  *  - MP_ALLOCOP_ALLOC: Allocates
  *    Does nothing and returns NULL if `new_size` == 0.
  *       - `context`: The allocator context
@@ -163,9 +169,7 @@ typedef enum {
  *       - `ptr`: The data to be freed
  *       - `new_size`: The size of the data (mostly for logging purpose)
  *       - ignores other parameters
- *
- *  Returns the pointer to the newly allocated memory. May return NULL if allocation failed.
- *  Always returns NULL on MP_ALLOCOP_FREE. */
+ */
 typedef void *(*mp_AllocFunc)(
     mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 
@@ -173,7 +177,7 @@ typedef void *(*mp_AllocFunc)(
  * The method of allocation can be customized by the user. */
 typedef struct {
     // The object that manages or holds the memory.
-    // In case of allocator that works with global memory, this could be specified as NULL.
+    // In case of allocator that works with global memory, this can be specified as NULL.
     void *context;
 
     // The function that does stuff to the memory.
@@ -181,7 +185,8 @@ typedef struct {
     mp_AllocFunc f;
 } mp_Alloc;
 
-/* Macros that wrap the functions above */
+/* Macros that wrap the functions above.
+ * See `mp_AllocFunc` for details. */
 
 /* alloc: mp_Alloc* (NO SIDE EFFECTS)
  * size: number of bytes
@@ -560,7 +565,8 @@ typedef struct {
     char  *cstr;
 } mp_Str;
 
-/* Returns an invalid `mp_Str`. */
+/* Returns an invalid `mp_Str`.
+ * Invalid `mp_Str` requires that field `cstr` is NULL. */
 #define mp_str_invalid()                                                                           \
     ((mp_Str) {                                                                                    \
         .len  = 0,                                                                                 \
@@ -886,7 +892,11 @@ uint64_t mp_ht_hash_str(const mp_Str *str);
  * ERRORS
  ***********/
 
-/* Error names for POSIX & Linux taken from Linux manpage `errno(3)`.
+// TODO: Copy messages to comments for these error types
+
+/* Errors from errno.
+ *
+ * Error names for POSIX & Linux taken from Linux manpage `errno(3)`.
  * Error names for Windows taken from
  * https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants
  *
@@ -1050,14 +1060,16 @@ typedef enum {
     __MP_ERR_COUNT,
 } mp_Err;
 
-mp_Err      mp_err(int errnum);
+/* Converts errno into `mp_Err`. */
+mp_Err mp_err(int errnum);
+/* Returns the message of an error. */
 const char *mp_err_str(mp_Err e);
 
 /***********
  * IO INTERFACE
  ***********/
 
-// TODO: getc and putc
+/* See `mp_IoFunc` below. */
 typedef enum {
     MP_IOOP_FLUSH,
     MP_IOOP_SETBUF,
@@ -1065,11 +1077,16 @@ typedef enum {
     MP_IOOP_WRITE,
     MP_IOOP_GETPOS,
     MP_IOOP_SETPOS,
+    MP_IOOP_GETC,
+    MP_IOOP_PUTC,
     __MP_IOOP_COUNT,
 } mp_IoOp;
 
+/* Errors that may occur when using IO functions. */
 typedef enum {
     MP_IOERR_NONE = 0,
+    MP_IOERR_UNSUPPORTED,
+    MP_IOERR_EOF,
     MP_IOERR_CANNOT_FLUSH,
     MP_IOERR_CANNOT_SET_BUF,
     MP_IOERR_CANNOT_READ,
@@ -1079,41 +1096,194 @@ typedef enum {
     __MP_IOERR_COUNT,
 } mp_IoErr;
 
+/* Returns the message of an error. */
+const char *mp_ioerr_str(mp_IoErr e);
+
+/* Modes given to `setvbuf()`.  */
 typedef enum {
-    MP_SETBUF_MODE_NONE,
-    MP_SETBUF_MODE_FULL,
-    MP_SETBUF_MODE_LINE,
+    MP_SETBUFMODE_NONE,    // no buffering (_IONBF)
+    MP_SETBUFMODE_FULL,    // full buffering (_IOFBF)
+    MP_SETBUFMODE_LINE,    // line buffering (_IOLBF)
 } mp_SetbufMode;
 
+/* Position from which to apply the offset of the seek. */
 typedef enum {
-    MP_SETPOS_ORIGIN_START,
-    MP_SETPOS_ORIGIN_CURRENT,
-    MP_SETPOS_ORIGIN_END,
+    MP_SETPOSORIGIN_START,      // SEEK_SET
+    MP_SETPOSORIGIN_CURRENT,    // SEEK_CUR
+    MP_SETPOSORIGIN_END,        // SEEK_END
 } mp_SetposOrigin;
 
-typedef mp_IoErr (*mp_IoFunc)(
-    mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size_t *ret);
+/* The type of a stream. Stream of a certain type may only call certain functions.
+ * A stream may be both read and write.
+ * If a stream calls to a function outside of its domain, MP_IOERR_UNSUPPORTED will be returned.
+ * MP_IOTYPE_NONE is only used for invalid `mp_Io` object. */
+typedef enum {
+    MP_IOTYPE_NONE  = 0,
+    MP_IOTYPE_READ  = 1 << 0,
+    MP_IOTYPE_WRITE = 1 << 1,
+} mp_IoType;
 
-typedef struct {
+typedef struct mp_Io mp_Io;
+
+/* Functions of this type do different things and utilize the parameters differently depending on
+ * the `op` given.
+ *
+ * Returns `mp_IoErr` type. MP_IOERR_NONE if successful.
+ * Not all operations can be done to all streams.
+ * If the operation does not allow to be done on the type it will return MP_IOERR_UNSUPPORTED.
+ *
+ * Operations:
+ * - MP_IOOP_FLUSH: Flushes the stream
+ *   For MP_IOTYPE_WRITE.
+ *   For output streams, writes unwritten data from buffer to the output device.
+ *      - `io`: The IO object
+ *      - ignores other parameters
+ *  - MP_IOOP_SETBUF: Changes the buffering mode of a stream.
+ *    For MP_IOTYPE_WRITE and MP_IOTYPE_READ.
+ *    Changes the buffering mode or/and the size of the internal buffer.
+ *    Can also instruct the stream to use use-provided buffer if `ptr` != NULL.
+ *    The stream must be closed before the lifetime of the buffer ends.
+ *      - `io`: The IO object
+ *      - `ptr`: The buffer to use (if NULL, only resizes the existing buffer to `n1`)
+ *      - `n1`: Size of the buffer
+ *      - `n2`: `mp_SetbufMode`
+ *      - ignores other parameters
+ *  - MP_IOOP_READ: Reads objects into given buffer from the stream.
+ *    For MP_IOTYPE_READ.
+ *    If an error or EOF occurs, `ret` may be less than `n2` and returns MP_IOERR_CANNOT_READ or
+ *    MP_IOERR_EOF respsectively.
+ *    If `n1` or `n2` is zero, does nothing and `ret` will be set to zero.
+ *      - `io`: The IO object
+ *      - `ptr`: The buffer which the data will be stored
+ *      - `n1`: Size of each object (in bytes)
+ *      - `n2`: The number of objects (the total size of the data will be `n1 * n2`)
+ *      - `ret`: Stores the number of objects read successfully
+ *  - MP_IOOP_WRITE: Writes objects from given buffer to the stream.
+ *    For MP_IOTYPE_WRITE.
+ *    If an error occurs, `ret` may be less than `n2` and returns MP_IOERR_CANNOT_WRITE.
+ *    If `n1` or `n2` is zero, does nothing and `ret` will be set to zero.
+ *      - `io`: The IO object
+ *      - `ptr`: The buffer of the data to be written
+ *      - `n1`: Size of each object (in bytes)
+ *      - `n2`: The number of objects (the total size of the data will be `n1 * n2`)
+ *      - `ret`: Stores the number of objects written successfully
+ *  - MP_IOOP_GETPOS: Gets the file position indicator of a stream.
+ *    For MP_IOTYPE_WRITE and MP_IOTYPE_READ.
+ *      - `io`: The IO object
+ *      - `ret`: Stores the file position indicator (in bytes)
+ *      - ignores other parameters
+ *  - MP_IOOP_SETPOS: Sets the file position indicator of a stream.
+ *    For MP_IOTYPE_WRITE and MP_IOTYPE_READ.
+ *    Binary streams may not support MP_SETPOSORIGIN_END or SEEK_END.
+ *    For text streams, offset may only be zero or the result of earlier `MP_IOOP_GETPOS` (for
+ *    MP_SETPOSORIGIN_START or SEEK_SET only).
+ *    For wide-oriented streams, the restrictions of both binary and text streams apply.
+ *      - `io`: The IO object
+ *      - `n1`: The offset (in bytes)
+ *      - `n2`: `mp_SetposOrigin`
+ *      - ignores other parameters
+ *  - MP_IOOP_GETC: Reads the next character from a stream.
+ *    For MP_IOTYPE_READ.
+ *      - `io`: The IO object
+ *      - `ret`: Stores the character (actually `unsigned char`)
+ *      - ignores other parameters
+ *  - MP_IOOP_PUTC: Writes a character to a stream.
+ *    For MP_IOTYPE_WRITE.
+ *      - `io`: The IO object
+ *      - `n1`: The character (converted to `unsigned char` before write)
+ *      - ignores other parameters
+ * */
+typedef mp_IoErr (*mp_IoFunc)(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2, size_t *ret);
+
+/* Interface to wrap IO functions.
+ * The IO functions can be customized. */
+struct mp_Io {
+    // The object which contains the underlying data about the stream.
+    // This can be specified as NULL if context is not needed.
     void *context;
+    // See `mp_IoType`.
+    mp_IoType type;
 
+    // See `mp_IoFunc`.
     mp_IoFunc f;
-} mp_Io;
 
-#define mp_io_flush(io) ((io)->f(MP_IOOP_FLUSH, (io)->context, NULL, 0, 0, NULL))
+    // TODO: buffered and unbuffered IO
+    // bool buffered;
+};
+
+/* Returns an invalid `mp_Io`.
+ * Invalid `mp_Io` requires that field `type` is MP_IOTYPE_NONE. */
+#define mp_io_invalid()                                                                            \
+    ((mp_Io) {                                                                                     \
+        .context = NULL,                                                                           \
+        .type    = MP_IOTYPE_NONE,                                                                 \
+        .f       = NULL,                                                                           \
+    })
+
+/* Tests if `io` is invalid.
+ * Returns true if valid.
+ *
+ * io: const mp_Io* */
+#define mp_io_is_valid(io) ((io)->type != MP_IOTYPE_NONE)
+
+/* Macros that wrap the functions above.
+ * See `mp_IoFunc` for details. */
+
+/* io: mp_Io* (NO SIDE EFFECTS)
+ * Returns mp_IoErr */
+#define mp_io_flush(io) ((io)->f(MP_IOOP_FLUSH, (io), NULL, 0, 0, NULL))
+/* io: mp_Io* (NO SIDE EFFECTS)
+ * buf: char*
+ * bufsize: size_t
+ * mode: `mp_SetbufMode`
+ * Returns mp_IoErr */
 #define mp_io_setbuf(io, buf, bufsize, mode)                                                       \
-    ((io)->f(MP_IOOP_SETBUF, (io)->context, (buf), (bufsize), (mode), NULL))
+    ((io)->f(MP_IOOP_SETBUF, (io), (buf), (bufsize), (mode), NULL))
+/* io: mp_Io* (NO SIDE EFFECTS)
+ * buf: pointer
+ * size: size_t
+ * count: size_t
+ * ret_n: size_t*
+ * Returns mp_IoErr */
 #define mp_io_read(io, buf, size, count, ret_n)                                                    \
-    ((io)->f(MP_IOOP_READ, (io)->context, (buf), (size), (count), (ret_n)))
+    ((io)->f(MP_IOOP_READ, (io), (buf), (size), (count), (ret_n)))
+/* io: mp_Io* (NO SIDE EFFECTS)
+ * buf: pointer (may be const)
+ * size: size_t
+ * count: size_t
+ * ret_n: size_t*
+ * Returns mp_IoErr */
 #define mp_io_write(io, buf, size, count, ret_n)                                                   \
-    ((io)->f(MP_IOOP_WRITE, (io)->context, (buf), (size), (count), (ret_n)))
-#define mp_io_getpos(io, ret_n) ((io)->f(MP_IOOP_GETPOS, (io)->context, NULL, 0, 0, (ret_n)))
+    ((io)->f(MP_IOOP_WRITE, (io), (void *) (buf), (size), (count), (ret_n)))
+/* io: mp_Io* (NO SIDE EFFECTS)
+ * ret_n: size_t*
+ * Returns mp_IoErr */
+#define mp_io_getpos(io, ret_n) ((io)->f(MP_IOOP_GETPOS, (io), NULL, 0, 0, (ret_n)))
+/* io: mp_Io* (NO SIDE EFFECTS)
+ * offset: size_t
+ * origin: `mp_SetposOrigin`
+ * Returns mp_IoErr */
 #define mp_io_setpos(io, offset, origin)                                                           \
-    ((io)->f(MP_IOOP_SETPOS, (io)->context, NULL, (offset), (origin), NULL))
+    ((io)->f(MP_IOOP_SETPOS, (io), NULL, (offset), (origin), NULL))
+/* io: mp_Io* (NO SIDE EFFECTS)
+ * ret_c: char*
+ * Returns mp_IoErr */
+#define mp_io_getc(io, ret_c) ((io)->f(MP_IOOP_GETC, (io), NULL, 0, 0, (size_t *) (ret_c)))
+/* io: mp_Io* (NO SIDE EFFECTS)
+ * c: char
+ * Returns mp_IoErr */
+#define mp_io_putc(io, c) ((io)->f(MP_IOOP_PUTC, (io), NULL, (size_t) (c), 0, NULL))
 
-#define mp_io_new(ctx, func)                                                                       \
+/* Creates a custom IO object given the context and the function.
+ *
+ * ctx (context): pointer
+ * type: mp_IoType
+ * func: mp_IoFunc
+ * Returns mp_Io */
+#define mp_io_new(ctx, type, func)                                                                 \
     ((mp_Io) {                                                                                     \
         .context = (void *) (ctx),                                                                 \
+        .type    = (type),                                                                         \
         .f       = (func),                                                                         \
     })
 
@@ -1121,14 +1291,24 @@ typedef struct {
  * FILE IO
  ***********/
 
+/* Context of file IO. Stores a FILE object corresponding to the open file. */
 typedef struct {
-    FILE *file;
+    FILE     *file;
+    mp_IoType supported_type;
 } mp_File;
 
+/* Opens a file at `filename`. See `fopen()` for possible `mode`. */
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
+/* Opens a file at `filename` and closes the old file.
+ * If `filename` is NULL, changes the mode of the existing file. */
+mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode);
 // TODO: mp_file_open_from_fd
-void  mp_file_deinit(mp_File *f);
-mp_Io mp_file_io(mp_File *f);
+/* Closes an open file. Does nothing if mp_File.file == NULL. */
+void mp_file_deinit(mp_File *f);
+/* Returns an IO object that works with `f` of given `type`.
+ * The `type` may not be supported, depends on the mode when opening the file.
+ * Returns an invalid `mp_Io` if failed. */
+mp_Io mp_file_io(mp_File *f, mp_IoType type);
 
 /***********
  * IMPLEMENTATION
@@ -1165,7 +1345,7 @@ static void *
 mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr);
 
 static mp_IoErr
-mp_file_io_func(mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size_t *ret);
+mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2, size_t *ret);
 
 #ifdef __MP_NEED_ASSERT
 __MP_NORETURN void __mp_assert_fail(
@@ -1917,11 +2097,60 @@ const char *mp_err_str(mp_Err e) {
     UNREACHABLE();
 }
 
+const char *mp_ioerr_str(mp_IoErr e) {
+    switch (e) {
+        case MP_IOERR_NONE:           return "Success";
+        case MP_IOERR_UNSUPPORTED:    return "Unsupported operation";
+        case MP_IOERR_EOF:            return "Reached end-of-file";
+        case MP_IOERR_CANNOT_FLUSH:   return "Cannot flush";
+        case MP_IOERR_CANNOT_SET_BUF: return "Cannot set internal buffer";
+        case MP_IOERR_CANNOT_READ:    return "Cannot read from stream";
+        case MP_IOERR_CANNOT_WRITE:   return "Cannot write to stream";
+        case MP_IOERR_CANNOT_GET_POS: return "Cannot get file position indicator";
+        case MP_IOERR_CANNOT_SET_POS: return "Cannot set file position indicator";
+        case __MP_IOERR_COUNT:        UNREACHABLE();
+    }
+
+    UNREACHABLE();
+}
+
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode) {
     __MP_ZERO(f);
     FILE *file;
     if ((file = fopen(filename, mode)) != NULL) {
-        f->file = file;
+        f->file           = file;
+        f->supported_type = MP_IOTYPE_NONE;
+
+        if (strchr(mode, '+') != NULL) {
+            f->supported_type = MP_IOTYPE_WRITE | MP_IOTYPE_READ;
+        } else if (strchr(mode, 'w') != NULL || strchr(mode, 'a') != NULL) {
+            f->supported_type = MP_IOTYPE_WRITE;
+        } else if (strchr(mode, 'r') != NULL) {
+            f->supported_type = MP_IOTYPE_READ;
+        }
+
+        return MP_ERR_NONE;
+    } else {
+        f->file = NULL;
+        return mp_err(errno);
+    }
+}
+
+mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode) {
+    // if (f->file != NULL) {
+    //     return MP_ERR_BAD_FD;
+    // }
+    if ((f->file = freopen(filename, mode, f->file)) != NULL) {
+        f->supported_type = MP_IOTYPE_NONE;
+
+        if (strchr(mode, '+') != NULL) {
+            f->supported_type = MP_IOTYPE_WRITE | MP_IOTYPE_READ;
+        } else if (strchr(mode, 'w') != NULL || strchr(mode, 'a') != NULL) {
+            f->supported_type = MP_IOTYPE_WRITE;
+        } else if (strchr(mode, 'r') != NULL) {
+            f->supported_type = MP_IOTYPE_READ;
+        }
+
         return MP_ERR_NONE;
     } else {
         f->file = NULL;
@@ -1936,21 +2165,31 @@ void mp_file_deinit(mp_File *f) {
     __MP_ZERO(f);
 }
 
-mp_Io mp_file_io(mp_File *f) {
-    return mp_io_new(f, mp_file_io_func);
+mp_Io mp_file_io(mp_File *f, mp_IoType type) {
+    if (type == MP_IOTYPE_READ && (f->supported_type & MP_IOTYPE_READ) == 0) {
+        return mp_io_invalid();
+    }
+    if (type == MP_IOTYPE_WRITE && (f->supported_type & MP_IOTYPE_WRITE) == 0) {
+        return mp_io_invalid();
+    }
+    return mp_io_new(f, type, mp_file_io_func);
 }
 
 static mp_IoErr
-mp_file_io_func(mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size_t *ret) {
-    mp_File *ctx = context;
+mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2, size_t *ret) {
+    mp_File *ctx = io->context;
 
-    __MP_STATIC_ASSERT(__MP_IOOP_COUNT == 6);
+    __MP_STATIC_ASSERT(__MP_IOOP_COUNT == 8);
     switch (op) {
         case MP_IOOP_FLUSH: {
             (void) ptr;
             (void) n1;
             (void) n2;
             (void) ret;
+
+            if ((io->type & MP_IOTYPE_WRITE) == 0) {
+                return MP_IOERR_UNSUPPORTED;
+            }
 
             if (fflush(ctx->file) == EOF && ferror(ctx->file)) {
                 return MP_IOERR_CANNOT_FLUSH;
@@ -1962,13 +2201,13 @@ mp_file_io_func(mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size
             int           mode    = 0;
             mp_SetbufMode mp_mode = n2;
             switch (mp_mode) {
-                case MP_SETBUF_MODE_NONE: {
+                case MP_SETBUFMODE_NONE: {
                     mode = _IONBF;
                 } break;
-                case MP_SETBUF_MODE_FULL: {
+                case MP_SETBUFMODE_FULL: {
                     mode = _IOFBF;
                 } break;
-                case MP_SETBUF_MODE_LINE: {
+                case MP_SETBUFMODE_LINE: {
                     mode = _IOLBF;
                 } break;
             }
@@ -1977,15 +2216,28 @@ mp_file_io_func(mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size
             };
         } break;
         case MP_IOOP_READ: {
+            if ((io->type & MP_IOTYPE_READ) == 0) {
+                return MP_IOERR_UNSUPPORTED;
+            }
+
             size_t res = fread(ptr, n1, n2, ctx->file);
             if (ret != NULL) {
                 *ret = res;
             }
-            if (res < n2 && ferror(ctx->file)) {
-                return MP_IOERR_CANNOT_READ;
+            if (res < n2) {
+                if (feof(ctx->file)) {
+                    return MP_IOERR_EOF;
+                }
+                if (ferror(ctx->file)) {
+                    return MP_IOERR_CANNOT_READ;
+                }
             }
         } break;
         case MP_IOOP_WRITE: {
+            if ((io->type & MP_IOTYPE_WRITE) == 0) {
+                return MP_IOERR_UNSUPPORTED;
+            }
+
             size_t res = fwrite(ptr, n1, n2, ctx->file);
             if (ret != NULL) {
                 *ret = res;
@@ -2012,18 +2264,51 @@ mp_file_io_func(mp_IoOp op, void *context, void *ptr, size_t n1, size_t n2, size
             int             origin    = 0;
             mp_SetposOrigin mp_origin = n2;
             switch (mp_origin) {
-                case MP_SETPOS_ORIGIN_START: {
+                case MP_SETPOSORIGIN_START: {
                     origin = SEEK_SET;
                 } break;
-                case MP_SETPOS_ORIGIN_CURRENT: {
+                case MP_SETPOSORIGIN_CURRENT: {
                     origin = SEEK_CUR;
                 } break;
-                case MP_SETPOS_ORIGIN_END: {
+                case MP_SETPOSORIGIN_END: {
                     origin = SEEK_END;
                 } break;
             }
             if (fseek(ctx->file, (long) n1, origin)) {
                 return MP_IOERR_CANNOT_SET_POS;
+            }
+        } break;
+        case MP_IOOP_GETC: {
+            (void) ptr;
+            (void) n1;
+            (void) n2;
+
+            if ((io->type & MP_IOTYPE_READ) == 0) {
+                return MP_IOERR_UNSUPPORTED;
+            }
+
+            int res = fgetc(ctx->file);
+            if (res == EOF) {
+                if (feof(ctx->file)) {
+                    return MP_IOERR_EOF;
+                }
+                if (ferror(ctx->file)) {
+                    return MP_IOERR_CANNOT_READ;
+                }
+            }
+            *ret = (size_t) res;
+        } break;
+        case MP_IOOP_PUTC: {
+            (void) ptr;
+            (void) n2;
+            (void) ret;
+
+            if ((io->type & MP_IOTYPE_WRITE) == 0) {
+                return MP_IOERR_UNSUPPORTED;
+            }
+
+            if (fputc((int) n1, ctx->file) == EOF) {
+                return MP_IOERR_CANNOT_WRITE;
             }
         } break;
         case __MP_IOOP_COUNT: UNREACHABLE();

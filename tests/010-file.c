@@ -1,37 +1,104 @@
+#include <stdlib.h>
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 #include "test.h"
 
+void del(void) {
+#ifdef __MP_SYSTEM_POSIX
+    (void) system("rm .foo");
+#elifdef __MP_SYSTEM_WINDOWS
+    (void) system("del .foo");
+#endif
+}
+
 int main(void) {
-    mp_File f;
-    mp_Err  e = mp_file_open(&f, "010-file.c", "r");
-    if (!e) {
-        logf("Opened file!");
+    del();
 
-        mp_Io io = mp_file_io(&f);
+    mp_File  f;
+    mp_Err   e;
+    mp_Io    io;
+    mp_IoErr ie;
+    e = mp_file_open(&f, ".foo", "r");
+    expect_erreq(e, MP_ERR_NO_FILE_OR_DIR, mp_err_str);
 
-        // mp_io_flush(&io);
-        // char buf[256] = { 0 };
-        // mp_io_setbuf(&io, buf, 256, MP_SETBUF_MODE_LINE);
-        // size_t n = 0;
-        // mp_io_read(&io, buf, 256, &n);
-        // mp_io_write(&io, buf, 256, &n);
-        // mp_io_getpos(&io, &n);
-        // mp_io_setpos(&io, 0, MP_SETPOS_ORIGIN_START);
+    {
+        // IO test
+        e = mp_file_open(&f, ".foo", "w");
+        expect_erreq(e, MP_ERR_NONE, mp_err_str);
+        io = mp_file_io(&f, MP_IOTYPE_READ);
+        expect(!mp_io_is_valid(&io));
+        io = mp_file_io(&f, MP_IOTYPE_WRITE);
+        expect(mp_io_is_valid(&io));
 
-        char     buf[4096] = { 0 };
-        size_t   n         = 0;
-        mp_IoErr read_err  = mp_io_read(&io, buf, 1, 4096, &n);
-        if (!read_err) {
-            logf("Read %zu bytes", n);
-            logf("%s", buf);
-        }
+        // Reopen test
+        e = mp_file_reopen(&f, NULL, "w+");
+        expect_erreq(e, MP_ERR_NONE, mp_err_str);
+        io = mp_file_io(&f, MP_IOTYPE_WRITE);
+        expect(mp_io_is_valid(&io));
+        io = mp_file_io(&f, MP_IOTYPE_READ);
+        expect(mp_io_is_valid(&io));
+    }
+
+    // Write test
+    {
+        e = mp_file_reopen(&f, NULL, "w");
+        expect_erreq(e, MP_ERR_NONE, mp_err_str);
+        io = mp_file_io(&f, MP_IOTYPE_WRITE);
+        expect(mp_io_is_valid(&io));
+        // Write test
+        ie = mp_io_putc(&io, 'f');
+        expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
+        const char m[] = "oobar\nbaz\n";    // don't forget this has the NUL-terminator
+        size_t     n   = 0;
+        ie             = mp_io_write(&io, m, 1, sizeof(m) - 1, &n);
+        expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
+        expect_eq(n, (size_t) 10, "%zu");
+        ie = mp_io_flush(&io);
+        expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
+    }
+
+    char buf[1] = { 0 };
+    // Read, setpos, getpos, setbuf test
+    {
+        mp_io_setbuf(&io, buf, sizeof(buf), MP_SETBUFMODE_LINE);
+        expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
+
+#ifdef __GLIBC__
+#define _IO_USER_BUF 1
+        expect((f.file->_flags & _IO_USER_BUF) != 0);
+#undef _IO_USER_BUF
+#endif
+
+        e = mp_file_reopen(&f, NULL, "r");
+        expect_erreq(e, MP_ERR_NONE, mp_err_str);
+        io = mp_file_io(&f, MP_IOTYPE_READ);
+        expect(mp_io_is_valid(&io));
+        char c = 0;
+        ie     = mp_io_getc(&io, &c);
+        expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
+        expect_eq(c, 'f', "%c");
+
+        size_t pos = 0;
+        ie         = mp_io_getpos(&io, &pos);
+        expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
+        expect_eq(pos, (size_t) 1, "%zu");
+        ie = mp_io_setpos(&io, 0, MP_SETPOSORIGIN_START);
+        expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
+
+        char   m[512] = { 0 };
+        size_t n      = 0;
+        ie            = mp_io_read(&io, &m, 1, sizeof(m), &n);
+        expect_erreq(ie, MP_IOERR_EOF, mp_ioerr_str);
+        expect_eq(n, (size_t) 11, "%zu");
+        expect_streq(m, "foobar\nbaz\n");
     }
 
     mp_file_deinit(&f);
 
+    del();
     return 0;
 
 fail:
+    del();
     exit(1);
 }

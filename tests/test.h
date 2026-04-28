@@ -25,6 +25,14 @@
 
 #define unr() assert(0 && "unreachable");
 
+#define expect(expr)                                                                               \
+    do {                                                                                           \
+        if (!(expr)) {                                                                             \
+            elogf("Expected `%s`", #expr);                                                         \
+            goto fail;                                                                             \
+        }                                                                                          \
+    } while (0)
+
 #define expect_binop(op, a, b, fmt)                                                                \
     do {                                                                                           \
         typeof(a) _a = a;                                                                          \
@@ -65,3 +73,5 @@
 
 #define expect_eq(a, b, fmt) expect_binop(==, a, b, fmt)
 #define expect_ne(a, b, fmt) expect_binop(!=, a, b, fmt)
+
+#define expect_erreq(a, b, f) expect_eq(f(a), f(b), "%s")
