@@ -333,8 +333,6 @@ mp_Alloc mp_heap_alloc(void);
     ```
 */
 
-// TODO: Mark out parameters as `ret_`
-
 /* Defines a dynamic array struct given of `type`.
  * Example usage:
  * ```c
@@ -727,15 +725,15 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
  *
  * ht: const DArray*
  * k: const char* (NON-NULL)
- * res: <value type>* */
-#define mp_ht_get(ht, k, res) mp_ht_get_s((ht), &mp_str(k), (res))
+ * ret: <value type>* */
+#define mp_ht_get(ht, k, ret) mp_ht_get_s((ht), &mp_str(k), (ret))
 
 /* The same as above but accepts `mp_Str*`.
  *
  * ht: const DArray*
  * k: mp_Str*
- * res: <value type>* */
-#define mp_ht_get_s(ht, k, res)                                                                    \
+ * ret: <value type>* */
+#define mp_ht_get_s(ht, k, ret)                                                                    \
     do {                                                                                           \
         bool __found = false;                                                                      \
         if ((k) != NULL) {                                                                         \
@@ -746,7 +744,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
                                        *(char *) &(ht)->data[__i].val == 1)) {                     \
                 if (mp_str_is_valid(&(ht)->data[__i].key) &&                                       \
                     strcmp(__key.cstr, (ht)->data[__i].key.cstr) == 0) {                           \
-                    (res)   = &(ht)->data[__i].val;                                                \
+                    (ret)   = &(ht)->data[__i].val;                                                \
                     __found = true;                                                                \
                     break;                                                                         \
                 }                                                                                  \
@@ -754,7 +752,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
                 if (__i >= (ht)->cap) __i = 0;                                                     \
             }                                                                                      \
         }                                                                                          \
-        if (!__found) (res) = NULL;                                                                \
+        if (!__found) (ret) = NULL;                                                                \
     } while (0)
 
 /* Sets the value at key `k` to `v`.
@@ -1326,6 +1324,7 @@ mp_Io mp_file_io(mp_File *f, mp_IoType type);
 #include <stdio.h>
 #include <string.h>
 
+// TODO: namespace this
 #define UNREACHABLE()      MEMPLUS_ASSERT_MSG(0, "Unreachable")
 #define TODO(msg)          MEMPLUS_ASSERT_MSG(0, "todo: " msg)
 #define DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))

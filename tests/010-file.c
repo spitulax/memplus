@@ -5,10 +5,11 @@
 
 void del(void) {
 #ifdef __MP_SYSTEM_POSIX
-    (void) system("rm .foo");
+    int _ = system("rm .foo");
 #elifdef __MP_SYSTEM_WINDOWS
-    (void) system("del .foo");
+    int _ = system("del .foo");
 #endif
+    (void) _;
 }
 
 int main(void) {
