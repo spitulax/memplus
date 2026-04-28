@@ -3,10 +3,10 @@
 #include "test.h"
 
 int main(void) {
-    mp_Alloc alloc = mp_heap_alloc();
+    mp_Alloc *alloc = mp_heap_alloc();
 
     mp_StrBuilder sb;
-    mp_da_init(&sb, &alloc);
+    mp_da_init(&sb, alloc);
 
     mp_str_builder_append(&sb, "Hello, World!");
     expect_eq(sb.len, (size_t) 13, "%zu");
@@ -18,11 +18,11 @@ int main(void) {
 
     // Other functions should work like dynamic arrays, I hope
 
-    mp_Str str = mp_str_builder_string(&sb, &alloc);
+    mp_Str str = mp_str_builder_string(&sb, alloc);
     expect_eq(str.len, (size_t) strlen(str.cstr), "%zu");
     expect_streq(str.cstr, "Hello, World! 67");
 
-    mp_str_deinit(&str, &alloc);
+    mp_str_deinit(&str, alloc);
     mp_da_deinit(&sb);
 
     return 0;

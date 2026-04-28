@@ -8,7 +8,7 @@
 
 int main(void) {
     mp_Arena arena;
-    mp_arena_init(&arena);
+    mp_arena_init(&arena, mp_heap_alloc());
     mp_Alloc alloc = mp_arena_alloc(&arena);
 
     // First allocation

@@ -8,10 +8,10 @@
 mp_ht_create(int, HashTableInt);
 
 int main(void) {
-    mp_Alloc alloc = mp_heap_alloc();
+    mp_Alloc *alloc = mp_heap_alloc();
 
     HashTableInt ht;
-    mp_ht_init(&ht, &alloc);
+    mp_ht_init(&ht, alloc);
 
     // Simple set/get test
     mp_ht_set(&ht, "foo", 69);
@@ -52,9 +52,9 @@ int main(void) {
 
     // Realloc test
     for (int i = 0; i < MP_HASH_TABLE_INIT_CAPACITY * MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
-        mp_Str key = mp_str_newf(&alloc, "key_%d", i);
+        mp_Str key = mp_str_newf(alloc, "key_%d", i);
         mp_ht_set_s(&ht, &key, i);
-        mp_str_deinit(&key, &alloc);
+        mp_str_deinit(&key, alloc);
     }
 
     expect_eq(ht.len, (size_t) (MP_HASH_TABLE_INIT_CAPACITY * MP_HASH_TABLE_MAX_LOAD + 1), "%zu");
@@ -67,12 +67,12 @@ int main(void) {
     // printf("\n");
 
     for (int i = 0; i < (int) ht.len; ++i) {
-        mp_Str key = mp_str_newf(&alloc, "key_%d", i);
+        mp_Str key = mp_str_newf(alloc, "key_%d", i);
         int   *val;
         mp_ht_get_s(&ht, &key, val);
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
-        mp_str_deinit(&key, &alloc);
+        mp_str_deinit(&key, alloc);
     }
 
     // Iterator test
@@ -87,7 +87,7 @@ int main(void) {
 
     // Clone test
     HashTableInt ht2;
-    mp_ht_clone(&alloc, &ht, &ht2);
+    mp_ht_clone(alloc, &ht, &ht2);
     expect_eq(ht.len, ht2.len, "%zu");
     expect_eq(ht.cap, ht2.cap, "%zu");
     expect_ne((void *) ht.data, (void *) ht2.data, "%p");

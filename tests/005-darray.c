@@ -5,10 +5,10 @@
 mp_da_create(int32_t, ArrayInt32);
 
 int main(void) {
-    mp_Alloc alloc = mp_heap_alloc();
+    mp_Alloc *alloc = mp_heap_alloc();
 
     ArrayInt32 array;
-    mp_da_init(&array, &alloc);
+    mp_da_init(&array, alloc);
 
     // Append test
     mp_da_append(&array, 0);
@@ -43,7 +43,7 @@ int main(void) {
 
     // Clone test
     ArrayInt32 array2;
-    mp_da_clone(&alloc, &array, &array2);
+    mp_da_clone(alloc, &array, &array2);
     mp_da_deinit(&array);
 
     expect_eq(array2.len, (size_t) 1, "%zu");
@@ -72,7 +72,7 @@ int main(void) {
 
     // Append many test
     ArrayInt32 array3;
-    mp_da_init(&array3, &alloc);
+    mp_da_init(&array3, alloc);
     mp_da_append_many(&array3, 69, 420, 67, 13, 37);
     expect_eq(array3.len, (size_t) 5, "%zu");
 

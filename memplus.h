@@ -240,23 +240,24 @@ struct mp_Region {
     uintptr_t  data[];    // The data (aligned to the `sizeof(uintptr_t)`)
 };
 
-/* Allocates a new region with `cap` bytes of size.
+/* Allocates a new region with `cap` bytes of size with `alloc`.
  * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
  * Deinit with `mp_region_init`. */
-mp_Region *mp_region_init(size_t cap);
+mp_Region *mp_region_init(mp_Alloc *alloc, size_t cap);
 /* Frees a region. */
-void mp_region_deinit(mp_Region *r);
+void mp_region_deinit(mp_Region *r, mp_Alloc *alloc);
 
 /* GROWING ARENA ALLOCATOR.
  * Manages regions in a linked list. */
 typedef struct {
     mp_Region *begin, *end;    // Region linked list
     size_t     len;            // The amount of data (in bytes used, aligned to `sizeof(uintptr_t)`)
+    mp_Alloc  *alloc;          // Backing allocator
 } mp_Arena;
 
 /* Creates a new, unallocated arena.
  * Deinit with `mp_arena_deinit`. */
-void mp_arena_init(mp_Arena *a);
+void mp_arena_init(mp_Arena *a, mp_Alloc *alloc);
 /* Set arena `len` to 0, but does not free allocated regions. */
 void mp_arena_reset(mp_Arena *a);
 /* Frees an arena and its regions. */
@@ -304,7 +305,7 @@ void mp_temp_reset(mp_Temp *t);
 mp_Alloc mp_temp_alloc(const mp_Temp *t);
 
 /* HEAP ALLOCATOR */
-mp_Alloc mp_heap_alloc(void);
+mp_Alloc *mp_heap_alloc(void);
 
 /***********
  * DYNAMIC ARRAY
@@ -325,12 +326,15 @@ mp_Alloc mp_heap_alloc(void);
     ```c
     struct {
         mp_Alloc *alloc;    // The allocator that manages the allocation of the array
-        size_t       len;       // The size of the array
-        size_t       cap;       // The capacity of the array
-        <type>       *data;     // Pointer to the data (points to the first element)
+        size_t   len;       // The size of the array
+        size_t   cap;       // The capacity of the array
+        <type>   *data;     // Pointer to the data (points to the first element)
         // The data is continuous in memory.
     };
     ```
+
+    Any struct which has those fields is a valid dynamic array.
+    Any additional fields are tolerated.
 */
 
 /* Defines a dynamic array struct given of `type`.
@@ -1458,23 +1462,24 @@ void *mp_alloc_handle_realloc(mp_Alloc *alloc, void *old_ptr, size_t old_size, s
     return new_ptr;
 }
 
-mp_Region *mp_region_init(size_t cap) {
+mp_Region *mp_region_init(mp_Alloc *alloc, size_t cap) {
     size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
-    mp_Region *region = MEMPLUS_ALLOC(bytes);
+    mp_Region *region = mp_alloc(alloc, bytes);
     region->next      = NULL;
     region->len       = 0;
     region->cap       = bytes;
     return region;
 }
 
-void mp_region_deinit(mp_Region *r) {
-    MEMPLUS_FREE(r);
+void mp_region_deinit(mp_Region *r, mp_Alloc *alloc) {
+    mp_free(alloc, r, r->cap);
 }
 
-void mp_arena_init(mp_Arena *a) {
+void mp_arena_init(mp_Arena *a, mp_Alloc *alloc) {
     a->len   = 0;
     a->begin = NULL;
     a->end   = NULL;
+    a->alloc = alloc;
 }
 
 void mp_arena_reset(mp_Arena *a) {
@@ -1490,7 +1495,7 @@ void mp_arena_deinit(mp_Arena *a) {
     while (region) {
         mp_Region *region_temp = region;
         region                 = region->next;
-        mp_region_deinit(region_temp);
+        mp_region_deinit(region_temp, a->alloc);
     }
     __MP_ZERO(a);
 }
@@ -1520,7 +1525,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
                 MEMPLUS_ASSERT(ctx->begin == NULL);
                 size_t capacity = MP_REGION_DEFAULT_SIZE;
                 if (capacity < alloc_size) capacity = alloc_size;
-                ctx->end = mp_region_init(capacity);
+                ctx->end = mp_region_init(ctx->alloc, capacity);
                 if (ctx->end == NULL) return NULL;
                 ctx->begin = ctx->end;
             }
@@ -1534,7 +1539,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
                 MEMPLUS_ASSERT(ctx->end->next == NULL);
                 size_t capacity = MP_REGION_DEFAULT_SIZE;
                 if (capacity < alloc_size) capacity = alloc_size;
-                ctx->end->next = mp_region_init(capacity);
+                ctx->end->next = mp_region_init(ctx->alloc, capacity);
                 if (ctx->end->next == NULL) return NULL;
                 ctx->end = ctx->end->next;
             }
@@ -1634,8 +1639,13 @@ mp_Alloc mp_temp_alloc(const mp_Temp *t) {
     return mp_alloc_new(t, mp_sarena_alloc_func);
 }
 
-mp_Alloc mp_heap_alloc(void) {
-    return mp_alloc_new(NULL, mp_heap_alloc_func);
+static mp_Alloc __mp_heap_alloc = { 0 };
+
+mp_Alloc *mp_heap_alloc(void) {
+    if (__mp_heap_alloc.f == NULL) {
+        __mp_heap_alloc = mp_alloc_new(NULL, mp_heap_alloc_func);
+    }
+    return &__mp_heap_alloc;
 }
 
 static void *

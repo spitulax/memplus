@@ -48,7 +48,7 @@ fail:
 
 int main(void) {
     mp_Arena parent_arena;
-    mp_arena_init(&parent_arena);
+    mp_arena_init(&parent_arena, mp_heap_alloc());
     mp_Alloc parent_alloc = mp_arena_alloc(&parent_arena);
 
     mp_SArena s_arena;
