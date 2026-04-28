@@ -123,7 +123,6 @@ __MP_NORETURN void __mp_assert_fail(
  * ALLOCATORS
  ***********/
 
-// TODO: add deinit notice to funcs that allocate
 // TODO: check for funcs that may accept uninitialized value that is not an init func
 
 /* Default size of a single region in bytes.
@@ -244,7 +243,8 @@ struct mp_Region {
 };
 
 /* Allocates a new region with `cap` bytes of size.
- * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`. */
+ * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
+ * Deinit with `mp_region_init`. */
 mp_Region *mp_region_init(size_t cap);
 /* Frees a region. */
 void mp_region_deinit(mp_Region *r);
@@ -256,7 +256,8 @@ typedef struct {
     size_t     len;            // The amount of data (in bytes used, aligned to `sizeof(uintptr_t)`)
 } mp_Arena;
 
-/* Creates a new, unallocated arena. */
+/* Creates a new, unallocated arena.
+ * Deinit with `mp_arena_deinit`. */
 void mp_arena_init(mp_Arena *a);
 /* Set arena `len` to 0, but does not free allocated regions. */
 void mp_arena_reset(mp_Arena *a);
@@ -276,7 +277,8 @@ typedef struct {
 } mp_SArena;
 
 /* Initializes and allocates a static arena. `cap` in bytes.
- * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`. */
+ * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
+ * Deinit with `mp_sarena_deinit`. */
 void mp_sarena_init(mp_SArena *a, mp_Alloc *alloc, size_t cap);
 /* Resets the size of the arena. */
 void mp_sarena_reset(mp_SArena *a);
@@ -352,6 +354,7 @@ mp_Alloc mp_heap_alloc(void);
     } name
 
 /* Initializes a new dynamic array managed by `allocator`.
+ * Deinit with `mp_da_deinit`.
  *
  * a: DArray* (NO SIDE EFFECTS)
  * allocator: mp_Alloc* */
@@ -589,6 +592,7 @@ typedef struct {
     })
 
 /* Allocates and returns a new `mp_Str` from a NULL-TERMINATED string.
+ * Deinit with `mp_str_deinit`.
  * Returns invalid string if allocation failed. */
 mp_Str mp_str_new(mp_Alloc *alloc, const char *str);
 /* Allocates and returns a new `mp_Str` from a string.
@@ -597,11 +601,11 @@ mp_Str mp_str_new_len(mp_Alloc *alloc, const char *str, size_t len);
 /* Allocates and returns a new `mp_Str` from formatted input.
  * Returns invalid string if allocation failed. */
 mp_Str mp_str_newf(mp_Alloc *alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+/* Frees an allocated `mp_Str`. */
+void mp_str_deinit(mp_Str *str, mp_Alloc *alloc);
 /* Allocates and returns a clone of `str`.
  * Returns invalid string if allocation failed. */
 mp_Str mp_str_clone(const mp_Str *str, mp_Alloc *alloc);
-/* Frees an allocated `mp_Str`. */
-void mp_str_deinit(mp_Str *str, mp_Alloc *alloc);
 
 /***********
  * STRING BUILDER
@@ -702,6 +706,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
     mp_da_create(__##name##Entry, name)
 
 /* Initializes a new hash table managed by `allocator`.
+ * Deinit with `mp_ht_deinit`.
  *
  * ht: HashTable* (NO SIDE EFFECTS)
  * allocator: mp_Alloc* */
@@ -1297,7 +1302,8 @@ typedef struct {
     mp_IoType supported_type;
 } mp_File;
 
-/* Opens a file at `filename`. See `fopen()` for possible `mode`. */
+/* Opens a file at `filename`. See `fopen()` for possible `mode`.
+ * Close with `mp_file_deinit`. */
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
 /* Opens a file at `filename` and closes the old file.
  * If `filename` is NULL, changes the mode of the existing file. */
