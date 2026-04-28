@@ -123,8 +123,6 @@ __MP_NORETURN void __mp_assert_fail(
  * ALLOCATORS
  ***********/
 
-// TODO: check for funcs that may accept uninitialized value that is not an init func
-
 /* Default size of a single region in bytes.
  * Will be aligned to the nearest increment of `sizeof(uintptr_t)`. */
 #ifndef MP_REGION_DEFAULT_SIZE
@@ -1306,7 +1304,8 @@ typedef struct {
  * Close with `mp_file_deinit`. */
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
 /* Opens a file at `filename` and closes the old file.
- * If `filename` is NULL, changes the mode of the existing file. */
+ * If `filename` is NULL, changes the mode of the existing file.
+ * If `f->file` is NULL, returns MP_ERR_BAD_FD. */
 mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode);
 // TODO: mp_file_open_from_fd
 /* Closes an open file. Does nothing if mp_File.file == NULL. */
@@ -2143,9 +2142,10 @@ mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode) {
 }
 
 mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode) {
-    // if (f->file != NULL) {
-    //     return MP_ERR_BAD_FD;
-    // }
+    if (f->file == NULL) {
+        return MP_ERR_BAD_FD;
+    }
+
     if ((f->file = freopen(filename, mode, f->file)) != NULL) {
         f->supported_type = MP_IOTYPE_NONE;
 
