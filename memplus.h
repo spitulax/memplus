@@ -1302,7 +1302,7 @@ typedef struct {
  * Close with `mp_file_deinit`. */
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
 /* Opens a file at `filename` and closes the old file.
- * If `filename` is NULL, changes the mode of the existing file.
+ * If `filename` is NULL, changes the mode of the existing file (NOT SUPPORTED FOR ALL PLATFORMS)
  * If `f->file` is NULL, returns MP_ERR_BAD_FD. */
 mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode);
 // TODO: mp_file_open_from_fd

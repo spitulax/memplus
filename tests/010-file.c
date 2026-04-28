@@ -32,7 +32,7 @@ int main(void) {
         expect(mp_io_is_valid(&io));
 
         // Reopen test
-        e = mp_file_reopen(&f, NULL, "w+");
+        e = mp_file_reopen(&f, ".foo", "w+");
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
         io = mp_file_io(&f, MP_IOTYPE_WRITE);
         expect(mp_io_is_valid(&io));
@@ -42,7 +42,7 @@ int main(void) {
 
     // Write test
     {
-        e = mp_file_reopen(&f, NULL, "w");
+        e = mp_file_reopen(&f, ".foo", "w");
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
         io = mp_file_io(&f, MP_IOTYPE_WRITE);
         expect(mp_io_is_valid(&io));
@@ -70,7 +70,7 @@ int main(void) {
 #undef _IO_USER_BUF
 #endif
 
-        e = mp_file_reopen(&f, NULL, "r");
+        e = mp_file_reopen(&f, ".foo", "r");
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
         io = mp_file_io(&f, MP_IOTYPE_READ);
         expect(mp_io_is_valid(&io));
