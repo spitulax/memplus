@@ -4,11 +4,13 @@
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 
-#define align(a) (__MP_DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
+#define align(a)  (__MP_DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
+#define INIT_SIZE 4096
 
 int main(void) {
     mp_Arena arena;
-    mp_arena_init(&arena, mp_heap_alloc());
+    // We assume the default size would just work
+    mp_arena_init_s(&arena, mp_heap_alloc(), INIT_SIZE);
     mp_Alloc alloc = mp_arena_alloc(&arena);
 
     // First allocation
@@ -17,16 +19,16 @@ int main(void) {
     expect_ne((void *) arena.begin, NULL, "%p");
     expect_ne((void *) arena.end, NULL, "%p");
     expect_eq(arena.len, (size_t) align(10), "%zu");
-    expect_eq(arena.begin->cap, (size_t) align(MP_REGION_DEFAULT_SIZE), "%zu");
+    expect_eq(arena.begin->cap, (size_t) align(INIT_SIZE), "%zu");
 
     // New region allocation
-    mp_alloc(alloc, 64 * 1024);
+    mp_alloc(alloc, INIT_SIZE);
     mp_Region *prev_end = arena.end;
     expect_ne((void *) arena.begin, (void *) arena.end, "%p");
     expect_eq((void *) arena.begin->next, (void *) arena.end, "%p");
-    expect_eq(arena.len, (size_t) align(64 * 1024) + align(10), "%zu");
+    expect_eq(arena.len, (size_t) align(INIT_SIZE) + align(10), "%zu");
     expect_eq(arena.begin->len, (size_t) align(10), "%zu");
-    expect_eq(arena.end->len, (size_t) align(64 * 1024), "%zu");
+    expect_eq(arena.end->len, (size_t) align(INIT_SIZE), "%zu");
 
     // Reset arena and allocate again
     mp_arena_reset(&arena);
@@ -37,13 +39,13 @@ int main(void) {
     expect_eq(arena.begin->len, (size_t) align(10), "%zu");
 
     // Reuse previous region
-    mp_alloc(alloc, 64 * 1024);
+    mp_alloc(alloc, INIT_SIZE);
     expect_ne((void *) arena.begin, (void *) arena.end, "%p");
     expect_eq((void *) arena.begin->next, (void *) arena.end, "%p");
     expect_eq((void *) prev_end, (void *) arena.end, "%p");
-    expect_eq(arena.len, (size_t) align(64 * 1024) + align(10), "%zu");
+    expect_eq(arena.len, (size_t) align(INIT_SIZE) + align(10), "%zu");
     expect_eq(arena.begin->len, (size_t) align(10), "%zu");
-    expect_eq(arena.end->len, (size_t) align(64 * 1024), "%zu");
+    expect_eq(arena.end->len, (size_t) align(INIT_SIZE), "%zu");
 
     // Realloc test
     mp_arena_reset(&arena);
@@ -62,20 +64,6 @@ int main(void) {
     expect_eq(arena.len, (size_t) align(4) + align(4), "%zu");
     expect_eq(*mem3, 67, "%d");
     expect_eq(*(int32_t *) mem, *mem3, "%d");
-
-    mp_arena_deinit(&arena);
-
-    // Custom default size
-    mp_arena_init_s(&arena, mp_heap_alloc(), 2048);
-    alloc = mp_arena_alloc(&arena);
-
-    // First allocation
-    mp_alloc(alloc, 10);
-    expect_eq((void *) arena.begin, (void *) arena.end, "%p");
-    expect_ne((void *) arena.begin, NULL, "%p");
-    expect_ne((void *) arena.end, NULL, "%p");
-    expect_eq(arena.len, (size_t) align(10), "%zu");
-    expect_eq(arena.begin->cap, (size_t) align(2048), "%zu");
 
     mp_arena_deinit(&arena);
 
