@@ -21,6 +21,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
 
+/*
+ * This library is divided into multiple sections.
+ * Jump to sections by searching `$ <section name>`.
+ *
+ * 1.  $ ALLOCATOR INTERFACE
+ * 2.  $ DYNAMIC ARRAY
+ * 3.  $ STRING
+ * 4.  $ STRING BUILDER
+ * 5.  $ HASH TABLE (STRING KEY)
+ * 6.  $ HASH TABLE (INTEGER KEY)
+ * 7.  $ ALLOCATORS
+ * 8.  $ UTF-8
+ * 9.  $ ERRORS
+ * 10. $ IO INTERFACE
+ * 11. $ FILE IO
+ * 12. $ IMPLEMENTATION
+ */
+
 #ifndef MEMPLUS_H__
 #define MEMPLUS_H__
 
@@ -120,8 +138,11 @@ __MP_NORETURN void __mp_assert_fail(
 #define MP_ERROR ((size_t) -1)
 
 /***********
- * ALLOCATORS
+ * $ ALLOCATOR INTERFACE
  ***********/
+
+/* Allocator implementations are defined below.
+ * Search for `% ALLOCATORS %`. */
 
 /* Default size of a single region in bytes.
  * Will be aligned to the nearest increment of `sizeof(uintptr_t)`. */
@@ -238,115 +259,8 @@ void *mp_dup(mp_Alloc alloc, void *data, size_t size);
  * Does nothing and returns NULL if `new_size` == 0 */
 void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size);
 
-/* GROWING ARENA ALLOCATOR */
-
-typedef struct mp_Region mp_Region;
-
-/* Linked list element that holds certain size of allocated memory. */
-struct mp_Region {
-    mp_Region *next;      // The next region in linked list if any
-    size_t     len;       // The amount of data (in bytes) used
-    size_t     cap;       // The amount of data (in bytes) allocated
-    uintptr_t  data[];    // The data (aligned to the `sizeof(uintptr_t)`)
-};
-
-/* Allocates a new region with `cap` bytes of size with `alloc`.
- * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
- * Deinit with `mp_region_init`. */
-mp_Region *mp_region_init(mp_Alloc alloc, size_t cap);
-/* Frees a region. */
-void mp_region_deinit(mp_Region *r, mp_Alloc alloc);
-
-/* Growing arena allocator.
- * Manages regions in a linked list. */
-typedef struct {
-    mp_Region *begin, *end;    // Region linked list
-    size_t     len;            // The amount of data (in bytes used, aligned to `sizeof(uintptr_t)`)
-    mp_Alloc   alloc;          // Backing allocator
-    size_t     _def_size;      // Region default size
-} mp_Arena;
-
-/* Creates a new, unallocated arena.
- * Each region will be allocated with size `MP_REGION_DEFAULT_SIZE` by default.
- * Deinit with `mp_arena_deinit`. */
-#define mp_arena_init(a, alloc) mp_arena_init_s((a), (alloc), MP_REGION_DEFAULT_SIZE)
-/* Creates a new, unallocated arena.
- * Each region will be allocated with size `def_size` by default (aligned to the nearest increment
- * of `sizeof(uintptr_t)`).
- * Deinit with `mp_arena_deinit`. */
-void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size);
-/* Set arena `len` to 0, but does not free allocated regions. */
-void mp_arena_reset(mp_Arena *a);
-/* Frees an arena and its regions. */
-void mp_arena_deinit(mp_Arena *a);
-/* Returns an allocator that works with `mp_Arena`. */
-mp_Alloc mp_arena_alloc(mp_Arena *a);
-
-/* STATIC ARENA ALLOCATOR */
-
-/* Static arena allocator.
- * Allocations are cancelled and return NULL if the requested size is bigger than the remaining
- * capacity. */
-typedef struct {
-    uintptr_t *buf;    // The arena buffer (of size `cap`)
-    size_t     len;    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
-    size_t     cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
-    mp_Alloc   alloc;    // The allocator used to manage `buf`
-} mp_SArena;
-
-/* Initializes and allocates a static arena. `cap` in bytes.
- * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
- * Deinit with `mp_sarena_deinit`. */
-void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap);
-/* Resets the size of the arena. */
-void mp_sarena_reset(mp_SArena *a);
-/* Frees the arena. */
-void mp_sarena_deinit(mp_SArena *a);
-/* Returns an allocator that works with `mp_SArena`. */
-mp_Alloc mp_sarena_alloc(mp_SArena *a);
-
-/* TEMP ALLOCATOR */
-
-/* Temp allocator.
- * `mp_SArena` located in the stack. */
-typedef struct {
-    uintptr_t *buf;    // The arena buffer (of size `cap`)
-    size_t     len;    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
-    size_t     cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
-} mp_Temp;
-
-/* Shortcuts for initializing a temp allocator.
- * The allocator is returned to `ret_alloc`.
- * The beginning portion of `buf` will be used to allocate the `mp_Temp` object.
- *
- * buf: pointer/array (at least `sizeof(mp_Temp)` of size)
- * ret_alloc: mp_Alloc* */
-#define mp_talloc(buf, ret_alloc)                                                                  \
-    do {                                                                                           \
-        MEMPLUS_ASSERT_MSG(sizeof(buf) >= sizeof(mp_Temp),                                         \
-                           "Buffer size is smaller than `sizeof(mp_Temp)`");                       \
-        mp_Temp *__t = (mp_Temp *) (buf);                                                          \
-        mp_temp_init(__t, ((char *) (buf)) + sizeof(mp_Temp), sizeof(buf) - sizeof(mp_Temp));      \
-        *(ret_alloc) = mp_temp_alloc(__t);                                                         \
-    } while (0)
-
-/* Initializes a temp allocator with an array as buf.
- * `cap` should be an increment of `sizeof(uintptr_t)`.
- * If not, the actual `cap` will ROUND DOWN to the nearest increment. */
-void mp_temp_init(mp_Temp *t, char *buf, size_t cap);
-/* Resets the size of the temp allocator */
-void mp_temp_reset(mp_Temp *t);
-/* Returns an allocator that works with `mp_Temp`. */
-mp_Alloc mp_temp_alloc(mp_Temp *t);
-
-/* HEAP ALLOCATOR */
-
-/* Heap allocator. */
-mp_Alloc mp_heap_alloc(void);
-#define mp_heap() mp_heap_alloc()
-
 /***********
- * DYNAMIC ARRAY
+ * $ DYNAMIC ARRAY
  ***********/
 
 /* Starting capacity of a dynamic array. */
@@ -596,7 +510,7 @@ mp_Alloc mp_heap_alloc(void);
     } while (0)
 
 /***********
- * STRING
+ * $ STRING
  ***********/
 
 /* Holds a pointer to NULL-TERMINATED string and the size of the string (excluding the
@@ -646,7 +560,7 @@ void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
 mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc);
 
 /***********
- * STRING BUILDER
+ * $ STRING BUILDER
  ***********/
 
 /* Holds a NON NULL-TERMINATED string that is resizable.
@@ -669,50 +583,7 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) __MP_PRINTF
 mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc);
 
 /***********
- * UTF-8
- ***********/
-
-/* Calculate the length of a UTF-8 string.
- * The string is NULL-TERMINATED.
- * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
-size_t mp_utf8_len(const char *str);
-/* Calculate the length of a UTF-8 string with size (in bytes) parameter.
- * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
-size_t mp_utf8_len_s(const char *str, size_t size);
-
-/* Iterator for UTF-8 string.
- *
- * `c` and `c_len` can be accessed to get the current character's information.
- *
- * Example usage:
- * ```c
- *  const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂ )⸝♡􏾀";
- *  mp_Utf8Iter iter  = mp_utf8_iter_new(utf8);
- *  while (mp_utf8_iter_next(&iter)) {
- *      (void) iter.c;      // The current character (in char[4])
- *      (void) iter.c_len;  // The current character size (in bytes)
- *  }
- * ```
- * */
-typedef struct {
-    char c[4];     // Holds current character in iteration
-    char c_len;    // Holds current character's size (in bytes)
-
-    const char *_str;     // The UTF-8 string being iterated on
-    size_t      _size;    // The size of the string (in bytes)
-    size_t      _i;       // The current index of the iteration (in bytes)
-} mp_Utf8Iter;
-
-/* Creates a new `mp_Utf8Iter` that iterates over a UTF-8 string.
- * The string is NULL-TERMINATED. */
-mp_Utf8Iter mp_utf8_iter_new(const char *str);
-/* Creates a new `mp_Utf8Iter` that iterates over a UTF-8 string with size parameter (in bytes). */
-mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
-/* See `mp_Utf8Iter`. */
-bool mp_utf8_iter_next(mp_Utf8Iter *it);
-
-/***********
- * HASH TABLE (STRING KEY)
+ * $ HASH TABLE (STRING KEY)
  ***********/
 
 /* Percentage of elements in a hash table before it resizes. */
@@ -1009,7 +880,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
 uint64_t mp_ht_hash_str(const mp_Str *str);
 
 /***********
- * HASH TABLE (INTEGER KEY)
+ * $ HASH TABLE (INTEGER KEY) %
  ***********/
 
 /* Defines a hash table struct with integer key and value of type `value_type`.
@@ -1231,7 +1102,161 @@ typedef struct {
     } while (0)
 
 /***********
- * ERRORS
+ * $ ALLOCATORS
+ ***********/
+
+/* GROWING ARENA ALLOCATOR */
+
+typedef struct mp_Region mp_Region;
+
+/* Linked list element that holds certain size of allocated memory. */
+struct mp_Region {
+    mp_Region *next;      // The next region in linked list if any
+    size_t     len;       // The amount of data (in bytes) used
+    size_t     cap;       // The amount of data (in bytes) allocated
+    uintptr_t  data[];    // The data (aligned to the `sizeof(uintptr_t)`)
+};
+
+/* Allocates a new region with `cap` bytes of size with `alloc`.
+ * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
+ * Deinit with `mp_region_init`. */
+mp_Region *mp_region_init(mp_Alloc alloc, size_t cap);
+/* Frees a region. */
+void mp_region_deinit(mp_Region *r, mp_Alloc alloc);
+
+/* Growing arena allocator.
+ * Manages regions in a linked list. */
+typedef struct {
+    mp_Region *begin, *end;    // Region linked list
+    size_t     len;            // The amount of data (in bytes used, aligned to `sizeof(uintptr_t)`)
+    mp_Alloc   alloc;          // Backing allocator
+    size_t     _def_size;      // Region default size
+} mp_Arena;
+
+/* Creates a new, unallocated arena.
+ * Each region will be allocated with size `MP_REGION_DEFAULT_SIZE` by default.
+ * Deinit with `mp_arena_deinit`. */
+#define mp_arena_init(a, alloc) mp_arena_init_s((a), (alloc), MP_REGION_DEFAULT_SIZE)
+/* Creates a new, unallocated arena.
+ * Each region will be allocated with size `def_size` by default (aligned to the nearest increment
+ * of `sizeof(uintptr_t)`).
+ * Deinit with `mp_arena_deinit`. */
+void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size);
+/* Set arena `len` to 0, but does not free allocated regions. */
+void mp_arena_reset(mp_Arena *a);
+/* Frees an arena and its regions. */
+void mp_arena_deinit(mp_Arena *a);
+/* Returns an allocator that works with `mp_Arena`. */
+mp_Alloc mp_arena_alloc(mp_Arena *a);
+
+/* STATIC ARENA ALLOCATOR */
+
+/* Static arena allocator.
+ * Allocations are cancelled and return NULL if the requested size is bigger than the remaining
+ * capacity. */
+typedef struct {
+    uintptr_t *buf;    // The arena buffer (of size `cap`)
+    size_t     len;    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    size_t     cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    mp_Alloc   alloc;    // The allocator used to manage `buf`
+} mp_SArena;
+
+/* Initializes and allocates a static arena. `cap` in bytes.
+ * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
+ * Deinit with `mp_sarena_deinit`. */
+void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap);
+/* Resets the size of the arena. */
+void mp_sarena_reset(mp_SArena *a);
+/* Frees the arena. */
+void mp_sarena_deinit(mp_SArena *a);
+/* Returns an allocator that works with `mp_SArena`. */
+mp_Alloc mp_sarena_alloc(mp_SArena *a);
+
+/* TEMP ALLOCATOR */
+
+/* Temp allocator.
+ * `mp_SArena` located in the stack. */
+typedef struct {
+    uintptr_t *buf;    // The arena buffer (of size `cap`)
+    size_t     len;    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    size_t     cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+} mp_Temp;
+
+/* Shortcuts for initializing a temp allocator.
+ * The allocator is returned to `ret_alloc`.
+ * The beginning portion of `buf` will be used to allocate the `mp_Temp` object.
+ *
+ * buf: pointer/array (at least `sizeof(mp_Temp)` of size)
+ * ret_alloc: mp_Alloc* */
+#define mp_talloc(buf, ret_alloc)                                                                  \
+    do {                                                                                           \
+        MEMPLUS_ASSERT_MSG(sizeof(buf) >= sizeof(mp_Temp),                                         \
+                           "Buffer size is smaller than `sizeof(mp_Temp)`");                       \
+        mp_Temp *__t = (mp_Temp *) (buf);                                                          \
+        mp_temp_init(__t, ((char *) (buf)) + sizeof(mp_Temp), sizeof(buf) - sizeof(mp_Temp));      \
+        *(ret_alloc) = mp_temp_alloc(__t);                                                         \
+    } while (0)
+
+/* Initializes a temp allocator with an array as buf.
+ * `cap` should be an increment of `sizeof(uintptr_t)`.
+ * If not, the actual `cap` will ROUND DOWN to the nearest increment. */
+void mp_temp_init(mp_Temp *t, char *buf, size_t cap);
+/* Resets the size of the temp allocator */
+void mp_temp_reset(mp_Temp *t);
+/* Returns an allocator that works with `mp_Temp`. */
+mp_Alloc mp_temp_alloc(mp_Temp *t);
+
+/* HEAP ALLOCATOR */
+
+/* Heap allocator. */
+mp_Alloc mp_heap_alloc(void);
+#define mp_heap() mp_heap_alloc()
+
+/***********
+ * $ UTF-8
+ ***********/
+
+/* Calculate the length of a UTF-8 string.
+ * The string is NULL-TERMINATED.
+ * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
+size_t mp_utf8_len(const char *str);
+/* Calculate the length of a UTF-8 string with size (in bytes) parameter.
+ * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
+size_t mp_utf8_len_s(const char *str, size_t size);
+
+/* Iterator for UTF-8 string.
+ *
+ * `c` and `c_len` can be accessed to get the current character's information.
+ *
+ * Example usage:
+ * ```c
+ *  const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂ )⸝♡􏾀";
+ *  mp_Utf8Iter iter  = mp_utf8_iter_new(utf8);
+ *  while (mp_utf8_iter_next(&iter)) {
+ *      (void) iter.c;      // The current character (in char[4])
+ *      (void) iter.c_len;  // The current character size (in bytes)
+ *  }
+ * ```
+ * */
+typedef struct {
+    char c[4];     // Holds current character in iteration
+    char c_len;    // Holds current character's size (in bytes)
+
+    const char *_str;     // The UTF-8 string being iterated on
+    size_t      _size;    // The size of the string (in bytes)
+    size_t      _i;       // The current index of the iteration (in bytes)
+} mp_Utf8Iter;
+
+/* Creates a new `mp_Utf8Iter` that iterates over a UTF-8 string.
+ * The string is NULL-TERMINATED. */
+mp_Utf8Iter mp_utf8_iter_new(const char *str);
+/* Creates a new `mp_Utf8Iter` that iterates over a UTF-8 string with size parameter (in bytes). */
+mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
+/* See `mp_Utf8Iter`. */
+bool mp_utf8_iter_next(mp_Utf8Iter *it);
+
+/***********
+ * $ ERRORS
  ***********/
 
 /* Errors from errno.
@@ -1408,7 +1433,7 @@ mp_Err mp_err(int errnum);
 const char *mp_err_str(mp_Err e);
 
 /***********
- * IO INTERFACE
+ * $ IO INTERFACE
  ***********/
 
 /* See `mp_IoFunc` below. */
@@ -1630,7 +1655,7 @@ struct mp_Io {
     })
 
 /***********
- * FILE IO
+ * $ FILE IO
  ***********/
 
 /* Context of file IO. Stores a FILE object corresponding to the open file. */
@@ -1655,7 +1680,7 @@ void mp_file_deinit(mp_File *f);
 mp_Io mp_file_io(mp_File *f, mp_IoType type);
 
 /***********
- * IMPLEMENTATION
+ * $ IMPLEMENTATION
  ***********/
 
 #ifdef MEMPLUS_IMPLEMENTATION
