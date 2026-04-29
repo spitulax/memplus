@@ -1,8 +1,10 @@
-<h2 align="center">Memplus: A library to help with memory allocation in C</h2>
+<h2 align="center">Memplus</h2>
+A library to help with memory allocation and other useful things in C.
+<hr>
 
-## Progress
+## Features
 
-- [x] Custom allocator interface
+- [x] Allocator interface
 - [x] Arena allocators (growing, static, temp)
 - [x] Heap allocator
 - [x] Dynamic array
@@ -20,9 +22,15 @@
 
 ## Usage
 
-Memplus is a header only library that you can copy to your project as you like.
+Memplus is a header only library that you can copy to your project and modify as
+you like.
 
 ```c
-#define MEMPLUS_IMPLEMENTATION // add this line once
+#define MEMPLUS_IMPLEMENTATION // add this line once in a C file
 #include "memplus.h"
 ```
+
+## Support
+
+Theoretically supports POSIX systems and Windows. Tested on Linux with GCC and
+Clang, and on Windows with MSVC.
