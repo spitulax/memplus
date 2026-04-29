@@ -238,6 +238,8 @@ void *mp_dup(mp_Alloc alloc, void *data, size_t size);
  * Does nothing and returns NULL if `new_size` == 0 */
 void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size);
 
+/* GROWING ARENA ALLOCATOR */
+
 typedef struct mp_Region mp_Region;
 
 /* Linked list element that holds certain size of allocated memory. */
@@ -280,6 +282,8 @@ void mp_arena_deinit(mp_Arena *a);
 /* Returns an allocator that works with `mp_Arena`. */
 mp_Alloc mp_arena_alloc(mp_Arena *a);
 
+/* STATIC ARENA ALLOCATOR */
+
 /* Static arena allocator.
  * Allocations are cancelled and return NULL if the requested size is bigger than the remaining
  * capacity. */
@@ -301,6 +305,8 @@ void mp_sarena_deinit(mp_SArena *a);
 /* Returns an allocator that works with `mp_SArena`. */
 mp_Alloc mp_sarena_alloc(mp_SArena *a);
 
+/* TEMP ALLOCATOR */
+
 /* Temp allocator.
  * `mp_SArena` located in the stack. */
 typedef struct {
@@ -308,6 +314,21 @@ typedef struct {
     size_t     len;    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
     size_t     cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
 } mp_Temp;
+
+/* Shortcuts for initializing a temp allocator.
+ * The allocator is returned to `ret_alloc`.
+ * The beginning portion of `buf` will be used to allocate the `mp_Temp` object.
+ *
+ * buf: pointer/array (at least `sizeof(mp_Temp)` of size)
+ * ret_alloc: mp_Alloc* */
+#define mp_talloc(buf, ret_alloc)                                                                  \
+    do {                                                                                           \
+        MEMPLUS_ASSERT_MSG(sizeof(buf) >= sizeof(mp_Temp),                                         \
+                           "Buffer size is smaller than `sizeof(mp_Temp)`");                       \
+        mp_Temp *__t = (mp_Temp *) (buf);                                                          \
+        mp_temp_init(__t, ((char *) (buf)) + sizeof(mp_Temp), sizeof(buf) - sizeof(mp_Temp));      \
+        *(ret_alloc) = mp_temp_alloc(__t);                                                         \
+    } while (0)
 
 /* Initializes a temp allocator with an array as buf.
  * `cap` should be an increment of `sizeof(uintptr_t)`.
@@ -317,6 +338,8 @@ void mp_temp_init(mp_Temp *t, char *buf, size_t cap);
 void mp_temp_reset(mp_Temp *t);
 /* Returns an allocator that works with `mp_Temp`. */
 mp_Alloc mp_temp_alloc(mp_Temp *t);
+
+/* HEAP ALLOCATOR */
 
 /* Heap allocator. */
 mp_Alloc mp_heap_alloc(void);
@@ -1841,7 +1864,7 @@ mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_s
             MEMPLUS_ASSERT(ctx->len % sizeof(uintptr_t) == 0);
             if (ctx->len + alloc_size > ctx->cap) return NULL;
 
-            void *result = ctx->buf + ctx->len;
+            void *result = (char *) ctx->buf + ctx->len;
             ctx->len += alloc_size;
             return result;
         } break;

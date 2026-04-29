@@ -66,6 +66,21 @@ int main(void) {
     expect_eq(t_arena.cap, (size_t) align_down(1050), "%zu");
     test(t_alloc, &t_arena);
 
+    char     tempbuf[24 + 8 * 2];
+    mp_Alloc talloc;
+    mp_talloc(tempbuf, &talloc);
+
+    int *i = mp_create(talloc, int);
+    *i     = 67;
+    expect_ne((void *) i, NULL, "%p");
+    expect_eq(*i, 67, "%d");
+    int *j = mp_create(talloc, int);
+    *j     = 69;
+    expect_eq((void *) j, (void *) ((uintptr_t) i + align(sizeof(int))), "%p");
+    expect_eq(*j, 69, "%d");
+    int *k = mp_create(talloc, int);
+    expect_eq((void *) k, NULL, "%p");
+
     return 0;
 
 fail:
