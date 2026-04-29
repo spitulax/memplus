@@ -119,8 +119,6 @@ __MP_NORETURN void __mp_assert_fail(
 /* Indicates error return for `size_t`. */
 #define MP_ERROR ((size_t) -1)
 
-// TODO: Don't store and use mp_Alloc as pointer (I regret not realizing something until now)
-
 /***********
  * ALLOCATORS
  ***********/
@@ -187,33 +185,33 @@ typedef struct {
 /* Macros that wrap the functions above.
  * See `mp_AllocFunc` for details. */
 
-/* alloc: mp_Alloc* (NO SIDE EFFECTS)
+/* alloc: mp_Alloc (NO SIDE EFFECTS)
  * size: number of bytes
  * Returns void* */
-#define mp_alloc(alloc, size) ((alloc)->f(MP_ALLOCOP_ALLOC, (alloc)->context, (size), 0, NULL))
-/* alloc: mp_Alloc* (NO SIDE EFFECTS)
+#define mp_alloc(alloc, size) ((alloc).f(MP_ALLOCOP_ALLOC, (alloc).context, (size), 0, NULL))
+/* alloc: mp_Alloc (NO SIDE EFFECTS)
  * old_ptr: pointer
  * old_size: number of bytes
  * new_size: number of bytes
  * Returns void* */
 #define mp_realloc(alloc, old_ptr, old_size, new_size)                                             \
-    ((alloc)->f(MP_ALLOCOP_REALLOC, (alloc)->context, (new_size), (old_size), (old_ptr)))
-/* alloc: mp_Alloc* (NO SIDE EFFECTS)
+    ((alloc).f(MP_ALLOCOP_REALLOC, (alloc).context, (new_size), (old_size), (old_ptr)))
+/* alloc: mp_Alloc (NO SIDE EFFECTS)
  * ptr: pointer (nullability depends on the allocator implementation)
  * size: number of bytes
  * Returns NULL */
-#define mp_free(alloc, ptr, size) ((alloc)->f(MP_ALLOCOP_FREE, (alloc)->context, (size), 0, (ptr)))
+#define mp_free(alloc, ptr, size) ((alloc).f(MP_ALLOCOP_FREE, (alloc).context, (size), 0, (ptr)))
 /* Allocate a new chunk of memory for the given type.
  *
- * alloc: mp_Alloc* (NO SIDE EFFECTS)
+ * alloc: mp_Alloc (NO SIDE EFFECTS)
  * type: typename
  * Returns `type`* */
 #define mp_create(alloc, type) (mp_alloc((alloc), sizeof(type)))
-/* alloc: mp_Alloc* (NO SIDE EFFECTS)
+/* alloc: mp_Alloc (NO SIDE EFFECTS)
  * data: pointer
  * size: number of bytes
  * Returns void* */
-void *mp_dup(mp_Alloc *alloc, void *data, size_t size);
+void *mp_dup(mp_Alloc alloc, void *data, size_t size);
 
 /* Creates a custom allocator given the context and the allocation function.
  *
@@ -226,11 +224,19 @@ void *mp_dup(mp_Alloc *alloc, void *data, size_t size);
         .f       = (func),                                                                         \
     })
 
+/* Returns an invalid `mp_Alloc`.
+ * Invalid `mp_Alloc` requires that field `f` is NULL. */
+#define mp_alloc_invalid()                                                                         \
+    ((mp_Alloc) {                                                                                  \
+        .context = NULL,                                                                           \
+        .f       = NULL,                                                                           \
+    })
+
 /* Handles reallocation for custom allocators.
  * You can slot this into your allocator function as long as alloc and free functionalities are
  * defined. For details see the implementation.
  * Does nothing and returns NULL if `new_size` == 0 */
-void *mp_alloc_handle_realloc(mp_Alloc *alloc, void *old_ptr, size_t old_size, size_t new_size);
+void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size);
 
 typedef struct mp_Region mp_Region;
 
@@ -245,16 +251,16 @@ struct mp_Region {
 /* Allocates a new region with `cap` bytes of size with `alloc`.
  * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
  * Deinit with `mp_region_init`. */
-mp_Region *mp_region_init(mp_Alloc *alloc, size_t cap);
+mp_Region *mp_region_init(mp_Alloc alloc, size_t cap);
 /* Frees a region. */
-void mp_region_deinit(mp_Region *r, mp_Alloc *alloc);
+void mp_region_deinit(mp_Region *r, mp_Alloc alloc);
 
-/* GROWING ARENA ALLOCATOR.
+/* Growing arena allocator.
  * Manages regions in a linked list. */
 typedef struct {
     mp_Region *begin, *end;    // Region linked list
     size_t     len;            // The amount of data (in bytes used, aligned to `sizeof(uintptr_t)`)
-    mp_Alloc  *alloc;          // Backing allocator
+    mp_Alloc   alloc;          // Backing allocator
     size_t     _def_size;      // Region default size
 } mp_Arena;
 
@@ -266,7 +272,7 @@ typedef struct {
  * Each region will be allocated with size `def_size` by default (aligned to the nearest increment
  * of `sizeof(uintptr_t)`).
  * Deinit with `mp_arena_deinit`. */
-void mp_arena_init_s(mp_Arena *a, mp_Alloc *alloc, size_t def_size);
+void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size);
 /* Set arena `len` to 0, but does not free allocated regions. */
 void mp_arena_reset(mp_Arena *a);
 /* Frees an arena and its regions. */
@@ -274,20 +280,20 @@ void mp_arena_deinit(mp_Arena *a);
 /* Returns an allocator that works with `mp_Arena`. */
 mp_Alloc mp_arena_alloc(mp_Arena *a);
 
-/* STATIC ARENA ALLOCATOR.
+/* Static arena allocator.
  * Allocations are cancelled and return NULL if the requested size is bigger than the remaining
  * capacity. */
 typedef struct {
     uintptr_t *buf;    // The arena buffer (of size `cap`)
     size_t     len;    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
     size_t     cap;    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
-    mp_Alloc  *alloc;    // The allocator used to manage `buf`
+    mp_Alloc   alloc;    // The allocator used to manage `buf`
 } mp_SArena;
 
 /* Initializes and allocates a static arena. `cap` in bytes.
  * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
  * Deinit with `mp_sarena_deinit`. */
-void mp_sarena_init(mp_SArena *a, mp_Alloc *alloc, size_t cap);
+void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap);
 /* Resets the size of the arena. */
 void mp_sarena_reset(mp_SArena *a);
 /* Frees the arena. */
@@ -295,7 +301,7 @@ void mp_sarena_deinit(mp_SArena *a);
 /* Returns an allocator that works with `mp_SArena`. */
 mp_Alloc mp_sarena_alloc(mp_SArena *a);
 
-/* TEMP ALLOCATOR.
+/* Temp allocator.
  * `mp_SArena` located in the stack. */
 
 typedef struct {
@@ -313,8 +319,9 @@ void mp_temp_reset(mp_Temp *t);
 /* Returns an allocator that works with `mp_Temp`. */
 mp_Alloc mp_temp_alloc(mp_Temp *t);
 
-/* HEAP ALLOCATOR */
-mp_Alloc *mp_heap_alloc(void);
+/* Heap allocator */
+mp_Alloc mp_heap_alloc(void);
+#define mp_heap() mp_heap_alloc()
 
 /***********
  * DYNAMIC ARRAY
@@ -334,7 +341,7 @@ mp_Alloc *mp_heap_alloc(void);
     Or manually,
     ```c
     struct {
-        mp_Alloc *alloc;    // The allocator that manages the allocation of the array
+        mp_Alloc alloc;    // The allocator that manages the allocation of the array
         size_t   len;       // The size of the array
         size_t   cap;       // The capacity of the array
         <type>   *data;     // Pointer to the data (points to the first element)
@@ -356,17 +363,17 @@ mp_Alloc *mp_heap_alloc(void);
  * name: identifier */
 #define mp_da_create(type, name)                                                                   \
     typedef struct {                                                                               \
-        mp_Alloc *alloc;                                                                           \
-        size_t    len;                                                                             \
-        size_t    cap;                                                                             \
-        type     *data;                                                                            \
+        mp_Alloc alloc;                                                                            \
+        size_t   len;                                                                              \
+        size_t   cap;                                                                              \
+        type    *data;                                                                             \
     } name
 
 /* Initializes a new dynamic array managed by `allocator`.
  * Deinit with `mp_da_deinit`.
  *
  * a: DArray* (NO SIDE EFFECTS)
- * allocator: mp_Alloc* */
+ * allocator: mp_Alloc */
 #define mp_da_init(a, allocator)                                                                   \
     do {                                                                                           \
         (a)->alloc = (allocator);                                                                  \
@@ -503,7 +510,7 @@ mp_Alloc *mp_heap_alloc(void);
  * `len` + `MP_DARRAY_INIT_CAPACITY`.
  * `dest.data` becomes NULL if allocation failed.
  *
- * allocator: mp_Alloc* (NO SIDE EFFECTS)
+ * allocator: mp_Alloc (NO SIDE EFFECTS)
  * src: DArray* (NO SIDE EFFECTS)
  * dest: DArray* (NO SIDE EFFECTS) */
 #define mp_da_clone(allocator, src, dest)                                                          \
@@ -514,7 +521,7 @@ mp_Alloc *mp_heap_alloc(void);
             (dest)->len   = (src)->len;                                                            \
             (dest)->cap   = (src)->len + MP_DARRAY_INIT_CAPACITY;                                  \
         } else {                                                                                   \
-            (dest)->alloc = NULL;                                                                  \
+            (dest)->alloc = mp_alloc_invalid();                                                    \
             (dest)->len   = 0;                                                                     \
             (dest)->cap   = 0;                                                                     \
         }                                                                                          \
@@ -603,18 +610,18 @@ typedef struct {
 /* Allocates and returns a new `mp_Str` from a NULL-TERMINATED string.
  * Deinit with `mp_str_deinit`.
  * Returns invalid string if allocation failed. */
-mp_Str mp_str_new(mp_Alloc *alloc, const char *str);
+mp_Str mp_str_new(mp_Alloc alloc, const char *str);
 /* Allocates and returns a new `mp_Str` from a string.
  * Returns invalid string if allocation failed. */
-mp_Str mp_str_new_len(mp_Alloc *alloc, const char *str, size_t len);
+mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len);
 /* Allocates and returns a new `mp_Str` from formatted input.
  * Returns invalid string if allocation failed. */
-mp_Str mp_str_newf(mp_Alloc *alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
 /* Frees an allocated `mp_Str`. */
-void mp_str_deinit(mp_Str *str, mp_Alloc *alloc);
+void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
 /* Allocates and returns a clone of `str`.
  * Returns invalid string if allocation failed. */
-mp_Str mp_str_clone(const mp_Str *str, mp_Alloc *alloc);
+mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc);
 
 /***********
  * STRING BUILDER
@@ -637,7 +644,7 @@ void mp_str_builder_append(mp_StrBuilder *sb, const char *str);
 void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
 /* Copies the buffer of a `mp_StrBuilder` into a null-terminated `mp_Str`.
  * Returns invalid `mp_Str` if allocation failed. */
-mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc *alloc);
+mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc);
 
 /***********
  * UTF-8
@@ -735,7 +742,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
  * Deinit with `mp_ht_deinit`.
  *
  * ht: HashTable* (NO SIDE EFFECTS)
- * allocator: mp_Alloc* */
+ * allocator: mp_Alloc */
 #define mp_ht_init(ht, allocator) mp_da_init(ht, allocator)
 
 /* Frees a hash table.
@@ -920,7 +927,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
  * `dest` inherits all fields of `src`.
  * `dest.data` becomes NULL if allocation failed.
  *
- * allocator: mp_Alloc* (NO SIDE EFFECTS)
+ * allocator: mp_Alloc (NO SIDE EFFECTS)
  * src: HashTable* (NO SIDE EFFECTS)
  * dest: HashTable* (NO SIDE EFFECTS) */
 #define mp_ht_clone(allocator, src, dest)                                                          \
@@ -937,7 +944,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
                 }                                                                                  \
             }                                                                                      \
         } else {                                                                                   \
-            (dest)->alloc = NULL;                                                                  \
+            (dest)->alloc = mp_alloc_invalid();                                                    \
             (dest)->len   = 0;                                                                     \
             (dest)->cap   = 0;                                                                     \
         }                                                                                          \
@@ -1450,13 +1457,13 @@ __MP_NORETURN void __mp_assert_fail(
 }
 #endif
 
-void *mp_dup(mp_Alloc *alloc, void *data, size_t size) {
+void *mp_dup(mp_Alloc alloc, void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
     if (buf == NULL) return NULL;
     return memcpy(buf, data, size);
 }
 
-void *mp_alloc_handle_realloc(mp_Alloc *alloc, void *old_ptr, size_t old_size, size_t new_size) {
+void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size) {
     if (new_size == 0) {
         return NULL;
     }
@@ -1469,7 +1476,7 @@ void *mp_alloc_handle_realloc(mp_Alloc *alloc, void *old_ptr, size_t old_size, s
     return new_ptr;
 }
 
-mp_Region *mp_region_init(mp_Alloc *alloc, size_t cap) {
+mp_Region *mp_region_init(mp_Alloc alloc, size_t cap) {
     size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
     mp_Region *region = mp_alloc(alloc, bytes);
     region->next      = NULL;
@@ -1478,11 +1485,11 @@ mp_Region *mp_region_init(mp_Alloc *alloc, size_t cap) {
     return region;
 }
 
-void mp_region_deinit(mp_Region *r, mp_Alloc *alloc) {
+void mp_region_deinit(mp_Region *r, mp_Alloc alloc) {
     mp_free(alloc, r, r->cap);
 }
 
-void mp_arena_init_s(mp_Arena *a, mp_Alloc *alloc, size_t def_size) {
+void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size) {
     a->len       = 0;
     a->begin     = NULL;
     a->end       = NULL;
@@ -1560,7 +1567,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
             return result;
         } break;
         case MP_ALLOCOP_REALLOC: {
-            return mp_alloc_handle_realloc(&alloc, ptr, old_size, new_size);
+            return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
         } break;
         case MP_ALLOCOP_FREE: {
             (void) old_size;
@@ -1572,7 +1579,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
     __MP_UNREACHABLE();
 }
 
-void mp_sarena_init(mp_SArena *a, mp_Alloc *alloc, size_t cap) {
+void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap) {
     size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
     uintptr_t *buffer = mp_alloc(alloc, bytes);
     a->alloc          = alloc;
@@ -1620,7 +1627,7 @@ mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_s
             return result;
         } break;
         case MP_ALLOCOP_REALLOC: {
-            return mp_alloc_handle_realloc(&alloc, ptr, old_size, new_size);
+            return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
         } break;
         case MP_ALLOCOP_FREE: {
             (void) old_size;
@@ -1647,14 +1654,8 @@ mp_Alloc mp_temp_alloc(mp_Temp *t) {
     return mp_alloc_new(t, mp_sarena_alloc_func);
 }
 
-// TODO: Not thread safe... Remove this once all funcs take `mp_Alloc` as value
-static mp_Alloc __mp_heap_alloc = { 0 };
-
-mp_Alloc *mp_heap_alloc(void) {
-    if (__mp_heap_alloc.f == NULL) {
-        __mp_heap_alloc = mp_alloc_new(NULL, mp_heap_alloc_func);
-    }
-    return &__mp_heap_alloc;
+mp_Alloc mp_heap_alloc(void) {
+    return mp_alloc_new(NULL, mp_heap_alloc_func);
 }
 
 static void *
@@ -1673,7 +1674,7 @@ mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_siz
             return MEMPLUS_ALLOC(new_size);
         } break;
         case MP_ALLOCOP_REALLOC: {
-            return mp_alloc_handle_realloc(&alloc, ptr, old_size, new_size);
+            return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
         } break;
         case MP_ALLOCOP_FREE: {
             (void) old_size;
@@ -1689,13 +1690,13 @@ mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_siz
     __MP_UNREACHABLE();
 }
 
-mp_Str mp_str_new(mp_Alloc *alloc, const char *str) {
+mp_Str mp_str_new(mp_Alloc alloc, const char *str) {
     int len = snprintf(NULL, 0, "%s", str);
     MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
     return mp_str_new_len(alloc, str, (size_t) len);
 }
 
-mp_Str mp_str_new_len(mp_Alloc *alloc, const char *str, size_t len) {
+mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len) {
     char *result = mp_alloc(alloc, (size_t) (len + 1));
     if (result == NULL) return mp_str_invalid();
     int result_len = snprintf(result, (size_t) (len + 1), "%.*s", (int) len, str);
@@ -1703,7 +1704,7 @@ mp_Str mp_str_new_len(mp_Alloc *alloc, const char *str, size_t len) {
     return (mp_Str) { .len = (size_t) result_len, .cstr = result };
 }
 
-mp_Str mp_str_newf(mp_Alloc *alloc, const char *fmt, ...) {
+mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
@@ -1722,7 +1723,7 @@ mp_Str mp_str_newf(mp_Alloc *alloc, const char *fmt, ...) {
     return (mp_Str) { .len = (size_t) result_len, .cstr = result };
 }
 
-mp_Str mp_str_clone(const mp_Str *str, mp_Alloc *alloc) {
+mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc) {
     int len = snprintf(NULL, 0, "%s", str->cstr);
     MEMPLUS_ASSERT_MSG(len >= 0 || (size_t) len != str->len, "Failed to count string length");
     char *ptr = mp_dup(alloc, str->cstr, (size_t) len + 1);
@@ -1730,7 +1731,7 @@ mp_Str mp_str_clone(const mp_Str *str, mp_Alloc *alloc) {
     return (mp_Str) { .len = (size_t) len, .cstr = ptr };
 }
 
-void mp_str_deinit(mp_Str *str, mp_Alloc *alloc) {
+void mp_str_deinit(mp_Str *str, mp_Alloc alloc) {
     mp_free(alloc, str->cstr, str->len + 1);
     __MP_ZERO(str);
 }
@@ -1759,7 +1760,7 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
     }
 }
 
-mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc *alloc) {
+mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc) {
     return mp_str_new_len(alloc, sb->data, sb->len);
 }
 

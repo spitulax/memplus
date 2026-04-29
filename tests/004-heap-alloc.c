@@ -4,7 +4,7 @@
 #include "memplus.h"
 
 int main(void) {
-    mp_Alloc *alloc = mp_heap_alloc();
+    mp_Alloc alloc = mp_heap_alloc();
 
     uint32_t *p1 = mp_alloc(alloc, sizeof(*p1));
     *p1          = 67;

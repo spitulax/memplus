@@ -8,7 +8,7 @@
 mp_ht_create(int, HashTableInt);
 
 int main(void) {
-    mp_Alloc *alloc = mp_heap_alloc();
+    mp_Alloc alloc = mp_heap_alloc();
 
     HashTableInt ht;
     mp_ht_init(&ht, alloc);

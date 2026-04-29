@@ -20,13 +20,13 @@ fail:
 int main(void) {
     mp_Alloc allocator = mp_alloc_new((void *) 69, alloc_func);
 
-    void *alloc_res = mp_alloc(&allocator, 10);
+    void *alloc_res = mp_alloc(allocator, 10);
     expect_eq(alloc_res, (void *) 10, "%p");
 
-    void *realloc_res = mp_realloc(&allocator, (void *) 100, 10, 20);
+    void *realloc_res = mp_realloc(allocator, (void *) 100, 10, 20);
     expect_eq(realloc_res, (void *) (100 + 10 + 20), "%p");
 
-    void *free_res = mp_free(&allocator, (void *) 100, 10);
+    void *free_res = mp_free(allocator, (void *) 100, 10);
     expect_eq(free_res, (void *) (100 + 10), "%p");
 
     return 0;
