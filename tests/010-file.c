@@ -27,17 +27,17 @@ int main(void) {
         e = mp_file_open(&f, ".foo", "w");
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
         io = mp_file_io(&f, MP_IOTYPE_READ);
-        expect(!mp_io_is_valid(&io));
+        expect(!mp_io_is_valid(io));
         io = mp_file_io(&f, MP_IOTYPE_WRITE);
-        expect(mp_io_is_valid(&io));
+        expect(mp_io_is_valid(io));
 
         // Reopen test
         e = mp_file_reopen(&f, ".foo", "w+");
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
         io = mp_file_io(&f, MP_IOTYPE_WRITE);
-        expect(mp_io_is_valid(&io));
+        expect(mp_io_is_valid(io));
         io = mp_file_io(&f, MP_IOTYPE_READ);
-        expect(mp_io_is_valid(&io));
+        expect(mp_io_is_valid(io));
     }
 
     // Write test
@@ -45,7 +45,7 @@ int main(void) {
         e = mp_file_reopen(&f, ".foo", "w");
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
         io = mp_file_io(&f, MP_IOTYPE_WRITE);
-        expect(mp_io_is_valid(&io));
+        expect(mp_io_is_valid(io));
         // Write test
         ie = mp_io_putc(&io, 'f');
         expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
@@ -73,7 +73,7 @@ int main(void) {
         e = mp_file_reopen(&f, ".foo", "r");
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
         io = mp_file_io(&f, MP_IOTYPE_READ);
-        expect(mp_io_is_valid(&io));
+        expect(mp_io_is_valid(io));
         char c = 0;
         ie     = mp_io_getc(&io, &c);
         expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);

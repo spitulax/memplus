@@ -119,8 +119,6 @@ __MP_NORETURN void __mp_assert_fail(
 /* Indicates error return for `size_t`. */
 #define MP_ERROR ((size_t) -1)
 
-// TODO: Change some `const \S*\*` paramters to non-pointer
-
 /***********
  * ALLOCATORS
  ***********/
@@ -596,8 +594,8 @@ typedef struct {
 /* Tests if `s` is invalid (i.e. `cstr` == NULL).
  * Returns true if valid.
  *
- * s: const mp_Str* */
-#define mp_str_is_valid(s) ((s)->cstr != NULL)
+ * s: mp_Str */
+#define mp_str_is_valid(s) ((s).cstr != NULL)
 
 /* Create a `mp_Str` from a C-string.
  *
@@ -752,7 +750,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
 #define mp_ht_deinit(ht)                                                                           \
     do {                                                                                           \
         for (size_t __i = 0; __i < (ht)->cap; __i++) {                                             \
-            if (mp_str_is_valid(&(ht)->data[__i].key))                                             \
+            if (mp_str_is_valid((ht)->data[__i].key))                                              \
                 mp_str_deinit(&(ht)->data[__i].key, (ht)->alloc);                                  \
         }                                                                                          \
         mp_da_deinit(ht);                                                                          \
@@ -778,9 +776,9 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
             mp_Str   __key  = *(k);                                                                \
             uint64_t __hash = mp_ht_hash_str(&__key);                                              \
             size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
-            while (__i < (ht)->cap && (mp_str_is_valid(&(ht)->data[__i].key) ||                    \
+            while (__i < (ht)->cap && (mp_str_is_valid((ht)->data[__i].key) ||                     \
                                        *(char *) &(ht)->data[__i].val == 1)) {                     \
-                if (mp_str_is_valid(&(ht)->data[__i].key) &&                                       \
+                if (mp_str_is_valid((ht)->data[__i].key) &&                                        \
                     strcmp(__key.cstr, (ht)->data[__i].key.cstr) == 0) {                           \
                     (ret)   = &(ht)->data[__i].val;                                                \
                     __found = true;                                                                \
@@ -815,7 +813,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
             uint64_t __hash = mp_ht_hash_str(&__key);                                              \
             size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
             for (;;) {                                                                             \
-                if (!mp_str_is_valid(&(ht)->data[__i].key)) {                                      \
+                if (!mp_str_is_valid((ht)->data[__i].key)) {                                       \
                     (ht)->data[__i].key = mp_str_clone(&__key, (ht)->alloc);                       \
                     (ht)->data[__i].val = (v);                                                     \
                     break;                                                                         \
@@ -852,11 +850,11 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
             __typeof__((ht)->data) __new_data =                                                    \
                 mp_alloc((ht)->alloc, (ht)->cap * sizeof(*(ht)->data));                            \
             for (size_t __i = 0; __i < __old_cap; ++__i) {                                         \
-                if (mp_str_is_valid(&(ht)->data[__i].key)) {                                       \
+                if (mp_str_is_valid((ht)->data[__i].key)) {                                        \
                     uint64_t __hash  = mp_ht_hash_str(&(ht)->data[__i].key);                       \
                     size_t   __new_i = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));             \
                     for (;;) {                                                                     \
-                        if (!mp_str_is_valid(&__new_data[__new_i].key)) {                          \
+                        if (!mp_str_is_valid(__new_data[__new_i].key)) {                           \
                             __new_data[__new_i].key =                                              \
                                 mp_str_clone(&(ht)->data[__i].key, (ht)->alloc);                   \
                             __new_data[__new_i].val = (ht)->data[__i].val;                         \
@@ -878,9 +876,9 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
 #define __mp_ht_free_entries(entries, alloc, cap)                                                  \
     do {                                                                                           \
         for (size_t __i = 0; __i < (cap); ++__i) {                                                 \
-            if (mp_str_is_valid(&(entries)[__i].key)) {                                            \
+            if (mp_str_is_valid((entries)[__i].key)) {                                             \
                 mp_str_deinit(&(entries)[__i].key, (alloc));                                       \
-                MEMPLUS_ASSERT(!mp_str_is_valid(&(entries)[__i].key));                             \
+                MEMPLUS_ASSERT(!mp_str_is_valid((entries)[__i].key));                              \
             }                                                                                      \
         }                                                                                          \
     } while (0)
@@ -912,10 +910,10 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
             mp_Str   __key  = *(k);                                                                \
             uint64_t __hash = mp_ht_hash_str(&__key);                                              \
             size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
-            while (__i < (ht)->cap && mp_str_is_valid(&(ht)->data[__i].key)) {                     \
+            while (__i < (ht)->cap && mp_str_is_valid((ht)->data[__i].key)) {                      \
                 if (strcmp(__key.cstr, (ht)->data[__i].key.cstr) == 0) {                           \
                     mp_str_deinit(&(ht)->data[__i].key, (ht)->alloc);                              \
-                    MEMPLUS_ASSERT(!mp_str_is_valid(&(ht)->data[__i].key));                        \
+                    MEMPLUS_ASSERT(!mp_str_is_valid((ht)->data[__i].key));                         \
                     memset(&(ht)->data[__i].val, 1, 1);                                            \
                     break;                                                                         \
                 }                                                                                  \
@@ -940,7 +938,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
             (dest)->len   = (src)->len;                                                            \
             (dest)->cap   = (src)->cap;                                                            \
             for (size_t __i = 0; __i < (src)->cap; ++__i) {                                        \
-                if (mp_str_is_valid(&(src)->data[__i].key)) {                                      \
+                if (mp_str_is_valid((src)->data[__i].key)) {                                       \
                     (dest)->data[__i].key = mp_str_clone(&(src)->data[__i].key, (allocator));      \
                     MEMPLUS_ASSERT((dest)->data[__i].key.cstr != (src)->data[__i].key.cstr);       \
                 }                                                                                  \
@@ -973,7 +971,7 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
         (it)->ok = false;                                                                          \
         while ((it)->_i < (it)->_h->cap) {                                                         \
             __typeof__((it)->_h->data) __entry = (it)->_h->data + (it)->_i;                        \
-            if (mp_str_is_valid(&__entry->key)) {                                                  \
+            if (mp_str_is_valid(__entry->key)) {                                                   \
                 (it)->key = __entry->key;                                                          \
                 (it)->val = __entry->val;                                                          \
                 (it)->ok  = true;                                                                  \
@@ -1544,8 +1542,8 @@ struct mp_Io {
 /* Tests if `io` is invalid.
  * Returns true if valid.
  *
- * io: const mp_Io* */
-#define mp_io_is_valid(io) ((io)->type != MP_IOTYPE_NONE)
+ * io: mp_Io */
+#define mp_io_is_valid(io) ((io).type != MP_IOTYPE_NONE)
 
 /* Macros that wrap the functions above.
  * See `mp_IoFunc` for details. */
