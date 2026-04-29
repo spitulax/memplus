@@ -1633,9 +1633,9 @@ struct mp_Io {
 #define mp_io_setpos(io, offset, origin)                                                           \
     ((io)->f(MP_IOOP_SETPOS, (io), NULL, (offset), (origin), NULL))
 /* io: mp_Io* (NO SIDE EFFECTS)
- * ret_c: char*
+ * ret_c: size_t*
  * Returns mp_IoErr */
-#define mp_io_getc(io, ret_c) ((io)->f(MP_IOOP_GETC, (io), NULL, 0, 0, (size_t *) (ret_c)))
+#define mp_io_getc(io, ret_c) ((io)->f(MP_IOOP_GETC, (io), NULL, 0, 0, (ret_c)))
 /* io: mp_Io* (NO SIDE EFFECTS)
  * c: char
  * Returns mp_IoErr */
@@ -2571,7 +2571,7 @@ mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2, size_t *
             (void) ret;
 
             int           mode    = 0;
-            mp_SetbufMode mp_mode = n2;
+            mp_SetbufMode mp_mode = (mp_SetbufMode) n2;
             switch (mp_mode) {
                 case MP_SETBUFMODE_NONE: {
                     mode = _IONBF;
@@ -2634,7 +2634,7 @@ mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2, size_t *
             (void) ret;
 
             int             origin    = 0;
-            mp_SetposOrigin mp_origin = n2;
+            mp_SetposOrigin mp_origin = (mp_SetposOrigin) n2;
             switch (mp_origin) {
                 case MP_SETPOSORIGIN_START: {
                     origin = SEEK_SET;

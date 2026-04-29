@@ -5,11 +5,13 @@
 , meson
 , ninja
 , pkg-config
+, clang
 }:
 mkShell {
   name = "memplus-shell";
   buildInputs = [
     gcc
+    # clang
     clang-tools
     meson
     ninja

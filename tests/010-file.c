@@ -74,10 +74,10 @@ int main(void) {
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
         io = mp_file_io(&f, MP_IOTYPE_READ);
         expect(mp_io_is_valid(io));
-        char c = 0;
-        ie     = mp_io_getc(&io, &c);
+        size_t c = 0;
+        ie       = mp_io_getc(&io, &c);
         expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
-        expect_eq(c, 'f', "%c");
+        expect_eq(c, (size_t) 'f', "%zu");
 
         size_t pos = 0;
         ie         = mp_io_getpos(&io, &pos);

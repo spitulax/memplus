@@ -5,13 +5,14 @@ set -uo pipefail
 # Env vars
 QUIET=${QUIET:-}
 WINDOWS=${WINDOWS:-}
+COMPILER=${COMPILER:-cc}
 export WINEDEBUG=-all
 
-GCCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb"
+CCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb"
 MSVCARGS="/nologo /std:clatest /I. /I.. /TC"
 
 if [[ $QUIET -eq 1 ]]; then
-    GCCARGS+=" -DQUIET"
+    CCARGS+=" -DQUIET"
     MSVCARGS+=" /DQUIET"
 fi
 
@@ -36,7 +37,7 @@ run () {
             if [[ $WINDOWS -eq 1 ]]; then
                 cl $MSVCARGS /Fo:"$name.obj" /Fe:"$name.exe" "$f"
             else
-                cc $GCCARGS -o "$name" "$f"
+                $COMPILER $CCARGS -o "$name" "$f"
             fi
             if [[ $? -eq 0 ]]; then
                 local start=$(date +%s%N)
