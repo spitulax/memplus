@@ -15,6 +15,7 @@
 - [ ] Subprocess
 - [ ] Other kinds of allocators
 - [ ] Socket IO
+- [ ] Threading
 
 ## Usage
 
