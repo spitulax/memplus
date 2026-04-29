@@ -119,6 +119,8 @@ __MP_NORETURN void __mp_assert_fail(
 /* Indicates error return for `size_t`. */
 #define MP_ERROR ((size_t) -1)
 
+// TODO: Don't store and use mp_Alloc as pointer (I regret not realizing something until now)
+
 /***********
  * ALLOCATORS
  ***********/
@@ -253,17 +255,24 @@ typedef struct {
     mp_Region *begin, *end;    // Region linked list
     size_t     len;            // The amount of data (in bytes used, aligned to `sizeof(uintptr_t)`)
     mp_Alloc  *alloc;          // Backing allocator
+    size_t     _def_size;      // Region default size
 } mp_Arena;
 
 /* Creates a new, unallocated arena.
+ * Each region will be allocated with size `MP_REGION_DEFAULT_SIZE` by default.
  * Deinit with `mp_arena_deinit`. */
-void mp_arena_init(mp_Arena *a, mp_Alloc *alloc);
+#define mp_arena_init(a, alloc) mp_arena_init_s((a), (alloc), MP_REGION_DEFAULT_SIZE)
+/* Creates a new, unallocated arena.
+ * Each region will be allocated with size `def_size` by default (aligned to the nearest increment
+ * of `sizeof(uintptr_t)`).
+ * Deinit with `mp_arena_deinit`. */
+void mp_arena_init_s(mp_Arena *a, mp_Alloc *alloc, size_t def_size);
 /* Set arena `len` to 0, but does not free allocated regions. */
 void mp_arena_reset(mp_Arena *a);
 /* Frees an arena and its regions. */
 void mp_arena_deinit(mp_Arena *a);
 /* Returns an allocator that works with `mp_Arena`. */
-mp_Alloc mp_arena_alloc(const mp_Arena *a);
+mp_Alloc mp_arena_alloc(mp_Arena *a);
 
 /* STATIC ARENA ALLOCATOR.
  * Allocations are cancelled and return NULL if the requested size is bigger than the remaining
@@ -284,7 +293,7 @@ void mp_sarena_reset(mp_SArena *a);
 /* Frees the arena. */
 void mp_sarena_deinit(mp_SArena *a);
 /* Returns an allocator that works with `mp_SArena`. */
-mp_Alloc mp_sarena_alloc(const mp_SArena *a);
+mp_Alloc mp_sarena_alloc(mp_SArena *a);
 
 /* TEMP ALLOCATOR.
  * `mp_SArena` located in the stack. */
@@ -302,7 +311,7 @@ void mp_temp_init(mp_Temp *t, char *buf, size_t cap);
 /* Resets the size of the temp allocator */
 void mp_temp_reset(mp_Temp *t);
 /* Returns an allocator that works with `mp_Temp`. */
-mp_Alloc mp_temp_alloc(const mp_Temp *t);
+mp_Alloc mp_temp_alloc(mp_Temp *t);
 
 /* HEAP ALLOCATOR */
 mp_Alloc *mp_heap_alloc(void);
@@ -721,8 +730,6 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
         const name *_h;                                                                            \
         size_t      _i;                                                                            \
     } name##Iter
-
-// TODO: STORE THE KEYS IN AN ARENA
 
 /* Initializes a new hash table managed by `allocator`.
  * Deinit with `mp_ht_deinit`.
@@ -1475,11 +1482,12 @@ void mp_region_deinit(mp_Region *r, mp_Alloc *alloc) {
     mp_free(alloc, r, r->cap);
 }
 
-void mp_arena_init(mp_Arena *a, mp_Alloc *alloc) {
-    a->len   = 0;
-    a->begin = NULL;
-    a->end   = NULL;
-    a->alloc = alloc;
+void mp_arena_init_s(mp_Arena *a, mp_Alloc *alloc, size_t def_size) {
+    a->len       = 0;
+    a->begin     = NULL;
+    a->end       = NULL;
+    a->alloc     = alloc;
+    a->_def_size = def_size;
 }
 
 void mp_arena_reset(mp_Arena *a) {
@@ -1500,7 +1508,7 @@ void mp_arena_deinit(mp_Arena *a) {
     __MP_ZERO(a);
 }
 
-mp_Alloc mp_arena_alloc(const mp_Arena *a) {
+mp_Alloc mp_arena_alloc(mp_Arena *a) {
     return mp_alloc_new(a, mp_arena_alloc_func);
 }
 
@@ -1523,7 +1531,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
 
             if (ctx->end == NULL) {
                 MEMPLUS_ASSERT(ctx->begin == NULL);
-                size_t capacity = MP_REGION_DEFAULT_SIZE;
+                size_t capacity = ctx->_def_size;
                 if (capacity < alloc_size) capacity = alloc_size;
                 ctx->end = mp_region_init(ctx->alloc, capacity);
                 if (ctx->end == NULL) return NULL;
@@ -1537,7 +1545,7 @@ mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_si
 
             if (__MP_ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap) {
                 MEMPLUS_ASSERT(ctx->end->next == NULL);
-                size_t capacity = MP_REGION_DEFAULT_SIZE;
+                size_t capacity = ctx->_def_size;
                 if (capacity < alloc_size) capacity = alloc_size;
                 ctx->end->next = mp_region_init(ctx->alloc, capacity);
                 if (ctx->end->next == NULL) return NULL;
@@ -1583,7 +1591,7 @@ void mp_sarena_deinit(mp_SArena *a) {
     __MP_ZERO(a);
 }
 
-mp_Alloc mp_sarena_alloc(const mp_SArena *a) {
+mp_Alloc mp_sarena_alloc(mp_SArena *a) {
     return mp_alloc_new(a, mp_sarena_alloc_func);
 }
 
@@ -1635,10 +1643,11 @@ void mp_temp_reset(mp_Temp *t) {
     t->len = 0;
 }
 
-mp_Alloc mp_temp_alloc(const mp_Temp *t) {
+mp_Alloc mp_temp_alloc(mp_Temp *t) {
     return mp_alloc_new(t, mp_sarena_alloc_func);
 }
 
+// TODO: Not thread safe... Remove this once all funcs take `mp_Alloc` as value
 static mp_Alloc __mp_heap_alloc = { 0 };
 
 mp_Alloc *mp_heap_alloc(void) {

@@ -65,6 +65,20 @@ int main(void) {
 
     mp_arena_deinit(&arena);
 
+    // Custom default size
+    mp_arena_init_s(&arena, mp_heap_alloc(), 2048);
+    alloc = mp_arena_alloc(&arena);
+
+    // First allocation
+    mp_alloc(&alloc, 10);
+    expect_eq((void *) arena.begin, (void *) arena.end, "%p");
+    expect_ne((void *) arena.begin, NULL, "%p");
+    expect_ne((void *) arena.end, NULL, "%p");
+    expect_eq(arena.len, (size_t) align(10), "%zu");
+    expect_eq(arena.begin->cap, (size_t) align(2048), "%zu");
+
+    mp_arena_deinit(&arena);
+
     return 0;
 
 fail:
