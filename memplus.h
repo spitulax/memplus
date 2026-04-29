@@ -1743,6 +1743,92 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
     return new_ptr;
 }
 
+mp_Str mp_str_new(mp_Alloc alloc, const char *str) {
+    int len = snprintf(NULL, 0, "%s", str);
+    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
+    return mp_str_new_len(alloc, str, (size_t) len);
+}
+
+mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len) {
+    char *result = mp_alloc(alloc, (size_t) (len + 1));
+    if (result == NULL) return mp_str_invalid();
+    int result_len = snprintf(result, (size_t) (len + 1), "%.*s", (int) len, str);
+    MEMPLUS_ASSERT((size_t) result_len == len);
+    return (mp_Str) { .len = (size_t) result_len, .cstr = result };
+}
+
+mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) {
+    va_list args;
+
+    va_start(args, fmt);
+    int len = vsnprintf(NULL, 0, fmt, args);
+    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
+    va_end(args);
+
+    char *result = mp_alloc(alloc, (size_t) (len + 1));
+    if (result == NULL) return mp_str_invalid();
+
+    va_start(args, fmt);
+    int result_len = vsnprintf(result, (size_t) (len + 1), fmt, args);
+    MEMPLUS_ASSERT(result_len == len);
+    va_end(args);
+
+    return (mp_Str) { .len = (size_t) result_len, .cstr = result };
+}
+
+void mp_str_deinit(mp_Str *str, mp_Alloc alloc) {
+    mp_free(alloc, str->cstr, str->len + 1);
+    __MP_ZERO(str);
+}
+
+mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc) {
+    int len = snprintf(NULL, 0, "%s", str->cstr);
+    MEMPLUS_ASSERT_MSG(len >= 0 || (size_t) len != str->len, "Failed to count string length");
+    char *ptr = mp_dup(alloc, str->cstr, (size_t) len + 1);
+    if (ptr == NULL) return mp_str_invalid();
+    return (mp_Str) { .len = (size_t) len, .cstr = ptr };
+}
+
+void mp_str_builder_append(mp_StrBuilder *sb, const char *str) {
+    mp_da_append_array(sb, str, (size_t) strlen(str));
+}
+
+void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
+    va_list args;
+
+    va_start(args, fmt);
+    int len = vsnprintf(NULL, 0, fmt, args);
+    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
+    va_end(args);
+
+    size_t prev_len = sb->len;
+    mp_da_grow(sb, (size_t) (len + 1));
+
+    if (sb->data != NULL) {
+        va_start(args, fmt);
+        int result_len = vsnprintf(sb->data + prev_len, (size_t) (len + 1), fmt, args);
+        mp_da_shrink(sb, 1ul);
+        MEMPLUS_ASSERT(result_len == len);
+        va_end(args);
+    }
+}
+
+mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc) {
+    return mp_str_new_len(alloc, sb->data, sb->len);
+}
+
+#define __FNV_OFFSET 14695981039346656037UL
+#define __FNV_PRIME  1099511628211UL
+
+uint64_t mp_ht_hash_str(const mp_Str *str) {
+    uint64_t hash = __FNV_OFFSET;
+    for (const char *p = str->cstr; *p; p++) {
+        hash ^= (uint64_t) (unsigned char) (*p);
+        hash *= __FNV_PRIME;
+    }
+    return hash;
+}
+
 mp_Region *mp_region_init(mp_Alloc alloc, size_t cap) {
     size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
     mp_Region *region = mp_alloc(alloc, bytes);
@@ -1957,80 +2043,6 @@ mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_siz
     __MP_UNREACHABLE();
 }
 
-mp_Str mp_str_new(mp_Alloc alloc, const char *str) {
-    int len = snprintf(NULL, 0, "%s", str);
-    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
-    return mp_str_new_len(alloc, str, (size_t) len);
-}
-
-mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len) {
-    char *result = mp_alloc(alloc, (size_t) (len + 1));
-    if (result == NULL) return mp_str_invalid();
-    int result_len = snprintf(result, (size_t) (len + 1), "%.*s", (int) len, str);
-    MEMPLUS_ASSERT((size_t) result_len == len);
-    return (mp_Str) { .len = (size_t) result_len, .cstr = result };
-}
-
-mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) {
-    va_list args;
-
-    va_start(args, fmt);
-    int len = vsnprintf(NULL, 0, fmt, args);
-    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
-    va_end(args);
-
-    char *result = mp_alloc(alloc, (size_t) (len + 1));
-    if (result == NULL) return mp_str_invalid();
-
-    va_start(args, fmt);
-    int result_len = vsnprintf(result, (size_t) (len + 1), fmt, args);
-    MEMPLUS_ASSERT(result_len == len);
-    va_end(args);
-
-    return (mp_Str) { .len = (size_t) result_len, .cstr = result };
-}
-
-mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc) {
-    int len = snprintf(NULL, 0, "%s", str->cstr);
-    MEMPLUS_ASSERT_MSG(len >= 0 || (size_t) len != str->len, "Failed to count string length");
-    char *ptr = mp_dup(alloc, str->cstr, (size_t) len + 1);
-    if (ptr == NULL) return mp_str_invalid();
-    return (mp_Str) { .len = (size_t) len, .cstr = ptr };
-}
-
-void mp_str_deinit(mp_Str *str, mp_Alloc alloc) {
-    mp_free(alloc, str->cstr, str->len + 1);
-    __MP_ZERO(str);
-}
-
-void mp_str_builder_append(mp_StrBuilder *sb, const char *str) {
-    mp_da_append_array(sb, str, (size_t) strlen(str));
-}
-
-void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
-    va_list args;
-
-    va_start(args, fmt);
-    int len = vsnprintf(NULL, 0, fmt, args);
-    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
-    va_end(args);
-
-    size_t prev_len = sb->len;
-    mp_da_grow(sb, (size_t) (len + 1));
-
-    if (sb->data != NULL) {
-        va_start(args, fmt);
-        int result_len = vsnprintf(sb->data + prev_len, (size_t) (len + 1), fmt, args);
-        mp_da_shrink(sb, 1ul);
-        MEMPLUS_ASSERT(result_len == len);
-        va_end(args);
-    }
-}
-
-mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc) {
-    return mp_str_new_len(alloc, sb->data, sb->len);
-}
-
 size_t mp_utf8_len(const char *str) {
     return mp_utf8_len_s(str, strlen(str));
 }
@@ -2123,18 +2135,6 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it) {
     it->_i += (size_t) bytes_taken;
 
     return true;
-}
-
-#define __FNV_OFFSET 14695981039346656037UL
-#define __FNV_PRIME  1099511628211UL
-
-uint64_t mp_ht_hash_str(const mp_Str *str) {
-    uint64_t hash = __FNV_OFFSET;
-    for (const char *p = str->cstr; *p; p++) {
-        hash ^= (uint64_t) (unsigned char) (*p);
-        hash *= __FNV_PRIME;
-    }
-    return hash;
 }
 
 mp_Err mp_err(int errnum) {
