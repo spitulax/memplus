@@ -1,5 +1,5 @@
 #define MEMPLUS_IMPLEMENTATION
-#define MP_HASH_TABLE_MAX_LOAD 1    // test when any conflict arises
+#define __MP_HASH_TABLE_MAX_LOAD 1    // test when any conflict arises
 #include "memplus.h"
 #include "test.h"
 
@@ -31,10 +31,11 @@ int main(void) {
     expect_eq((void *) val, NULL, "%p");
 
     expect_eq(ht.len, (size_t) 2, "%zu");
-    expect_eq(ht.cap, (size_t) MP_HASH_TABLE_INIT_CAPACITY, "%zu");
+    expect_eq(ht.cap, (size_t) __MP_HASH_TABLE_INIT_CAPACITY, "%zu");
 
     // Delete test
     mp_hti_delete(&ht, 1);
+    expect_eq(ht.len, (size_t) 1, "%zu");
 
     mp_hti_get(&ht, 1, val);
     expect_eq((void *) val, NULL, "%p");
@@ -46,12 +47,13 @@ int main(void) {
     mp_hti_reset(&ht);
 
     // Realloc test
-    for (int i = 0; i < MP_HASH_TABLE_INIT_CAPACITY * MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
+    for (int i = 0; i < __MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
         mp_hti_set(&ht, (size_t) i * 2, i);
     }
 
-    expect_eq(ht.len, (size_t) (MP_HASH_TABLE_INIT_CAPACITY * MP_HASH_TABLE_MAX_LOAD + 1), "%zu");
-    expect_eq(ht.cap, (size_t) MP_HASH_TABLE_INIT_CAPACITY * 2, "%zu");
+    expect_eq(ht.len, (size_t) (__MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1),
+              "%zu");
+    expect_eq(ht.cap, (size_t) __MP_HASH_TABLE_INIT_CAPACITY * 2, "%zu");
 
     // for (size_t i = 0; i < ht.cap; ++i) {
     //     __HashTableIntEntry entry = ht.data[i];

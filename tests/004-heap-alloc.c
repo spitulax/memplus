@@ -1,4 +1,5 @@
 #include "test.h"
+
 #include <stdint.h>
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"

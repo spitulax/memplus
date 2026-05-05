@@ -1,4 +1,5 @@
 #include "test.h"
+
 #include <inttypes.h>
 #include <stdint.h>
 #define MEMPLUS_IMPLEMENTATION
@@ -52,9 +53,9 @@ int main(void) {
     mp_Alloc parent_alloc = mp_arena_alloc(&parent_arena);
 
     mp_SArena s_arena;
-    mp_sarena_init(&s_arena, parent_alloc, MP_REGION_DEFAULT_SIZE);
+    mp_sarena_init(&s_arena, parent_alloc, __MP_REGION_DEFAULT_SIZE);
     mp_Alloc s_alloc = mp_sarena_alloc(&s_arena);
-    expect_eq(s_arena.cap, (size_t) align(MP_REGION_DEFAULT_SIZE), "%zu");
+    expect_eq(s_arena.cap, (size_t) align(__MP_REGION_DEFAULT_SIZE), "%zu");
     test(s_alloc, (mp_Temp *) &s_arena);
     mp_sarena_deinit(&s_arena);
     mp_arena_deinit(&parent_arena);

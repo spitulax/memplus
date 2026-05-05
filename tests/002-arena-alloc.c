@@ -1,4 +1,5 @@
 #include "test.h"
+
 #include <inttypes.h>
 #include <stdint.h>
 #define MEMPLUS_IMPLEMENTATION

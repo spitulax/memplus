@@ -1,6 +1,7 @@
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 #include "test.h"
+
 #include <stdint.h>
 
 void *alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr) {

@@ -13,8 +13,6 @@ void del(void) {
 }
 
 int main(void) {
-    del();
-
     mp_File  f;
     mp_Err   e;
     mp_Io    io;
@@ -65,9 +63,9 @@ int main(void) {
         expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
 
 #ifdef __GLIBC__
-#define _IO_USER_BUF 1
+    #define _IO_USER_BUF 1
         expect((f.file->_flags & _IO_USER_BUF) != 0);
-#undef _IO_USER_BUF
+    #undef _IO_USER_BUF
 #endif
 
         e = mp_file_reopen(&f, ".foo", "r");

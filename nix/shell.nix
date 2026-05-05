@@ -6,6 +6,7 @@
 , ninja
 , pkg-config
 , clang
+, doxygen
 }:
 mkShell {
   name = "memplus-shell";
@@ -16,5 +17,6 @@ mkShell {
     meson
     ninja
     pkg-config
+    doxygen
   ];
 }
