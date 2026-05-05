@@ -304,7 +304,7 @@ typedef struct {
 /**
  * \defgroup GenericAllocMacros Generic Allocator Macros
  * These macros wrap the operations of \ref mp_AllocFunc.
- * By passing a \ref mp_Alloc, these macros will call its allocator function and pass the context
+ * By passing an \ref mp_Alloc, these macros will call its allocator function and pass the context
  * and the arguments correctly.
  *
  * \{
@@ -1784,6 +1784,12 @@ mp_Alloc mp_heap_alloc(void);
  * $ UTF-8
  ***********/
 
+/**
+ * \defgroup Utf8 UTF-8
+ *
+ * \{
+ */
+
 /* Calculate the length of a UTF-8 string.
  * The string is NULL-TERMINATED.
  * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
@@ -1823,9 +1829,17 @@ mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
 /* See `mp_Utf8Iter`. */
 bool mp_utf8_iter_next(mp_Utf8Iter *it);
 
+/// \}
+
 /***********
  * $ ERRORS
  ***********/
+
+/**
+ * \defgroup Errors Errors
+ *
+ * \{
+ */
 
 /* Errors from errno.
  *
@@ -2000,9 +2014,17 @@ mp_Err mp_err(int errnum);
 /* Returns the message of an error. */
 const char *mp_err_str(mp_Err e);
 
+/// \}
+
 /***********
  * $ IO INTERFACE
  ***********/
+
+/**
+ * \defgroup IoInterface IO Interface
+ *
+ * \{
+ */
 
 /* See `mp_IoFunc` below. */
 typedef enum {
@@ -2228,9 +2250,17 @@ struct mp_Io {
         .f       = (func),                                                                         \
     })
 
+/// \}
+
 /***********
  * $ FILE IO
  ***********/
+
+/**
+ * \defgroup FileIO File IO
+ *
+ * \{
+ */
 
 /* Context of file IO. Stores a FILE object corresponding to the open file. */
 typedef struct {
@@ -2252,6 +2282,8 @@ void mp_file_deinit(mp_File *f);
  * The `type` may not be supported, depends on the mode when opening the file.
  * Returns an invalid `mp_Io` if failed. */
 mp_Io mp_file_io(mp_File *f, mp_IoType type);
+
+/// \}
 
 /***********
  * $ IMPLEMENTATION
