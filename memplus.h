@@ -1761,7 +1761,7 @@ typedef struct {
  */
 void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size);
 
-/// Set arena `len` to 0, but does not free allocated regions.
+/// Sets an arena length to 0, but does not free allocated regions.
 /**
  * This resets the arena to "initial condition" but without actually freeing the data.
  *
@@ -1785,30 +1785,78 @@ mp_Alloc mp_arena_alloc(mp_Arena *a);
 
 /// \}
 
-/* STATIC ARENA ALLOCATOR */
+/**
+ * \defgroup StaticArenaAllocator Static Arena Allocator
+ *
+ * An arena allocator that cannot grow in size.
+ *
+ * The arena will allocate a block of the given size and use that to store the data aligned to
+ * `sizeof(uintptr_t)`. If the block does not have enough space, allocation operations will not
+ * allocate and return NULL.
+ *
+ * # Usage
+ *
+ * \code
+ * mp_SArena arena;
+ * mp_sarena_init(&arena, mp_heap_alloc(), 1024);
+ * mp_Alloc alloc = mp_sarena_alloc(&arena);
+ * void *ptr = mp_alloc(alloc, 10);
+ * \endcode
+ *
+ * \{
+ */
 
-/* Static arena allocator.
- * Allocations are cancelled and return NULL if the requested size is bigger
- * than the remaining capacity. */
+/// The internal context of static arena allocators.
 typedef struct {
-    uintptr_t *buf;    // The arena buffer (of size `cap`)
-    size_t     len;    // The amount of data (in bytes) used (aligned to
-                       // `sizeof(uintptr_t)`).
-    size_t cap;        // The amount of data (in bytes) allocated (aligned to
-                       // `sizeof(uintptr_t)`).
-    mp_Alloc alloc;    // The allocator used to manage `buf`
+    // The arena buffer (of size `cap`).
+    uintptr_t *buf;
+    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    size_t len;
+    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    size_t cap;
+    // The backing allocator, allocator used to allocate \a buf.
+    mp_Alloc alloc;
 } mp_SArena;
 
-/* Initializes and allocates a static arena. `cap` in bytes.
- * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
- * Deinit with `mp_sarena_deinit`. */
+/// Initializes and allocates a static arena of size \a cap in bytes.
+/**
+ * \a cap will be **rounded up** to the nearest increment of `sizeof(uintptr_t)`.
+ *
+ * The arena's buffer will be immediately allocated.
+ *
+ * \a a->buf is NULL if allocation failed.
+ *
+ * Deinit with \ref mp_sarena_deinit.
+ *
+ * \param a The arena
+ * \param alloc The backing allocator
+ * \param cap How many bytes to allocate
+ */
 void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap);
-/* Resets the size of the arena. */
+/// Sets an arena length to 0, but does not free the allocated buffer.
+/**
+ * This resets the arena to "initial condition" but without actually freeing the data.
+ *
+ * \param a The arena
+ */
 void mp_sarena_reset(mp_SArena *a);
-/* Frees the arena. */
+/// Frees an arena and its buffer.
+/**
+ * The free will be performed using the arena's backing allocator.
+ *
+ * \param a The arena
+ */
 void mp_sarena_deinit(mp_SArena *a);
-/* Returns an allocator that works with `mp_SArena`. */
+/// Returns an allocator that works with \ref mp_SArena.
+/**
+ * Returns an invalid allocator if \a a->buf is NULL.
+ *
+ * \param a The arena
+ * \return The allocator interface
+ */
 mp_Alloc mp_sarena_alloc(mp_SArena *a);
+
+/// \}
 
 /* TEMP ALLOCATOR */
 
@@ -2648,6 +2696,9 @@ void mp_sarena_deinit(mp_SArena *a) {
 }
 
 mp_Alloc mp_sarena_alloc(mp_SArena *a) {
+    if (a->buf == NULL) {
+        return mp_alloc_invalid();
+    }
     return mp_alloc_new(a, mp_sarena_alloc_func);
 }
 
@@ -2666,6 +2717,10 @@ static void *mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size,
                 return NULL;
             }
 
+            if (ctx->buf == NULL) {
+                return NULL;
+            }
+
             size_t alloc_size = __MP_ALIGN(new_size, sizeof(uintptr_t));
 
             MEMPLUS_ASSERT(ctx->len % sizeof(uintptr_t) == 0);
@@ -2678,6 +2733,9 @@ static void *mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size,
             return result;
         } break;
         case MP_ALLOCOP_REALLOC: {
+            if (ctx->buf == NULL) {
+                return NULL;
+            }
             return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
         } break;
         case MP_ALLOCOP_FREE: {
