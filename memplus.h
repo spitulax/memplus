@@ -1808,7 +1808,7 @@ mp_Alloc mp_arena_alloc(mp_Arena *a);
 
 /// The internal context of static arena allocators.
 typedef struct {
-    // The arena buffer (of size `cap`).
+    // The arena buffer (of size \a cap).
     uintptr_t *buf;
     // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
     size_t len;
@@ -1858,25 +1858,44 @@ mp_Alloc mp_sarena_alloc(mp_SArena *a);
 
 /// \}
 
-/* TEMP ALLOCATOR */
+/**
+ * \defgroup TempAllocator Temporary Arena Allocator
+ *
+ * A \ref StaticArenaAllocator "static arena allocator" that uses buffer allocated on the stack.
+ *
+ * To initialize this allocator, the user must provide a buffer that is already allocated.
+ *
+ * # Usage
+ *
+ * \code
+ * char     tempbuf[1024];
+ * mp_Alloc talloc;
+ * mp_talloc(tempbuf, &talloc);
+ * \endcode
+ *
+ * \{
+ */
 
-/* Temp allocator.
- * `mp_SArena` located in the stack. */
+/// The internal context of temp allocators.
 typedef struct {
-    uintptr_t *buf;    // The arena buffer (of size `cap`)
-    size_t     len;    // The amount of data (in bytes) used (aligned to
-                       // `sizeof(uintptr_t)`).
-    size_t cap;        // The amount of data (in bytes) allocated (aligned to
-                       // `sizeof(uintptr_t)`).
+    // The arena buffer (of size \a cap).
+    uintptr_t *buf;
+    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    size_t len;
+    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    size_t cap;
 } mp_Temp;
 
-/* Shortcuts for initializing a temp allocator.
- * The allocator is returned to `ret_alloc`.
- * The beginning portion of `buf` will be used to allocate the `mp_Temp` object.
+/// A shortcut for initializing a temp allocator.
+/**
+ * The beginning portion of \a buf will be used to allocate the \a mp_Temp "allocator context".
  *
- * buf: pointer/array (at least `sizeof(mp_Temp)` of size)
- * ret_alloc: mp_Alloc* */
-#define mp_talloc(buf, ret_alloc)                                                                  \
+ * The allocator will **round down** the size to the nearest increment of `sizeof(uintptr_t)`.
+ *
+ * \param buf (char *) The buffer (at least `sizeof(mp_Temp)` of size)
+ * \param ret_alloc (mp_Alloc *) Where the allocator interface is returned to
+ */
+#define mp_talloc(/* char* */ buf, /* mp_Alloc* */ ret_alloc)                                      \
     do {                                                                                           \
         MEMPLUS_ASSERT_MSG(sizeof(buf) >= sizeof(mp_Temp),                                         \
                            "Buffer size is smaller than `sizeof(mp_Temp)`");                       \
@@ -1885,14 +1904,33 @@ typedef struct {
         *(ret_alloc) = mp_temp_alloc(__t);                                                         \
     } while (0)
 
-/* Initializes a temp allocator with an array as buf.
- * `cap` should be an increment of `sizeof(uintptr_t)`.
- * If not, the actual `cap` will ROUND DOWN to the nearest increment. */
+/// Initializes a temp allocator with a \buf of size \a cap (in bytes).
+/**
+ * \a cap should be an increment of `sizeof(uintptr_t)`.
+ * If not, the actual \a cap will **round down** to the nearest increment.
+ *
+ * \param t The temp arena
+ * \param buf The buffer
+ * \param cap The size of \a buf (in bytes)
+ */
 void mp_temp_init(mp_Temp *t, char *buf, size_t cap);
-/* Resets the size of the temp allocator */
+
+/// Sets an arena length to 0, but does not deinitialize the buffer.
+/**
+ * This resets the arena to "initial condition" but without actually freeing the data.
+ *
+ * \param t The temp arena
+ */
 void mp_temp_reset(mp_Temp *t);
-/* Returns an allocator that works with `mp_Temp`. */
+
+/// Returns an allocator that works with \ref mp_Temp.
+/**
+ * \param t The arena
+ * \return The allocator interface
+ */
 mp_Alloc mp_temp_alloc(mp_Temp *t);
+
+/// \}
 
 /* HEAP ALLOCATOR */
 
