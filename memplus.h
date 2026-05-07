@@ -2058,19 +2058,22 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it);
 /**
  * \defgroup Errors Errors
  *
+ * Errors from errno. The available error varies by operating systems.
+ *
+ * Error names for POSIX & Linux are taken from Linux manpage
+ * [errno(3)](https://man7.org/linux/man-pages/man3/errno.3.html).
+ *
+ * Error names for Windows are taken from
+ * <https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants>.
+ *
+ * For error messages see the definition of \ref mp_err_str.
+ *
  * \{
  */
 
-/* Errors from errno.
- *
- * Error names for POSIX & Linux taken from Linux manpage `errno(3)`.
- * Error names for Windows taken from
- * https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants
- *
- * For error messages see `mp_err_str()`.
- *
- * Don't forget `mp_err()` and `mp_err_str()`! */
+// Don't forget `mp_err()` and `mp_err_str()`!
 // Sort this!
+/// See \ref Errors.
 typedef enum {
     MP_ERR_NONE    = 0,
     MP_ERR_UNKNOWN = 1,
@@ -2229,9 +2232,10 @@ typedef enum {
     __MP_ERR_COUNT,
 } mp_Err;
 
-/* Converts errno into `mp_Err`. */
+/// Converts `errno` into \ref mp_Err.
 mp_Err mp_err(int errnum);
-/* Returns the message of an error. */
+
+/// Returns the message of an error.
 const char *mp_err_str(mp_Err e);
 
 /// \}
