@@ -925,6 +925,7 @@ typedef struct {
  * \param str The **null-terminated** string to be appended
  */
 void mp_str_builder_append(mp_StrBuilder *sb, const char *str);
+
 /// Appends a formatted string to a \ref mp_StrBuilder.
 /**
  * \a mp_StrBuilder::data becomes NULL if allocation failed.
@@ -934,8 +935,11 @@ void mp_str_builder_append(mp_StrBuilder *sb, const char *str);
  * \param ... The formatting arguments
  */
 void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+
 /// Copies the buffer of a \ref mp_StrBuilder into a null-terminated \ref mp_Str.
 /**
+ * Deinit with \ref mp_str_deinit.
+ *
  * Returns an invalid \ref mp_Str if allocation failed.
  *
  * \param sb The string builder
@@ -944,7 +948,17 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) __MP_PRINTF
  */
 mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc);
 
-// TODO: `mp_str_builder_string_deinit`
+/// Same as \ref mp_str_builder_string but also deinitializes \a sb.
+/**
+ * Deinit with \ref mp_str_deinit.
+ *
+ * Returns an invalid \ref mp_Str if allocation failed.
+ *
+ * \param sb The string builder
+ * \param alloc The allocator that allocates the \ref mp_Str
+ * \return The **null-terminated** copy of \a sb
+ */
+mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
 
 /// \}
 
@@ -2830,6 +2844,12 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
 
 mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc) {
     return mp_str_new_len(alloc, sb->data, sb->len);
+}
+
+mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc) {
+    mp_Str res = mp_str_new_len(alloc, sb->data, sb->len);
+    mp_da_deinit(sb);
+    return res;
 }
 
     #define __MP_FNV_OFFSET 14695981039346656037UL
