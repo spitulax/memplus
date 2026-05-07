@@ -1932,11 +1932,28 @@ mp_Alloc mp_temp_alloc(mp_Temp *t);
 
 /// \}
 
-/* HEAP ALLOCATOR */
+/**
+ * \defgroup HeapAllocator Heap Allocator
+ *
+ * An \ref mp_Alloc "allocator interface" that manages heap allocations.
+ *
+ * The allocations utilize the standard functions `calloc` and `free`.
+ *
+ * This allocator is context-less.
+ *
+ * \{
+ */
 
-/* Heap allocator. */
+/// Returns an allocator that works with the heap.
+/**
+ * \return The allocator interface
+ */
 mp_Alloc mp_heap_alloc(void);
+
+/// Alias to \ref mp_heap_alloc.
 #define mp_heap() mp_heap_alloc()
+
+/// \}
 
 /// \}
 
