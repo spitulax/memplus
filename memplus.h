@@ -212,14 +212,6 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
  * \{
  */
 
-// Default size of a single region in bytes.
-/*
- * The value will be aligned to the nearest increment of `sizeof(uintptr_t)`.
- */
-#ifndef __MP_REGION_DEFAULT_SIZE
-    #define __MP_REGION_DEFAULT_SIZE (64 * 1024)
-#endif
-
 /// Possible operations on \ref mp_AllocFunc.
 /**
  * See the documentation for each operation \ref mp_AllocFunc "here".
@@ -1659,57 +1651,139 @@ typedef struct {
  * $ ALLOCATORS
  ***********/
 
-// FIXME: Add docs from here
-
 /**
  * \defgroup Allocators Allocators
+ *
+ * The implementation of some allocators using the \ref AllocatorInterface "allocator interface".
+ *
+ * Some of these allocators are definitely **not thread-safe**.
  *
  * \{
  */
 
-/* GROWING ARENA ALLOCATOR */
+
+/**
+ * \defgroup GrowingArenaAllocator Growing Arena Allocator
+ *
+ * An arena allocator that can grow its size by managing its memory using a linked list of blocks.
+ *
+ * A block of a certain size will be allocated when needed using the arena's backing allocator, and
+ * the previous block will hold a link to it. Each block is stored using the \ref mp_Region type and
+ * the data is aligned to `sizeof(uintptr_t)`.
+ *
+ * # Usage
+ *
+ * \code
+ * mp_Arena arena;
+ * mp_arena_init(&arena, mp_heap_alloc());
+ * mp_Alloc alloc = mp_arena_alloc(&arena);
+ * void *ptr = mp_alloc(alloc, 10);
+ * \endcode
+ *
+ * \{
+ */
+
+// Default size of a single region in bytes.
+/*
+ * The value will be aligned to the nearest increment of `sizeof(uintptr_t)`.
+ */
+#ifndef __MP_REGION_DEFAULT_SIZE
+    #define __MP_REGION_DEFAULT_SIZE (64 * 1024)
+#endif
 
 typedef struct mp_Region mp_Region;
 
-/* Linked list element that holds certain size of allocated memory. */
+/// Linked list element that holds certain size of allocated memory managed by \ref mp_Arena.
 struct mp_Region {
-    mp_Region *next;      // The next region in linked list if any
-    size_t     len;       // The amount of data (in bytes) used
-    size_t     cap;       // The amount of data (in bytes) allocated
-    uintptr_t  data[];    // The data (aligned to the `sizeof(uintptr_t)`)
+    /// The next region in linked list if any.
+    mp_Region *next;
+    /// The amount of data (in bytes) used.
+    size_t len;
+    /// The amount of data (in bytes) allocated.
+    size_t cap;
+    /// The data (aligned to the `sizeof(uintptr_t)`).
+    uintptr_t data[];
 };
 
-/* Allocates a new region with `cap` bytes of size with `alloc`.
- * `cap` will be ROUNDED UP to the nearest increment of `sizeof(uintptr_t)`.
- * Deinit with `mp_region_init`. */
+/// Allocates a new region with \a cap bytes of size using \a alloc.
+/**
+ * \a cap will be **rounded up** to the nearest increment of `sizeof(uintptr_t)`.
+ *
+ * Deinit with \ref mp_region_deinit.
+ *
+ * \param alloc The backing allocator used to allocate the memory
+ * \param cap How many bytes to allocates
+ * \return The pointer to the allocated region
+ */
 mp_Region *mp_region_init(mp_Alloc alloc, size_t cap);
-/* Frees a region. */
+/// Frees a region.
+/**
+ * \param alloc The backing allocator that allocated the memory
+ * \param r The region to free
+ */
 void mp_region_deinit(mp_Region *r, mp_Alloc alloc);
 
-/* Growing arena allocator.
- * Manages regions in a linked list. */
+/// The internal context of growing arena allocators, manages regions in a linked list.
 typedef struct {
-    mp_Region *begin, *end;    // Region linked list
-    size_t     len;            // The amount of data (in bytes used, aligned to
-                               // `sizeof(uintptr_t)`)
-    mp_Alloc alloc;            // Backing allocator
-    size_t   _def_size;        // Region default size
+    /// The first element of the region linked list.
+    mp_Region *begin;
+    /// The last element of the region linked list.
+    mp_Region *end;
+    /// The amount of data used (in bytes, aligned to `sizeof(uintptr_t)`).
+    size_t len;
+    /// The backing allocator, allocator used to allocate the regions.
+    mp_Alloc alloc;
+    /// The default size of regions allocated by this arena.
+    size_t _def_size;
 } mp_Arena;
 
-/* Creates a new, unallocated arena.
- * Each region will be allocated with size `__MP_REGION_DEFAULT_SIZE` by default.
- * Deinit with `mp_arena_deinit`. */
-#define mp_arena_init(a, alloc) mp_arena_init_s((a), (alloc), __MP_REGION_DEFAULT_SIZE)
-/* Creates a new, unallocated arena.
- * Each region will be allocated with size `def_size` by default (aligned to the
- * nearest increment of `sizeof(uintptr_t)`). Deinit with `mp_arena_deinit`. */
+/// Creates a new, unallocated arena using \a alloc as the backing allocator.
+/**
+ * The arena will not allocate anything until the first operation that allocates.
+ *
+ * Deinit with \ref mp_arena_deinit.
+ *
+ * \param a (mp_Arena *) The arena
+ * \param alloc (mp_Alloc) The backing allocator
+ */
+#define mp_arena_init(/* mp_Arena* */ a, /* mp_Alloc */ alloc)                                     \
+    mp_arena_init_s((a), (alloc), __MP_REGION_DEFAULT_SIZE)
+
+/// The same as \ref mp_arena_init but accepts a custom default size for regions.
+/**
+ * See \ref mp_arena_init.
+ *
+ * Regions will be allocated with \a def_size size.
+ *
+ * \param a The arena
+ * \param alloc The backing allocator
+ * \param def_size The size of regions
+ */
 void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size);
-/* Set arena `len` to 0, but does not free allocated regions. */
+
+/// Set arena `len` to 0, but does not free allocated regions.
+/**
+ * This resets the arena to "initial condition" but without actually freeing the data.
+ *
+ * \param a The arena
+ */
 void mp_arena_reset(mp_Arena *a);
-/* Frees an arena and its regions. */
+
+/// Frees an arena and its regions.
+/**
+ * The free will be performed using the arena's backing allocator.
+ *
+ * \param a The arena
+ */
 void mp_arena_deinit(mp_Arena *a);
-/* Returns an allocator that works with `mp_Arena`. */
+/// Returns an allocator that works with \ref mp_Arena.
+/**
+ * \param a The arena
+ * \return The allocator interface
+ */
 mp_Alloc mp_arena_alloc(mp_Arena *a);
+
+/// \}
 
 /* STATIC ARENA ALLOCATOR */
 
