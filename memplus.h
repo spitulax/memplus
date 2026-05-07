@@ -278,7 +278,7 @@ typedef enum {
  *     - **new_size**: The size of the block
  *
  * \return The pointer to the newly allocated memory. May return NULL if allocation failed. Always
- * returns NULL on **MP_ALLOCOP_FREE**.
+ * returns NULL on **MP_ALLOCOP_FREE**
  */
 typedef void *(*mp_AllocFunc)(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
                               void *ptr);
@@ -344,7 +344,7 @@ typedef struct {
 /**
  * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
  * \param type (identifier) The type of the allocated data
- * \returns (\a <Type> *) The pointer to the newly allocated block that has the size of \a type.
+ * \returns (\a <Type> *) The pointer to the newly allocated block that has the size of \a type
  */
 #define /* <Type>* */ mp_create(/* mp_Alloc */ alloc, /* Type */ type)                             \
     (mp_alloc((alloc), sizeof(type)))
@@ -2594,6 +2594,8 @@ struct mp_Io {
 /**
  * \defgroup IO IO Implementations
  *
+ * Some IO implementations using the \ref IoInterface "IO interface".
+ *
  * \{
  */
 
@@ -2604,33 +2606,80 @@ struct mp_Io {
 /**
  * \defgroup FileIO File IO
  *
+ * An IO interface that works with files.
+ *
+ * # Usage
+ *
+ * \code
+ * mp_File f;
+ * mp_Err e = mp_file_open(&f, "foo.txt", "r");
+ * mp_Io io = mp_file_io(&f, MP_IOTYPE_READ);
+ * const char m[] = "foobar";
+ * size_t     n   = 0;
+ * mp_IoErr   ie  = mp_io_write(&io, m, 1, sizeof(m) - 1, &n);
+ * \endcode
+ *
  * \{
  */
 
-/* Context of file IO. Stores a FILE object corresponding to the open file. */
-/*   Binary streams may not support MP_SETPOSORIGIN_END or SEEK_END.
- *    For text streams, offset may only be zero or the result of earlier
- * `MP_IOOP_GETPOS` (for MP_SETPOSORIGIN_START or SEEK_SET only). For
- * wide-oriented streams, the restrictions of both binary and text streams
- * apply. */
+// TODO: Put this notice somewhere
+/* Binary streams may not support MP_SETPOSORIGIN_END or SEEK_END. For text streams, offset may only
+ * be zero or the result of earlier `MP_IOOP_GETPOS` (for MP_SETPOSORIGIN_START or SEEK_SET only).
+ * For wide-oriented streams, the restrictions of both binary and text streams apply. */
+
+/// The internal context of file IO.
 typedef struct {
-    FILE     *file;
+    /// The handled file object
+    FILE *file;
+    /// The supported IO type for the file object
     mp_IoType supported_type;
 } mp_File;
 
-/* Opens a file at `filename`. See `fopen()` for possible `mode`.
- * Close with `mp_file_deinit`. */
+/// Opens a file at \a filename.
+/**
+ * Close with \ref mp_file_deinit.
+ *
+ * \param f The file
+ * \param filename The name of the file to open
+ * \param mode The mode of the file. See `fopen` for possible modes
+ * \return The error, returns MP_ERR_NONE if successful
+ */
 mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
-/* Opens a file at `filename` and closes the old file.
- * If `filename` is NULL, changes the mode of the existing file (NOT SUPPORTED
- * FOR ALL PLATFORMS) If `f->file` is NULL, returns MP_ERR_BAD_FD. */
+
+/// Opens a file at \a filename and closes the old file.
+/**
+ * Close with \ref mp_file_deinit.
+ *
+ * If \a filename is NULL, changes the mode of the existing file (**not supported for all
+ * platforms**).
+ *
+ * If \a f->file is NULL, returns MP_ERR_BAD_FD.
+ *
+ * \param f The file
+ * \param filename The name of the file to open
+ * \param mode The mode of the file. See `fopen` for possible modes
+ * \return The error, returns MP_ERR_NONE if successful
+ */
 mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode);
+
 // TODO: mp_file_open_from_fd
-/* Closes an open file. Does nothing if mp_File.file == NULL. */
+
+/// Closes an open file.
+/**
+ * Does nothing if \a f->file is NULL.
+ *
+ * \param f The file
+ */
 void mp_file_deinit(mp_File *f);
-/* Returns an IO object that works with `f` of given `type`.
- * The `type` may not be supported, depends on the mode when opening the file.
- * Returns an invalid `mp_Io` if failed. */
+
+/// Returns an IO object that works with a file.
+/**
+ * The \a type may not be supported, depends on the mode when opening the file.
+ *
+ * \param f The file
+ * \param type The IO type
+ * \return The IO object, returns an invalid \a mp_Io if failed
+ */
 mp_Io mp_file_io(mp_File *f, mp_IoType type);
 
 /// \}
