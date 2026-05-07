@@ -149,9 +149,8 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
 #define MEMPLUS_VERSION (0x000100)
 
 // "Private" macros that are used outside of the implementation block.
-#define __MP_ZERO(ptr) memset((ptr), 0, sizeof(*(ptr)))
-#define __MP_BOUNDS_CHECK(i, len)                                                                  \
-    MEMPLUS_ASSERT_MSG((i) < (len) && (i) >= 0, "Array index out of bounds")
+#define __MP_ZERO(ptr)            memset((ptr), 0, sizeof(*(ptr)))
+#define __MP_BOUNDS_CHECK(i, len) MEMPLUS_ASSERT_MSG((i) < (len), "Array index out of bounds")
 #if defined(__GNUC__) || defined(__clang__)
     #define __MP_PRINTF_FORMAT(fmt_index)                                                          \
         __attribute__((format(printf, (fmt_index), (fmt_index) + 1)))
@@ -455,6 +454,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *     mp_Alloc alloc;
  *     size_t   len;
  *     size_t   cap;
+ *     size_t   size;
  *     <Type>   *data;
  * };
  * \endcode
@@ -463,6 +463,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * - **alloc**: The allocator that manages the allocation of the array
  * - **len**: The size of the used data of the array
  * - **cap**: The size of the allocated block holding the data
+ * - **size**: The size of an individual datum
  * - **data**: The pointer to the first element of the array (the data are continuous in memory)
  *
  * \{
@@ -483,8 +484,18 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
         mp_Alloc alloc;                                                                            \
         size_t   len;                                                                              \
         size_t   cap;                                                                              \
+        size_t   size;                                                                             \
         type    *data;                                                                             \
     } name
+
+// Generic dynamic array type.
+typedef struct {
+    mp_Alloc alloc;
+    size_t   len;
+    size_t   cap;
+    size_t   size;
+    void    *data;
+} __mp_DynArray;
 
 /// Initializes a new dynamic array managed by \a allocator.
 /**
@@ -494,75 +505,60 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *
  * \a DynArray::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
- * \param allocator (mp_Alloc) The allocator to manage the array
+ * \param type (Type) The type of the array
+ * \param a (DynArray *) The array
+ * \param alloc(mp_Alloc) The allocator to manage the array
  */
-#define mp_da_init(/* DynArray* */ a, /* mp_Alloc */ allocator)                                    \
-    do {                                                                                           \
-        (a)->alloc = (allocator);                                                                  \
-        (a)->len   = 0;                                                                            \
-        (a)->cap   = 0;                                                                            \
-        (a)->data  = NULL;                                                                         \
-    } while (0)
+#define mp_da_init(/* Type */ type, /* DynArray* */ a, /* mp_Alloc */ alloc)                       \
+    __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data))
+void __mp_da_init(void * /* DynArray* */ a, mp_Alloc alloc, size_t size);
 
 /// Frees a dynamic array.
 /**
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
  */
-#define mp_da_deinit(/* DynArray* */ a)                                                            \
-    do {                                                                                           \
-        mp_free((a)->alloc, (a)->data, (a)->cap * sizeof(*(a)->data));                             \
-        __MP_ZERO(a);                                                                              \
-    } while (0)
+#define mp_da_deinit(/* DynArray* */ a) __mp_da_deinit(a)
+void __mp_da_deinit(void *a);
 
-/// Resizes a dynamic array and appends \a item.
+void __mp_da_append(void *a, const void *items, size_t items_len);
+
+/// Appends \a item to a dynamic array.
 /**
  * \a DynArray::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
  * \param item (<Type>) The item to append to the array
  */
 #define mp_da_append(/* DynArray* */ a, /* <Type> */ item)                                         \
     do {                                                                                           \
-        mp_da_grow((a), 1);                                                                        \
-        if ((a)->data != NULL)                                                                     \
-            (a)->data[(a)->len - 1] = (item);                                                      \
+        __typeof__(item) __it = (item);                                                            \
+        __mp_da_append((a), &__it, 1);                                                             \
     } while (0)
 
-/// Resizes a dynamic array and appends multiple items.
+/// Appends multiple items to a dynamic array.
 /**
  * \a DynArray::data becomes NULL if allocation failed.
  *
- * Requires `__typeof__` to be supported.
- *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
  * \param ... (<Type>...) The items to append to the array
  */
 #define mp_da_append_many(/* DynArray* */ a, /* <Type>... */...)                                   \
     do {                                                                                           \
-        __typeof__(*(a)->data) __items[]  = { __VA_ARGS__ };                                       \
-        size_t                 __len      = sizeof(__items) / sizeof(*__items);                    \
-        size_t                 __prev_len = (a)->len;                                              \
-        mp_da_grow((a), __len);                                                                    \
-        if ((a)->data != NULL)                                                                     \
-            memcpy((a)->data + __prev_len, __items, sizeof(__items));                              \
+        __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
+        size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
+        __mp_da_append((a), __items, __len);                                                       \
     } while (0)
 
-/// Resizes a dynamic array and appends items in an array.
+/// Appends items in an array to a dynamic array.
 /**
  * \a DynArray::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
  * \param items (<Type>[]) The array of items to append to the array
  * \param items_len (size_t) The amount of items in the array
  */
 #define mp_da_append_array(/* DynArray* */ a, /* <Type>[] */ items, /* size_t */ items_len)        \
-    do {                                                                                           \
-        size_t __prev_len = (a)->len;                                                              \
-        mp_da_grow((a), (items_len));                                                              \
-        if ((a)->data != NULL)                                                                     \
-            memcpy((a)->data + __prev_len, (items), (items_len) * sizeof(*(a)->data));             \
-    } while (0)
+    __mp_da_append((a), (items), (items_len))
 
 /// Gets an item at index \a i.
 /**
@@ -573,6 +569,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * \return (<Type>) The item at index \a i
  */
 #define /* <Type> */ mp_da_get(/* const DynArray* */ a, /* size_t */ i) (a)->data[i]
+
 /// Gets a pointer to an item at index \a i.
 /**
  * No bounds checking, use \ref mp_da_get_s for that.
@@ -595,6 +592,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  */
 #define /* <Type> */ mp_da_get_s(/* const DynArray */ a, /* size_t */ i)                           \
     (__MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
+
 /// Gets an a pointer to an item at index \a i with bounds-checking.
 /**
  * Asserts that \a i is not out of bounds.
@@ -643,24 +641,11 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *
  * \a DynArray::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
  * \param offset (size_t) The amount to grow
  */
-#define mp_da_grow(/* DynArray* */ a, /* size_t */ offset)                                         \
-    do {                                                                                           \
-        size_t __off = (offset);                                                                   \
-        if ((a)->len + __off > (a)->cap && __off > 0) {                                            \
-            size_t __old_cap = (a)->cap;                                                           \
-            if ((a)->cap == 0)                                                                     \
-                (a)->cap = __MP_DARRAY_INIT_CAPACITY;                                              \
-            while ((a)->len + __off > (a)->cap)                                                    \
-                (a)->cap *= 2;                                                                     \
-            (a)->data = mp_realloc((a)->alloc, (a)->data, __old_cap * sizeof(*(a)->data),          \
-                                   (a)->cap * sizeof(*(a)->data));                                 \
-        }                                                                                          \
-        if ((a)->data != NULL)                                                                     \
-            (a)->len += __off;                                                                     \
-    } while (0)
+#define mp_da_grow(/* DynArray* */ a, /* size_t */ offset) __mp_da_grow((a), (offset))
+void __mp_da_grow(void *a, size_t offset);
 
 /// Shrinks a dynamic array by \a offset of the current length.
 /**
@@ -668,14 +653,11 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *
  * Asserts if \a offset is too large (i.e. length - offset < 0).
  *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
- * \param offset (size_t) The amount to shrink (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
+ * \param offset (size_t) The amount to shrink
  */
-#define mp_da_shrink(/* DynArray* */ a, /* size_t */ offset)                                       \
-    do {                                                                                           \
-        MEMPLUS_ASSERT_MSG((offset) < (a)->len, "`offset` is out of bounds");                      \
-        (a)->len -= (offset);                                                                      \
-    } while (0)
+#define mp_da_shrink(/* DynArray* */ a, /* size_t */ offset) __mp_da_shrink((a), (offset))
+void __mp_da_shrink(void *a, size_t offset);
 
 /// Clones a dynamic array to \a dest to be managed by \a allocator.
 /**
@@ -684,25 +666,17 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *
  * \a dest should not have been already initialized.
  *
- * \a dest.data becomes NULL if allocation failed.
+ * \a dest->data becomes NULL if allocation failed.
  *
- * \param allocator (mp_Alloc) The allocator to manage \a dest (NO SIDE EFFECTS)
- * \param src (DynArray *) The source array (NO SIDE EFFECTS)
- * \param dest (DynArray *) The destination of the clone (NO SIDE EFFECTS)
+ * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \param src (DynArray *) The source array
+ * \param dest (DynArray *) The destination of the clone
  */
-#define mp_da_clone(/* mp_Alloc */ allocator, /* DynArray* */ src, /* DynArray* */ dest)           \
-    do {                                                                                           \
-        (dest)->data = mp_dup((allocator), (src)->data, (src)->cap * sizeof(*(src)->data));        \
-        if ((dest)->data != NULL) {                                                                \
-            (dest)->alloc = (allocator);                                                           \
-            (dest)->len   = (src)->len;                                                            \
-            (dest)->cap   = (src)->len + __MP_DARRAY_INIT_CAPACITY;                                \
-        } else {                                                                                   \
-            (dest)->alloc = mp_alloc_invalid();                                                    \
-            (dest)->len   = 0;                                                                     \
-            (dest)->cap   = 0;                                                                     \
-        }                                                                                          \
-    } while (0)
+#define mp_da_clone(/* mp_Alloc */ alloc, /* DynArray* */ src, /* DynArray* */ dest)               \
+    __mp_da_clone((alloc), (src), (dest))
+void __mp_da_clone(mp_Alloc alloc, void *src, void *dest);
+
+void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
 /// Inserts an item at \a pos.
 /**
@@ -712,43 +686,65 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *
  * \a DynArray::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
- * \param pos (size_t) The position of the item (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
+ * \param pos (size_t) The position of the item
  * \param item (<Type>) The item to insert
  */
 #define mp_da_insert(/* DynArray* */ a, /* size_t */ pos, /* <Type> */ item)                       \
     do {                                                                                           \
-        MEMPLUS_ASSERT_MSG((pos) >= 0, "`pos` is negative");                                       \
-        size_t __p        = (pos);                                                                 \
-        size_t __actual_p = __p > (a)->len ? (a)->len : __p;                                       \
-        mp_da_grow((a), 1);                                                                        \
-        if ((a)->data != NULL) {                                                                   \
-            for (size_t __i = (a)->len - 2; __i > __actual_p; --__i)                               \
-                (a)->data[__i + 1] = (a)->data[__i];                                               \
-            (a)->data[__actual_p + 1] = (a)->data[__actual_p];                                     \
-            (a)->data[__actual_p]     = (item);                                                    \
-        }                                                                                          \
+        __typeof__(item) __it = (item);                                                            \
+        __mp_da_insert((a), (pos), &__it, 1);                                                      \
     } while (0)
+
+/// Inserts multiple items at \a pos.
+/**
+ * If \a pos > \a DynArray::len, then it just puts the item at \a DynArray::len.
+ *
+ * \a pos must not be negative.
+ *
+ * \a DynArray::data becomes NULL if allocation failed.
+ *
+ * \param a (DynArray *) The array
+ * \param pos (size_t) The position of the item
+ * \param ... (<Type>...) The items to insert
+ */
+#define mp_da_insert_many(/* DynArray* */ a, /* size_t */ pos, /* <Type>... */...)                 \
+    do {                                                                                           \
+        __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
+        size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
+        __mp_da_insert((a), (pos), __items, __len);                                                \
+    } while (0)
+
+/// Inserts items in an array at \a pos.
+/**
+ * If \a pos > \a DynArray::len, then it just puts the item at \a DynArray::len.
+ *
+ * \a pos must not be negative.
+ *
+ * \a DynArray::data becomes NULL if allocation failed.
+ *
+ * \param a (DynArray *) The array
+ * \param pos (size_t) The position of the item
+ * \param items (<Type>[]) The array of items to inserts to the array
+ * \param items_len (size_t) The amount of items in the array
+ */
+#define mp_da_insert_array(/* DynArray* */ a, /* size_t */ pos, /* <Type>[] */ items,              \
+                           /* size_t */ items_len)                                                 \
+    __mp_da_insert((a), (pos), (items), (items_len))
 
 /// Deletes an item at \a pos.
 /**
  * This operation is O(n) in the worst case.
- * If you do not care about the order of the elements after delete, use \ref mp_da_unordered_delete
+ * If you do not care about the order of the elements after delete, use \ref mp_da_quick_delete
  * instead.
  *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
- * \param pos (size_t) The position of the item to delete (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
+ * \param pos (size_t) The position of the item to delete
  */
-#define mp_da_delete(/* DynArray* */ a, /* size_t */ pos)                                          \
-    do {                                                                                           \
-        __MP_BOUNDS_CHECK((pos), (a)->len);                                                        \
-        size_t __p = (pos);                                                                        \
-        mp_da_shrink((a), 1);                                                                      \
-        for (size_t __i = __p + 1; __i < (a)->len + 1; ++__i)                                      \
-            (a)->data[__i - 1] = (a)->data[__i];                                                   \
-    } while (0)
+#define mp_da_delete(/* DynArray* */ a, /* size_t */ pos) __mp_da_delete((a), (pos))
+void __mp_da_delete(void *a, size_t pos);
 
-/// Deletes an item at \a pos.
+/// Deletes an item at \a pos if you do not care about the order of items.
 /**
  * This operation is O(1) and a much faster alternative to \ref mp_da_delete if you do not care
  * about the order of items.
@@ -756,17 +752,11 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * This works by swapping the item to be deleted with the last item an shrinking the array,
  * effectively making it "ignore" the last item.
  *
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
- * \param pos (size_t) The position of the item to delete (NO SIDE EFFECTS)
+ * \param a (DynArray *) The array
+ * \param pos (size_t) The position of the item to delete
  */
-#define mp_da_unordered_delete(/* DynArray* */ a, /* size_t */ pos)                                \
-    do {                                                                                           \
-        __MP_BOUNDS_CHECK((pos), (a)->len);                                                        \
-        size_t __p = (pos);                                                                        \
-        mp_da_shrink((a), 1);                                                                      \
-        if (__p != (a)->len)                                                                       \
-            (a)->data[__p] = (a)->data[(a)->len];                                                  \
-    } while (0)
+#define mp_da_quick_delete(/* DynArray* */ a, /* size_t */ pos) __mp_da_quick_delete((a), (pos))
+void __mp_da_quick_delete(void *a, size_t pos);
 
 /// \}
 
@@ -783,7 +773,8 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * \{
  */
 
-/// Holds a pointer to a **null-terminated** string and its size (excluding the null-terminator).
+/// Holds a pointer to a **null-terminated** string and its size (excluding the
+/// null-terminator).
 typedef struct {
     size_t len;
     char  *cstr;
@@ -2050,7 +2041,8 @@ typedef struct {
  */
 mp_Utf8Iter mp_utf8_iter_new(const char *str);
 
-/// Creates a new \ref mp_Utf8Iter that iterates over a UTF-8 string with size parameter (in bytes).
+/// Creates a new \ref mp_Utf8Iter that iterates over a UTF-8 string with size parameter (in
+/// bytes).
 /**
  * See \ref mp_Utf8Iter for usage.
  *
@@ -2337,7 +2329,8 @@ typedef enum {
 
 /// The types of streams.
 /**
- * Stream of a certain type may only call certain functions. A stream may be both read and write.
+ * Stream of a certain type may only call certain functions. A stream may be both read and
+ * write.
  *
  * If a stream calls to a function outside of its domain, \ref MP_IOERR_UNSUPPORTED will be
  * returned.
@@ -2393,8 +2386,10 @@ typedef struct mp_Io mp_Io;
  * - **MP_IOOP_READ** (MP_IOTYPE_READ)
  *
  *     Reads objects into given buffer from the stream.
- *     If an error or EOF occurs, \a ret may be less than \a n2 and returns MP_IOERR_CANNOT_READ or
- *     MP_IOERR_EOF respsectively. If \a n1 or \a n2 is zero, does nothing and \a ret will be set to
+ *     If an error or EOF occurs, \a ret may be less than \a n2 and returns MP_IOERR_CANNOT_READ
+ or
+ *     MP_IOERR_EOF respsectively. If \a n1 or \a n2 is zero, does nothing and \a ret will be
+ set to
  *     zero.
  *
  *     **Parameters**
@@ -2407,7 +2402,8 @@ typedef struct mp_Io mp_Io;
  * - **MP_IOOP_WRITE** (MP_IOTYPE_WRITE)
  *
  *     Writes objects from given buffer to the stream.
- *     If an error occurs, \a ret may be less than \a n2 and returns MP_IOERR_CANNOT_WRITE. If \a n1
+ *     If an error occurs, \a ret may be less than \a n2 and returns MP_IOERR_CANNOT_WRITE. If
+ \a n1
  *     or \a n2 is zero, does nothing and \a ret will be set to zero.
  *
  *     **Parameters**
@@ -2466,8 +2462,8 @@ struct mp_Io {
     mp_IoType type;
 
     /**
-     * \brief Function that handles the operations requested by the user of the interface. See \ref
-     * mp_IoFunc.
+     * \brief Function that handles the operations requested by the user of the interface. See
+     * \ref mp_IoFunc.
      */
     mp_IoFunc f;
 };
@@ -2637,9 +2633,9 @@ struct mp_Io {
  */
 
 // TODO: Put this notice somewhere
-/* Binary streams may not support MP_SETPOSORIGIN_END or SEEK_END. For text streams, offset may only
- * be zero or the result of earlier `MP_IOOP_GETPOS` (for MP_SETPOSORIGIN_START or SEEK_SET only).
- * For wide-oriented streams, the restrictions of both binary and text streams apply. */
+/* Binary streams may not support MP_SETPOSORIGIN_END or SEEK_END. For text streams, offset may
+ * only be zero or the result of earlier `MP_IOOP_GETPOS` (for MP_SETPOSORIGIN_START or SEEK_SET
+ * only). For wide-oriented streams, the restrictions of both binary and text streams apply. */
 
 /// The internal context of file IO.
 typedef struct {
@@ -2720,8 +2716,8 @@ mp_Io mp_file_io(mp_File *f, mp_IoType type);
     #define __MP_MIN(a, b)          ((a) < (b) ? (a) : (b))
     #define __MP_ASSERT_OVERLAP(a, a_len, b, b_len)                                                \
         do {                                                                                       \
-            auto _a = (uintptr_t) a;                                                               \
-            auto _b = (uintptr_t) b;                                                               \
+            uintptr_t _a = (uintptr_t) a;                                                          \
+            uintptr_t _b = (uintptr_t) b;                                                          \
             if (__MP_MAX((_a), (_b)) < __MP_MIN((_a) + (a_len), (_b) + (b_len))) {                 \
                 MEMPLUS_ASSERT_MSG(0, "Memory overlaps");                                          \
             }                                                                                      \
@@ -2768,6 +2764,98 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
     memcpy(new_ptr, old_ptr, old_size);
     mp_free(alloc, old_ptr, old_size);
     return new_ptr;
+}
+
+void __mp_da_init(void * /* DynArray* */ a, mp_Alloc alloc, size_t size) {
+    __mp_DynArray *self = a;
+    __MP_ZERO(self);
+    self->alloc = alloc;
+    self->len   = 0;
+    self->cap   = 0;
+    self->size  = size;
+    self->data  = NULL;
+}
+
+void __mp_da_deinit(void *a) {
+    __mp_DynArray *self = a;
+    mp_free(self->alloc, self->data, self->cap * self->size);
+    __MP_ZERO(self);
+}
+
+void __mp_da_append(void *a, const void *items, size_t items_len) {
+    __mp_DynArray *self     = a;
+    size_t         prev_len = self->len;
+    mp_da_grow(self, items_len);
+    if (self->data != NULL) {
+        memcpy((char *) self->data + prev_len * self->size, items, items_len * self->size);
+    }
+}
+
+void __mp_da_grow(void *a, size_t offset) {
+    __mp_DynArray *self = a;
+    if (self->len + offset > self->cap && offset > 0) {
+        size_t old_cap = self->cap;
+        if (self->cap == 0) {
+            self->cap = __MP_DARRAY_INIT_CAPACITY;
+        }
+        while (self->len + offset > self->cap) {
+            self->cap *= 2;
+        }
+        self->data =
+            mp_realloc(self->alloc, self->data, old_cap * self->size, self->cap * self->size);
+    }
+    if (self->data != NULL) {
+        self->len += offset;
+    }
+}
+
+void __mp_da_shrink(void *a, size_t offset) {
+    __mp_DynArray *self = a;
+    MEMPLUS_ASSERT_MSG(offset < self->len, "`offset` is out of bounds");
+    self->len -= offset;
+}
+
+void __mp_da_clone(mp_Alloc alloc, void *src, void *dest) {
+    __mp_DynArray *s = src;
+    __mp_DynArray *d = dest;
+    __MP_ZERO(d);
+    d->data = mp_dup(alloc, s->data, s->cap * s->size);
+    if (d->data != NULL) {
+        d->alloc = alloc;
+        d->len   = s->len;
+        d->cap   = s->len + __MP_DARRAY_INIT_CAPACITY;
+        d->size  = s->size;
+    }
+}
+
+void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len) {
+    __mp_DynArray *self       = a;
+    size_t         actual_pos = (pos > self->len) ? self->len : pos;
+    mp_da_grow(self, items_len);
+    if (self->data != NULL) {
+        memmove((char *) self->data + (actual_pos + items_len) * self->size,
+                (char *) self->data + actual_pos * self->size, (items_len + 1) * self->size);
+        memcpy((char *) self->data + actual_pos * self->size, items, items_len * self->size);
+    }
+}
+
+void __mp_da_delete(void *a, size_t pos) {
+    __mp_DynArray *self = a;
+    __MP_BOUNDS_CHECK(pos, self->len);
+    mp_da_shrink(self, 1);
+    size_t moved = self->len - pos;
+    if (moved >= 1) {
+        memmove((char *) self->data + pos * self->size,
+                (char *) self->data + (pos + 1) * self->size, moved * self->size);
+    }
+}
+
+void __mp_da_quick_delete(void *a, size_t pos) {
+    __mp_DynArray *self = a;
+    __MP_BOUNDS_CHECK((pos), self->len);
+    mp_da_shrink(self, 1);
+    memcpy((char *) self->data + pos * self->size, (char *) self->data + self->len * self->size,
+           self->size);
 }
 
 mp_Str mp_str_new(mp_Alloc alloc, const char *str) {

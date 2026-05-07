@@ -1,4 +1,6 @@
 #include "test.h"
+
+#include <stdio.h>
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 
@@ -8,7 +10,7 @@ int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
     ArrayInt32 array;
-    mp_da_init(&array, alloc);
+    mp_da_init(ArrayInt32, &array, alloc);
 
     // Append test
     mp_da_append(&array, 0);
@@ -64,7 +66,7 @@ int main(void) {
     expect_eq(mp_da_get(&array2, 0), (int32_t) 69, "%d");
     expect_eq(mp_da_get(&array2, 1), (int32_t) 0, "%d");
 
-    mp_da_unordered_delete(&array2, 0);
+    mp_da_quick_delete(&array2, 0);
     expect_eq(array2.len, (size_t) 1, "%zu");
     expect_eq(mp_da_get(&array2, 0), (int32_t) 0, "%d");
 
@@ -72,23 +74,30 @@ int main(void) {
 
     // Append many test
     ArrayInt32 array3;
-    mp_da_init(&array3, alloc);
+    mp_da_init(ArrayInt32, &array3, alloc);
     mp_da_append_many(&array3, 69, 420, 67, 13, 37);
-    expect_eq(array3.len, (size_t) 5, "%zu");
+    mp_da_insert_many(&array3, 2, 10, 20);
+    expect_eq(array3.len, (size_t) 7, "%zu");
 
     expect_eq(mp_da_get(&array3, 0), (int32_t) 69, "%d");
     expect_eq(mp_da_get(&array3, 1), (int32_t) 420, "%d");
-    expect_eq(mp_da_get(&array3, 2), (int32_t) 67, "%d");
-    expect_eq(mp_da_get(&array3, 3), (int32_t) 13, "%d");
-    expect_eq(mp_da_get(&array3, 4), (int32_t) 37, "%d");
+    expect_eq(mp_da_get(&array3, 2), (int32_t) 10, "%d");
+    expect_eq(mp_da_get(&array3, 3), (int32_t) 20, "%d");
+    expect_eq(mp_da_get(&array3, 4), (int32_t) 67, "%d");
+    expect_eq(mp_da_get(&array3, 5), (int32_t) 13, "%d");
+    expect_eq(mp_da_get(&array3, 6), (int32_t) 37, "%d");
 
     mp_da_reset(&array3);
     int32_t append[] = { 10, 11, 12 };
     mp_da_append_array(&array3, append, 3);
-    expect_eq(array3.len, (size_t) 3, "%zu");
+    mp_da_insert_array(&array3, 2, append, 3);
+    expect_eq(array3.len, (size_t) 6, "%zu");
     expect_eq(mp_da_get(&array3, 0), (int32_t) 10, "%d");
     expect_eq(mp_da_get(&array3, 1), (int32_t) 11, "%d");
-    expect_eq(mp_da_get(&array3, 2), (int32_t) 12, "%d");
+    expect_eq(mp_da_get(&array3, 2), (int32_t) 10, "%d");
+    expect_eq(mp_da_get(&array3, 3), (int32_t) 11, "%d");
+    expect_eq(mp_da_get(&array3, 4), (int32_t) 12, "%d");
+    expect_eq(mp_da_get(&array3, 5), (int32_t) 12, "%d");
 
     mp_da_deinit(&array3);
 
