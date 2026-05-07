@@ -1964,46 +1964,89 @@ mp_Alloc mp_heap_alloc(void);
 /**
  * \defgroup Utf8 UTF-8
  *
+ * Utility functions for dealing with UTF-8 strings.
+ *
  * \{
  */
 
-/* Calculate the length of a UTF-8 string.
- * The string is NULL-TERMINATED.
- * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
+/// Calculate the amount of characters in a **null-terminated** UTF-8 string.
+/**
+ * Use \ref mp_utf8_len_s for non-null-terminated strings.
+ *
+ * Returns \ref MP_ERROR if \a str is not a valid UTF-8 string.
+ *
+ * \param str The UTF-8 string (null-terminated)
+ * \return The amount of characters in \a str
+ */
 size_t mp_utf8_len(const char *str);
-/* Calculate the length of a UTF-8 string with size (in bytes) parameter.
- * Returns `MP_ERROR` if `str` is not a valid UTF-8 string. */
+
+/// Calculate the amount of characters in a UTF-8 string with size parameter (in bytes).
+/**
+ * Returns \ref MP_ERROR if \a str is not a valid UTF-8 string.
+ *
+ * \param str The UTF-8 string
+ * \param size The size of \a str (in bytes)
+ * \return The amount of characters in \a str
+ */
 size_t mp_utf8_len_s(const char *str, size_t size);
 
-/* Iterator for UTF-8 string.
+/// Iterator for UTF-8 strings.
+/**
+ * \a c and \a c_len can be accessed to get the current character's information.
  *
- * `c` and `c_len` can be accessed to get the current character's information.
+ * # Usage
  *
- * Example usage:
- * ```c
- *  const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂
- * )⸝♡􏾀"; mp_Utf8Iter iter  = mp_utf8_iter_new(utf8); while
- * (mp_utf8_iter_next(&iter)) { (void) iter.c;      // The current character (in
- * char[4]) (void) iter.c_len;  // The current character size (in bytes)
- *  }
- * ```
- * */
+ * \code
+ * const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂)⸝♡􏾀";
+ * mp_Utf8Iter iter = mp_utf8_iter_new(utf8);
+ * while (mp_utf8_iter_next(&iter)) {
+ *     (void) iter.c;      // The current character (char[4])
+ *     (void) iter.c_len;  // The current character size (in bytes)
+ * }
+ * \endcode
+ */
 typedef struct {
-    char c[4];     // Holds current character in iteration
-    char c_len;    // Holds current character's size (in bytes)
+    /// Holds the current character in iteration.
+    char c[4];
+    /// Holds the current character's size (in bytes).
+    char c_len;
 
-    const char *_str;     // The UTF-8 string being iterated on
-    size_t      _size;    // The size of the string (in bytes)
-    size_t      _i;       // The current index of the iteration (in bytes)
+    /// The UTF-8 string being iterated on.
+    const char *_str;
+    /// The size of the string (in bytes).
+    size_t _size;
+    /// The current index of the iteration (in bytes).
+    size_t _i;
 } mp_Utf8Iter;
 
-/* Creates a new `mp_Utf8Iter` that iterates over a UTF-8 string.
- * The string is NULL-TERMINATED. */
+/// Creates a new \ref mp_Utf8Iter that iterates over a **null-terminated** UTF-8 string.
+/**
+ * Use \ref mp_utf8_iter_new_s for non-null-terminated strings.
+ *
+ * See \ref mp_Utf8Iter for usage.
+ *
+ * \param str The UTF-8 string (null-terminated)
+ * \return The iterator
+ */
 mp_Utf8Iter mp_utf8_iter_new(const char *str);
-/* Creates a new `mp_Utf8Iter` that iterates over a UTF-8 string with size
- * parameter (in bytes). */
+
+/// Creates a new \ref mp_Utf8Iter that iterates over a UTF-8 string with size parameter (in bytes).
+/**
+ * See \ref mp_Utf8Iter for usage.
+ *
+ * \param str The UTF-8 string
+ * \param size The size of \a str (in bytes)
+ * \return The iterator
+ */
 mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
-/* See `mp_Utf8Iter`. */
+
+/// Continues iterating an \ref mp_Utf8Iter.
+/**
+ * See \ref mp_Utf8Iter for usage.
+ *
+ * \param it The iterator
+ * \return Whether it is valid to access the data
+ */
 bool mp_utf8_iter_next(mp_Utf8Iter *it);
 
 /// \}
