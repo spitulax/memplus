@@ -15,7 +15,7 @@ int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
     HashTableInt ht;
-    mp_ht_init(&ht, alloc);
+    mp_ht_init(HashTableInt, &ht, alloc);
 
     // Simple set/get test
     mp_ht_set(&ht, "foo", 69);
@@ -23,20 +23,20 @@ int main(void) {
 
     int *val;
 
-    mp_ht_get(&ht, "foo", val);
+    val = mp_ht_get(&ht, "foo");
     expect_eq(*val, 69, "%d");
 
     // Must not be NULL
-    // mp_ht_get(&ht, NULL, val);
+    // val = mp_ht_get(&ht, NULL);
 
-    mp_ht_get(&ht, "bar", val);
+    val = mp_ht_get(&ht, "bar");
     expect_eq(*val, 420, "%d");
 
     mp_ht_set(&ht, "foo", 20);
-    mp_ht_get(&ht, "foo", val);
+    val = mp_ht_get(&ht, "foo");
     expect_eq(*val, 20, "%d");
 
-    mp_ht_get(&ht, "nonexistent", val);
+    val = mp_ht_get(&ht, "nonexistent");
     expect_eq((void *) val, NULL, "%p");
 
     expect_eq(ht.len, (size_t) 2, "%zu");
@@ -46,11 +46,11 @@ int main(void) {
     mp_ht_delete(&ht, "bar");
     expect_eq(ht.len, (size_t) 1, "%zu");
 
-    mp_ht_get(&ht, "bar", val);
+    val = mp_ht_get(&ht, "bar");
     expect_eq((void *) val, NULL, "%p");
 
     mp_ht_set(&ht, "bar", 30);
-    mp_ht_get(&ht, "bar", val);
+    val = mp_ht_get(&ht, "bar");
     expect_eq(*val, 30, "%d");
 
     mp_ht_reset(&ht);
@@ -73,8 +73,7 @@ int main(void) {
 
     for (int i = 0; i < (int) ht.len; ++i) {
         mp_Str key = mp_str_newf(talloc, "key_%d", i);
-        int   *val;
-        mp_ht_get_s(&ht, key, val);
+        int   *val = mp_ht_get_s(&ht, key);
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
     }
@@ -83,9 +82,8 @@ int main(void) {
     HashTableIntIter it;
     mp_ht_iter_init(&it, &ht);
     size_t counter = 0;
-    while (it.ok) {
+    while (mp_ht_iter_next(&it)) {
         ++counter;
-        mp_ht_iter_next(&it);
     }
     expect_eq(counter, ht.len, "%zu");
 
@@ -97,11 +95,10 @@ int main(void) {
     expect_ne((void *) ht.data, (void *) ht2.data, "%p");
 
     mp_ht_iter_init(&it, &ht);
-    while (it.ok) {
+    while (mp_ht_iter_next(&it)) {
         __HashTableIntEntry *o = ht.data + (it._i - 1);
         expect_streq(it.key.cstr, o->key.cstr);
         expect_eq(it.val, o->val, "%d");
-        mp_ht_iter_next(&it);
     }
 
     mp_ht_deinit(&ht2);

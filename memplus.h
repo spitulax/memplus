@@ -511,7 +511,7 @@ typedef struct {
  */
 #define mp_da_init(/* Type */ type, /* DynArray* */ a, /* mp_Alloc */ alloc)                       \
     __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data))
-void __mp_da_init(void * /* DynArray* */ a, mp_Alloc alloc, size_t size);
+void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 
 /// Frees a dynamic array.
 /**
@@ -605,6 +605,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define /* <Type>* */ mp_da_getp_s(/* const DynArray */ a, /* size_t */ i)                         \
     (__MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
+
+// Generic dynamic array get function
+#define __mp_da_get(type, a, i) (type *) ((char *) (a)->data + (i) * (a)->size)
 
 /// Gets the last item in a dynamic array.
 /**
@@ -980,7 +983,7 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
  * This does not allocate the data immediately. But only once you set something on the hash table.
  * \code
  * StrHashTableInt ht;
- * mp_ht_init(&ht, alloc);
+ * mp_ht_init(StrHashTableInt, &ht, alloc);
  * mp_ht_set(&ht, "key", 10);
  * \endcode
  *
@@ -1000,10 +1003,9 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
  * \code
  * StrHashTableIntIter it;
  * mp_ht_iter_init(&it, &ht);
- * while (it.ok) {
+ * while (mp_ht_iter_next(&it)) {
  *     (void) it.key;
  *     (void) it.val;
- *     mp_ht_iter_next(&it);
  * }
  * \endcode
  *
@@ -1035,12 +1037,25 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
     } __##name##Entry;                                                                             \
     mp_da_create(__##name##Entry, name);                                                           \
     typedef struct {                                                                               \
-        mp_Str      key;                                                                           \
-        value_type  val;                                                                           \
-        bool        ok;                                                                            \
         const name *_h;                                                                            \
         size_t      _i;                                                                            \
+        mp_Str      key;                                                                           \
+        value_type  val;                                                                           \
     } name##Iter
+
+// Generic string hash table entry type.
+typedef struct {
+    mp_Str key;
+    char   val[];
+} __mp_StrHashTableEntry;
+
+// Generic string hash table iterator type.
+typedef struct {
+    const __mp_DynArray *_h;
+    size_t               _i;
+    mp_Str               key;
+    char                 val[];
+} __mp_StrHashTableIter;
 
 /// Initializes a new string hash table managed by \a allocator.
 /**
@@ -1050,66 +1065,41 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
  *
  * \a StrHashTable::data becomes NULL if allocation failed.
  *
- * \param ht (StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param type (Type) The type of the data
+ * \param ht (StrHashTable *) The hash table
  * \param allocator (mp_Alloc) The allocator to manage the hash table
  */
-#define mp_ht_init(/* StrHashTable* */ ht, /* mp_Alloc */ allocator) mp_da_init(ht, allocator)
+#define mp_ht_init(/* Type */ type, /* StrHashTable* */ ht, /* mp_Alloc */ allocator)              \
+    mp_da_init(type, ht, allocator)
 
 /// Frees a string hash table.
 /**
- * \param ht (StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (StrHashTable *) The hash table
  */
-#define mp_ht_deinit(/* StrHashTable* */ ht)                                                       \
-    do {                                                                                           \
-        for (size_t __i = 0; __i < (ht)->cap; __i++) {                                             \
-            if (mp_str_is_valid((ht)->data[__i].key))                                              \
-                mp_str_deinit(&(ht)->data[__i].key, (ht)->alloc);                                  \
-        }                                                                                          \
-        mp_da_deinit(ht);                                                                          \
-    } while (0)
+#define mp_ht_deinit(/* StrHashTable* */ ht) __mp_ht_deinit(ht)
+void __mp_ht_deinit(void *ht);
 
 /// Gets a pointer to an item with key \a k and put it into \a ret.
 /**
  * \a ret becomes NULL if it could not retrieve the item.
  *
- * \param ht (const StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (const StrHashTable *) The hash table
  * \param k (const char *) The key (NON-NULL)
- * \param ret (<Type> *) Stores the retrieved value
+ * \return (void *) The retrieved value
  */
-#define mp_ht_get(/* const StrHashTable* */ ht, /* const char* */ k, /* <Type>* */ ret)            \
-    mp_ht_get_s((ht), mp_str(k), (ret))
+#define /* void* */ mp_ht_get(/* const StrHashTable* */ ht, /* const char* */ k)                   \
+    mp_ht_get_s((ht), mp_str(k))
 
 /// The same as \ref mp_ht_get but accepts pointer to \ref mp_Str.
 /**
  * See \ref mp_ht_get.
  *
- * \param ht (const StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (const StrHashTable *) The hash table
  * \param k (mp_Str) The key
- * \param ret (<Type> *) Stores the retrieved value
+ * \return (void *) The retrieved value
  */
-#define mp_ht_get_s(/* const StrHashTable* */ ht, /* mp_Str */ k, /* <Type>* */ ret)               \
-    do {                                                                                           \
-        mp_Str __key   = (k);                                                                      \
-        bool   __found = false;                                                                    \
-        if (mp_str_is_valid(__key)) {                                                              \
-            uint64_t __hash = __mp_ht_hash_str(&__key);                                            \
-            size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
-            while (__i < (ht)->cap && (mp_str_is_valid((ht)->data[__i].key) ||                     \
-                                       *(char *) &(ht)->data[__i].val == 1)) {                     \
-                if (mp_str_is_valid((ht)->data[__i].key) &&                                        \
-                    strcmp(__key.cstr, (ht)->data[__i].key.cstr) == 0) {                           \
-                    (ret)   = &(ht)->data[__i].val;                                                \
-                    __found = true;                                                                \
-                    break;                                                                         \
-                }                                                                                  \
-                ++__i;                                                                             \
-                if (__i >= (ht)->cap)                                                              \
-                    __i = 0;                                                                       \
-            }                                                                                      \
-        }                                                                                          \
-        if (!__found)                                                                              \
-            (ret) = NULL;                                                                          \
-    } while (0)
+#define /* void* */ mp_ht_get_s(/* const StrHashTable* */ ht, /* mp_Str */ k) __mp_ht_get((ht), (k))
+void *__mp_ht_get(void *ht, mp_Str k);
 
 /// Sets the value at key \a k to \a v.
 /**
@@ -1117,7 +1107,7 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
  *
  * \a StrHashTable::data becomes NULL if allocation failed.
  *
- * \param ht (StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (StrHashTable *) The hash table
  * \param k (const char *) The key
  * \param v (<Type>) The value to be stored
  */
@@ -1128,34 +1118,16 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
 /**
  * See \ref mp_ht_set.
  *
- * \param ht (StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (StrHashTable *) The hash table
  * \param k (mp_Str) The key
  * \param v (<Type>) The value to be stored
  */
 #define mp_ht_set_s(/* StrHashTable* */ ht, /* mp_Str */ k, /* <Type> */ v)                        \
     do {                                                                                           \
-        mp_Str __key = (k);                                                                        \
-        mp_ht_grow((ht), 1);                                                                       \
-        if ((ht)->data != NULL) {                                                                  \
-            uint64_t __hash = __mp_ht_hash_str(&__key);                                            \
-            size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
-            for (;;) {                                                                             \
-                if (!mp_str_is_valid((ht)->data[__i].key)) {                                       \
-                    (ht)->data[__i].key = mp_str_clone(&__key, (ht)->alloc);                       \
-                    (ht)->data[__i].val = (v);                                                     \
-                    break;                                                                         \
-                } else if (strcmp((ht)->data[__i].key.cstr, __key.cstr) == 0) {                    \
-                    (ht)->data[__i].val = (v);                                                     \
-                    --(ht)->len;                                                                   \
-                    break;                                                                         \
-                } else {                                                                           \
-                    ++__i;                                                                         \
-                }                                                                                  \
-                if (__i >= (ht)->cap)                                                              \
-                    __i = 0;                                                                       \
-            }                                                                                      \
-        }                                                                                          \
+        __typeof__(v) __it = (v);                                                                  \
+        __mp_ht_set((ht), (k), &__it);                                                             \
     } while (0)
+void __mp_ht_set(void *ht, mp_Str k, void *v);
 
 /// Grows a string hash table by \a offset of the current length.
 /**
@@ -1169,76 +1141,30 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
  *
  * \a StrHashTable::data becomes NULL if allocation failed.
  *
- * \param ht (StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (StrHashTable *) The hash table
  * \param offset (size_t) The amount to grow
  */
-#define mp_ht_grow(/* StrHashTable* */ ht, /* size_t */ offset)                                    \
-    do {                                                                                           \
-        size_t __off = (offset);                                                                   \
-        if ((ht)->len + __off > (size_t) ((double) (ht)->cap * __MP_HASH_TABLE_MAX_LOAD) &&        \
-            __off > 0) {                                                                           \
-            size_t __old_cap = (ht)->cap;                                                          \
-            if ((ht)->cap == 0)                                                                    \
-                (ht)->cap = __MP_HASH_TABLE_INIT_CAPACITY;                                         \
-            while ((ht)->len + __off > (size_t) ((double) (ht)->cap * __MP_HASH_TABLE_MAX_LOAD))   \
-                (ht)->cap *= 2;                                                                    \
-            __typeof__((ht)->data) __new_data =                                                    \
-                mp_alloc((ht)->alloc, (ht)->cap * sizeof(*(ht)->data));                            \
-            for (size_t __i = 0; __i < __old_cap; ++__i) {                                         \
-                if (mp_str_is_valid((ht)->data[__i].key)) {                                        \
-                    uint64_t __hash  = __mp_ht_hash_str(&(ht)->data[__i].key);                     \
-                    size_t   __new_i = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));             \
-                    for (;;) {                                                                     \
-                        if (!mp_str_is_valid(__new_data[__new_i].key)) {                           \
-                            __new_data[__new_i].key =                                              \
-                                mp_str_clone(&(ht)->data[__i].key, (ht)->alloc);                   \
-                            __new_data[__new_i].val = (ht)->data[__i].val;                         \
-                            break;                                                                 \
-                        } else {                                                                   \
-                            ++__new_i;                                                             \
-                        }                                                                          \
-                        if (__new_i >= (ht)->cap)                                                  \
-                            __new_i = 0;                                                           \
-                    }                                                                              \
-                }                                                                                  \
-            }                                                                                      \
-            __mp_ht_free_entries((ht)->data, (ht)->alloc, __old_cap);                              \
-            mp_free((ht)->alloc, (ht)->data, __old_cap * sizeof(*(ht)->data));                     \
-            (ht)->data = __new_data;                                                               \
-        }                                                                                          \
-        if ((ht)->data != NULL)                                                                    \
-            (ht)->len += __off;                                                                    \
-    } while (0)
+#define mp_ht_grow(/* StrHashTable* */ ht, /* size_t */ offset) __mp_ht_grow((ht), (offset))
+void __mp_ht_grow(void *ht, size_t offset);
 
 // Invalidates and frees the string keys
-#define __mp_ht_free_entries(entries, alloc, cap)                                                  \
-    do {                                                                                           \
-        for (size_t __i = 0; __i < (cap); ++__i) {                                                 \
-            if (mp_str_is_valid((entries)[__i].key)) {                                             \
-                mp_str_deinit(&(entries)[__i].key, (alloc));                                       \
-                MEMPLUS_ASSERT(!mp_str_is_valid((entries)[__i].key));                              \
-            }                                                                                      \
-        }                                                                                          \
-    } while (0)
+void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size);
 
 /// Sets the length of a string hash table to 0 and frees its keys.
 /**
  * This resets the hash table to "initial condition" but without actually freeing the data.
  *
- * \param ht (StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (StrHashTable *) The hash table
  */
-#define mp_ht_reset(/* StrHashTable* */ ht)                                                        \
-    do {                                                                                           \
-        __mp_ht_free_entries((ht)->data, (ht)->alloc, (ht)->cap);                                  \
-        mp_da_reset(ht);                                                                           \
-    } while (0)
+#define mp_ht_reset(/* StrHashTable* */ ht) __mp_ht_reset(ht)
+void __mp_ht_reset(void *ht);
 
 /// Deletes an item at key \a k.
 /**
  * This decreases \a StrHashTable::len but does not actually shrink the hash table, but it just
  * marks the spot as "deleted", which may be overridden by subsequent set operations.
  *
- * \param ht (StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (StrHashTable *) The hash table
  * \param k (const char *) The key
  */
 #define mp_ht_delete(/* StrHashTable* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
@@ -1247,95 +1173,45 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
 /**
  * See \ref mp_ht_delete.
  *
- * \param ht (StrHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (StrHashTable *) The hash table
  * \param k (mp_Str) The key
  */
-#define mp_ht_delete_s(/* StrHashTable* */ ht, /* mp_Str */ k)                                     \
-    do {                                                                                           \
-        mp_Str __key = (k);                                                                        \
-        if (mp_str_is_valid(__key)) {                                                              \
-            uint64_t __hash = __mp_ht_hash_str(&__key);                                            \
-            size_t   __i    = (size_t) (__hash % (uint64_t) ((ht)->cap - 1));                      \
-            while (__i < (ht)->cap && mp_str_is_valid((ht)->data[__i].key)) {                      \
-                if (strcmp(__key.cstr, (ht)->data[__i].key.cstr) == 0) {                           \
-                    mp_str_deinit(&(ht)->data[__i].key, (ht)->alloc);                              \
-                    MEMPLUS_ASSERT(!mp_str_is_valid((ht)->data[__i].key));                         \
-                    memset(&(ht)->data[__i].val, 1, 1);                                            \
-                    --(ht)->len;                                                                   \
-                    break;                                                                         \
-                }                                                                                  \
-                ++__i;                                                                             \
-                if (__i >= (ht)->cap)                                                              \
-                    __i = 0;                                                                       \
-            }                                                                                      \
-        }                                                                                          \
-    } while (0)
+#define mp_ht_delete_s(/* StrHashTable* */ ht, /* mp_Str */ k) __mp_ht_delete((ht), (k))
+void __mp_ht_delete(void *ht, mp_Str k);
 
 /// Clones a string hash table to \a dest to be managed by \a allocator.
 /**
  * \a dest inherits all fields of \a src.
  * \a dest.data becomes NULL if allocation failed.
  *
- * \param allocator (mp_Alloc) The allocator to manage \a dest (NO SIDE EFFECTS)
- * \param src (const StrHashTable *) The hash table to be cloned (NO SIDE EFFECTS)
- * \param dest (StrHashTable *) Stores the cloned hash table (NO SIDE EFFECTS)
+ * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \param src (const StrHashTable *) The hash table to be cloned
+ * \param dest (StrHashTable *) Stores the cloned hash table
  */
-#define mp_ht_clone(/* mp_Alloc */ allocator, /* const StrHashTable* */ src,                       \
-                    /* StrHashTable* */ dest)                                                      \
-    do {                                                                                           \
-        (dest)->data = mp_dup((allocator), (src)->data, (src)->cap * sizeof(*(src)->data));        \
-        if ((dest)->data != NULL) {                                                                \
-            (dest)->alloc = (allocator);                                                           \
-            (dest)->len   = (src)->len;                                                            \
-            (dest)->cap   = (src)->cap;                                                            \
-            for (size_t __i = 0; __i < (src)->cap; ++__i) {                                        \
-                if (mp_str_is_valid((src)->data[__i].key)) {                                       \
-                    (dest)->data[__i].key = mp_str_clone(&(src)->data[__i].key, (allocator));      \
-                    MEMPLUS_ASSERT((dest)->data[__i].key.cstr != (src)->data[__i].key.cstr);       \
-                }                                                                                  \
-            }                                                                                      \
-        } else {                                                                                   \
-            (dest)->alloc = mp_alloc_invalid();                                                    \
-            (dest)->len   = 0;                                                                     \
-            (dest)->cap   = 0;                                                                     \
-        }                                                                                          \
-    } while (0)
+#define mp_ht_clone(/* mp_Alloc */ alloc, /* const StrHashTable* */ src, /* StrHashTable* */ dest) \
+    __mp_ht_clone((alloc), (src), (dest))
+void __mp_ht_clone(mp_Alloc alloc, const void *src, void *dest);
 
 /// Initializes an iterator on a string hash table.
 /**
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (StrHashTableIter *) The iterator to initialize (NO SIDE EFFECTS)
+ * \param it (StrHashTableIter *) The iterator to initialize
  * \param ht (const StrHashTable *) The hash table to iterate
  */
 #define mp_ht_iter_init(/* StrHashTableIter* */ it, /* const StrHashTable* */ ht)                  \
-    do {                                                                                           \
-        __MP_ZERO(it);                                                                             \
-        (it)->_h = (ht);                                                                           \
-        mp_ht_iter_next(it);                                                                       \
-    } while (0)
+    __mp_ht_iter_init((it), (ht))
+void __mp_ht_iter_init(void *it, const void *ht);
 
 /// Get the next element in the iterator.
 /**
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (StrHashTableIter *) The iterator (NO SIDE EFFECTS)
+ * \param it (StrHashTableIter *) The iterator
+ * \return (bool) Whether it is valid to access the data
  */
-#define mp_ht_iter_next(/* StrHashTableIter* */ it)                                                \
-    do {                                                                                           \
-        (it)->ok = false;                                                                          \
-        while ((it)->_i < (it)->_h->cap) {                                                         \
-            __typeof__((it)->_h->data) __entry = (it)->_h->data + (it)->_i;                        \
-            if (mp_str_is_valid(__entry->key)) {                                                   \
-                (it)->key = __entry->key;                                                          \
-                (it)->val = __entry->val;                                                          \
-                (it)->ok  = true;                                                                  \
-                ++(it)->_i;                                                                        \
-                break;                                                                             \
-            }                                                                                      \
-            ++(it)->_i;                                                                            \
-        }                                                                                          \
-    } while (0)
+#define /* bool */ mp_ht_iter_next(/* StrHashTableIter* */ it) __mp_ht_iter_next(it)
+bool __mp_ht_iter_next(void *it);
 
 // Hashes a string with FNV-1a hash algorithm.
 uint64_t __mp_ht_hash_str(const mp_Str *str);
@@ -2766,7 +2642,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
     return new_ptr;
 }
 
-void __mp_da_init(void * /* DynArray* */ a, mp_Alloc alloc, size_t size) {
+void __mp_da_init(void *a, mp_Alloc alloc, size_t size) {
     __mp_DynArray *self = a;
     __MP_ZERO(self);
     self->alloc = alloc;
@@ -2938,6 +2814,193 @@ mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc) {
     mp_Str res = mp_str_new_len(alloc, sb->data, sb->len);
     mp_da_deinit(sb);
     return res;
+}
+
+void __mp_ht_deinit(void *ht) {
+    __mp_DynArray *self = ht;
+    for (size_t i = 0; i < self->cap; i++) {
+        __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+        if (mp_str_is_valid(e->key)) {
+            mp_str_deinit(&e->key, self->alloc);
+        }
+    }
+    mp_da_deinit(self);
+}
+
+void *__mp_ht_get(void *ht, mp_Str k) {
+    __mp_DynArray *self = ht;
+    if (mp_str_is_valid(k)) {
+        uint64_t hash = __mp_ht_hash_str(&k);
+        size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
+        for (;;) {
+            __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+            if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
+                return &e->val;
+            }
+            ++i;
+            if (i >= self->cap) {
+                i = 0;
+            }
+            if (!mp_str_is_valid(e->key) && *(char *) &e->val != 1) {
+                break;
+            }
+        }
+    }
+    return NULL;
+}
+
+void __mp_ht_set(void *ht, mp_Str k, void *v) {
+    __mp_DynArray *self = ht;
+    mp_ht_grow(self, 1);
+    if (self->data != NULL) {
+        uint64_t hash = __mp_ht_hash_str(&k);
+        size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
+        for (;;) {
+            __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+            if (!mp_str_is_valid(e->key)) {
+                e->key = mp_str_clone(&k, self->alloc);
+                memcpy(&e->val, v, self->size - sizeof(e->key));
+                break;
+            } else if (strcmp(e->key.cstr, k.cstr) == 0) {
+                memcpy(&e->val, v, self->size - sizeof(e->key));
+                --self->len;
+                break;
+            } else {
+                ++i;
+            }
+            if (i >= self->cap) {
+                i = 0;
+            }
+        }
+    }
+}
+
+void __mp_ht_grow(void *ht, size_t offset) {
+    __mp_DynArray *self = ht;
+    if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
+        offset > 0) {
+        size_t old_cap = self->cap;
+        if (self->cap == 0) {
+            self->cap = __MP_HASH_TABLE_INIT_CAPACITY;
+        }
+        while (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD)) {
+            self->cap *= 2;
+        }
+        void *new_data = mp_alloc(self->alloc, self->cap * self->size);
+        if (new_data == NULL) {
+            self->data = NULL;
+            return;
+        }
+        for (size_t i = 0; i < old_cap; ++i) {
+            __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+            if (mp_str_is_valid(e->key)) {
+                uint64_t hash  = __mp_ht_hash_str(&e->key);
+                size_t   new_i = (size_t) (hash % (uint64_t) (self->cap - 1));
+                for (;;) {
+                    __mp_StrHashTableEntry *new_e =
+                        (__mp_StrHashTableEntry *) ((char *) new_data + new_i * self->size);
+                    if (!mp_str_is_valid(new_e->key)) {
+                        new_e->key = mp_str_clone(&e->key, self->alloc);
+                        memcpy(&new_e->val, &e->val, self->size - sizeof(e->key));
+                        break;
+                    } else {
+                        ++new_i;
+                    }
+                    if (new_i >= self->cap) {
+                        new_i = 0;
+                    }
+                }
+            }
+        }
+        __mp_ht_free_entries(self->data, self->alloc, old_cap, self->size);
+        mp_free(self->alloc, self->data, old_cap * self->size);
+        self->data = new_data;
+    }
+    self->len += offset;
+}
+
+void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size) {
+    for (size_t i = 0; i < cap; ++i) {
+        __mp_StrHashTableEntry *e = (__mp_StrHashTableEntry *) ((char *) entries + i * size);
+        if (mp_str_is_valid(e->key)) {
+            mp_str_deinit(&e->key, alloc);
+            MEMPLUS_ASSERT(!mp_str_is_valid(e->key));
+        }
+    }
+}
+
+void __mp_ht_reset(void *ht) {
+    __mp_DynArray *self = ht;
+    __mp_ht_free_entries(self->data, self->alloc, self->cap, self->size);
+    mp_da_reset(self);
+}
+
+void __mp_ht_delete(void *ht, mp_Str k) {
+    __mp_DynArray *self = ht;
+    if (mp_str_is_valid(k)) {
+        uint64_t hash = __mp_ht_hash_str(&k);
+        size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
+        for (;;) {
+            __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+            if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
+                mp_str_deinit(&e->key, self->alloc);
+                MEMPLUS_ASSERT(!mp_str_is_valid(e->key));
+                memset(&e->val, 1, sizeof(char));
+                --self->len;
+                break;
+            }
+            ++i;
+            if (i >= self->cap) {
+                i = 0;
+            }
+            if (!mp_str_is_valid(e->key)) {
+                break;
+            }
+        }
+    }
+}
+
+void __mp_ht_clone(mp_Alloc alloc, const void *src, void *dest) {
+    const __mp_DynArray *s = src;
+    __mp_DynArray       *d = dest;
+    __MP_ZERO(d);
+    d->data = mp_dup(alloc, s->data, s->cap * s->size);
+    if (d->data != NULL) {
+        d->alloc = alloc;
+        d->len   = s->len;
+        d->cap   = s->cap;
+        d->size  = s->size;
+        for (size_t i = 0; i < s->cap; ++i) {
+            __mp_StrHashTableEntry *s_e = __mp_da_get(__mp_StrHashTableEntry, s, i);
+            __mp_StrHashTableEntry *d_e = __mp_da_get(__mp_StrHashTableEntry, d, i);
+            if (mp_str_is_valid(s_e->key)) {
+                d_e->key = mp_str_clone(&s_e->key, alloc);
+                MEMPLUS_ASSERT(d_e->key.cstr != s_e->key.cstr);
+            }
+        }
+    }
+}
+
+void __mp_ht_iter_init(void *it, const void *ht) {
+    __mp_StrHashTableIter *self = it;
+    const __mp_DynArray   *h    = ht;
+    memset(self, 0, sizeof(*self) + h->size);
+    self->_h = h;
+}
+
+bool __mp_ht_iter_next(void *it) {
+    __mp_StrHashTableIter *self = it;
+    while (self->_i < self->_h->cap) {
+        __mp_StrHashTableEntry *entry = __mp_da_get(__mp_StrHashTableEntry, self->_h, self->_i);
+        if (mp_str_is_valid(entry->key)) {
+            self->key = entry->key;
+            memcpy(&self->val, &entry->val, self->_h->size);
+            ++self->_i;
+            return true;
+        }
+        ++self->_i;
+    }
+    return false;
 }
 
     #define __MP_FNV_OFFSET 14695981039346656037UL
