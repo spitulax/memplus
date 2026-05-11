@@ -1483,8 +1483,6 @@ bool __mp_hti_iter_next(void *it);
  * $ ALLOCATORS
  ***********/
 
-// TODO: Arena rewinding
-
 /**
  * \defgroup Allocators Allocators
  *
@@ -1550,6 +1548,7 @@ struct mp_Region {
  * \return The pointer to the allocated region
  */
 mp_Region *mp_region_init(mp_Alloc alloc, size_t cap);
+
 /// Frees a region.
 /**
  * \param alloc The backing allocator that allocated the memory
@@ -1610,12 +1609,31 @@ void mp_arena_reset(mp_Arena *a);
  * \param a The arena
  */
 void mp_arena_deinit(mp_Arena *a);
+
 /// Returns an allocator that works with \ref mp_Arena.
 /**
  * \param a The arena
  * \return The allocator interface
  */
 mp_Alloc mp_arena_alloc(mp_Arena *a);
+
+/// Gets the position after the last element.
+/**
+ * Used in conjunction with \ref mp_arena_rewind.
+ *
+ * \param a The arena
+ * \return The pointer (as number) to the end of the last element
+ */
+uintptr_t mp_arena_mark(const mp_Arena *a);
+
+/// Sets the pointer to the end of the last element to \a mark.
+/**
+ * \a mark can be obtained via \ref mp_arena_mark.
+ *
+ * \param a The arena
+ * \param mark The mark
+ */
+void mp_arena_rewind(mp_Arena *a, uintptr_t mark);
 
 /// \}
 
@@ -1667,6 +1685,7 @@ typedef struct {
  * \param cap How many bytes to allocate
  */
 void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap);
+
 /// Sets an arena length to 0, but does not free the allocated buffer.
 /**
  * This resets the arena to "initial condition" but without actually freeing the data.
@@ -1674,6 +1693,7 @@ void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap);
  * \param a The arena
  */
 void mp_sarena_reset(mp_SArena *a);
+
 /// Frees an arena and its buffer.
 /**
  * The free will be performed using the arena's backing allocator.
@@ -1681,6 +1701,7 @@ void mp_sarena_reset(mp_SArena *a);
  * \param a The arena
  */
 void mp_sarena_deinit(mp_SArena *a);
+
 /// Returns an allocator that works with \ref mp_SArena.
 /**
  * Returns an invalid allocator if \a a->buf is NULL.
@@ -1689,6 +1710,24 @@ void mp_sarena_deinit(mp_SArena *a);
  * \return The allocator interface
  */
 mp_Alloc mp_sarena_alloc(mp_SArena *a);
+
+/// Gets the position after the last element.
+/**
+ * Used in conjunction with \ref mp_sarena_rewind.
+ *
+ * \param a The arena
+ * \return The pointer (as number) to the end of the last element
+ */
+uintptr_t mp_sarena_mark(const mp_SArena *a);
+
+/// Sets the pointer to the end of the last element to \a mark.
+/**
+ * \a mark can be obtained via \ref mp_sarena_mark.
+ *
+ * \param a The arena
+ * \param mark The mark
+ */
+void mp_sarena_rewind(mp_SArena *a, uintptr_t mark);
 
 /// \}
 
@@ -1765,10 +1804,28 @@ void mp_temp_reset(mp_Temp *t);
 
 /// Returns an allocator that works with \ref mp_Temp.
 /**
- * \param t The arena
+ * \param t The temp arena
  * \return The allocator interface
  */
 mp_Alloc mp_temp_alloc(mp_Temp *t);
+
+/// Gets the position after the last element.
+/**
+ * Used in conjunction with \ref mp_temp_rewind.
+ *
+ * \param a The temp arena
+ * \return The pointer (as number) to the end of the last element
+ */
+uintptr_t mp_temp_mark(const mp_SArena *a);
+
+/// Sets the pointer to the end of the last element to \a mark.
+/**
+ * \a mark can be obtained via \ref mp_temp_mark.
+ *
+ * \param a The temp arena
+ * \param mark The mark
+ */
+void mp_temp_rewind(mp_SArena *a, uintptr_t mark);
 
 /// \}
 
@@ -3183,12 +3240,33 @@ mp_Alloc mp_arena_alloc(mp_Arena *a) {
     return mp_alloc_new(a, mp_arena_alloc_func);
 }
 
+uintptr_t mp_arena_mark(const mp_Arena *a) {
+    if (a->end == NULL) {
+        return 0;
+    }
+    return (uintptr_t) (char *) a->end->data + a->end->len;
+}
+
+void mp_arena_rewind(mp_Arena *a, uintptr_t mark) {
+    if (mark == 0) {
+        return;
+    }
+    for (mp_Region *region = a->begin; region; region = region->next) {
+        uintptr_t start = (uintptr_t) region->data;
+        if (mark >= start + region->cap) {
+            region->len = 0;
+        } else if (mark >= start) {
+            region->len -= mark - start;
+            a->end = region;
+        }
+    }
+}
+
 static void *mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
                                  void *ptr) {
     mp_Arena *ctx   = context;
     mp_Alloc  alloc = mp_alloc_new(ctx, mp_arena_alloc_func);
 
-    __MP_STATIC_ASSERT(__MP_ALLOCOP_COUNT == 3);
     switch (op) {
         case MP_ALLOCOP_ALLOC: {
             (void) old_size;
@@ -3277,12 +3355,19 @@ mp_Alloc mp_sarena_alloc(mp_SArena *a) {
     return mp_alloc_new(a, mp_sarena_alloc_func);
 }
 
+uintptr_t mp_sarena_mark(const mp_SArena *a) {
+    return (uintptr_t) (char *) a->buf + a->len;
+}
+
+void mp_sarena_rewind(mp_SArena *a, uintptr_t mark) {
+    a->len = mark - (uintptr_t) a->buf;
+}
+
 static void *mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
                                   void *ptr) {
     mp_SArena *ctx   = context;
     mp_Alloc   alloc = mp_alloc_new(ctx, mp_sarena_alloc_func);
 
-    __MP_STATIC_ASSERT(__MP_ALLOCOP_COUNT == 3);
     switch (op) {
         case MP_ALLOCOP_ALLOC: {
             (void) old_size;
@@ -3338,6 +3423,14 @@ mp_Alloc mp_temp_alloc(mp_Temp *t) {
     return mp_alloc_new(t, mp_sarena_alloc_func);
 }
 
+uintptr_t mp_temp_mark(const mp_SArena *a) {
+    return mp_sarena_mark(a);
+}
+
+void mp_temp_rewind(mp_SArena *a, uintptr_t mark) {
+    mp_sarena_rewind(a, mark);
+}
+
 mp_Alloc mp_heap_alloc(void) {
     return mp_alloc_new(NULL, mp_heap_alloc_func);
 }
@@ -3347,7 +3440,6 @@ static void *mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, s
     (void) context;
     mp_Alloc alloc = mp_alloc_new(NULL, mp_heap_alloc_func);
 
-    __MP_STATIC_ASSERT(__MP_ALLOCOP_COUNT == 3);
     switch (op) {
         case MP_ALLOCOP_ALLOC: {
             (void) old_size;
@@ -3882,7 +3974,6 @@ static mp_IoErr mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, siz
                                 size_t *ret) {
     mp_File *ctx = io->context;
 
-    __MP_STATIC_ASSERT(__MP_IOOP_COUNT == 8);
     switch (op) {
         case MP_IOOP_FLUSH: {
             (void) ptr;
