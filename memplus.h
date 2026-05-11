@@ -67,8 +67,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// TODO: `*_clone` funcs adjust parameter orders
-
 /*
  * Systems
  */
@@ -673,13 +671,13 @@ void __mp_da_shrink(void *a, size_t offset);
  *
  * \a dest->data becomes NULL if allocation failed.
  *
- * \param alloc (mp_Alloc) The allocator to manage \a dest
- * \param src (DynArray *) The source array
  * \param dest (DynArray *) The destination of the clone
+ * \param src (const DynArray *) The source array
+ * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
-#define mp_da_clone(/* mp_Alloc */ alloc, /* DynArray* */ src, /* DynArray* */ dest)               \
-    __mp_da_clone((alloc), (src), (dest))
-void __mp_da_clone(mp_Alloc alloc, void *src, void *dest);
+#define mp_da_clone(/* DynArray* */ dest, /* const DynArray* */ src, /* mp_Alloc */ alloc)         \
+    __mp_da_clone((dest), (src), (alloc))
+void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc);
 
 void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
@@ -1201,13 +1199,13 @@ void __mp_ht_delete(void *ht, mp_Str k);
  * \a dest inherits all fields of \a src.
  * \a dest.data becomes NULL if allocation failed.
  *
- * \param alloc (mp_Alloc) The allocator to manage \a dest
- * \param src (const StrHashTable *) The hash table to be cloned
  * \param dest (StrHashTable *) Stores the cloned hash table
+ * \param src (const StrHashTable *) The hash table to be cloned
+ * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
-#define mp_ht_clone(/* mp_Alloc */ alloc, /* const StrHashTable* */ src, /* StrHashTable* */ dest) \
-    __mp_ht_clone((alloc), (src), (dest))
-void __mp_ht_clone(mp_Alloc alloc, const void *src, void *dest);
+#define mp_ht_clone(/* StrHashTable* */ dest, /* const StrHashTable* */ src, /* mp_Alloc */ alloc) \
+    __mp_ht_clone((dest), (src), (alloc))
+void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
 
 /// Initializes an iterator on a string hash table.
 /**
@@ -1420,14 +1418,14 @@ void __mp_hti_delete(void *ht, size_t k);
  * \a dest inherits all fields of \a src.
  * \a dest.data becomes NULL if allocation failed.
  *
+ * \param dest (StrHashTable *) Stores the cloned hash table
+ * \param src (const StrHashTable *) The hash table to be cloned
  * \param alloc (mp_Alloc) The allocator to manage \a dest
- * \param src (const IntHashTable *) The hash table to be cloned
- * \param dest (IntHashTable *) Stores the cloned hash table
  */
-#define mp_hti_clone(/* mp_Alloc */ alloc, /* const IntHashTable* */ src,                          \
-                     /* IntHashTable* */ dest)                                                     \
-    __mp_hti_clone((alloc), (src), (dest))
-void __mp_hti_clone(mp_Alloc alloc, const void *src, void *dest);
+#define mp_hti_clone(/* IntHashTable* */ dest, /* const IntHashTable* */ src,                      \
+                     /* mp_Alloc */ alloc)                                                         \
+    __mp_hti_clone((dest), (src), (alloc))
+void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
 
 /// Initializes an iterator on an integer hash table.
 /**
@@ -2611,9 +2609,9 @@ void __mp_da_shrink(void *a, size_t offset) {
     self->len -= offset;
 }
 
-void __mp_da_clone(mp_Alloc alloc, void *src, void *dest) {
-    __mp_DynArray *s = src;
-    __mp_DynArray *d = dest;
+void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc) {
+    const __mp_DynArray *s = src;
+    __mp_DynArray       *d = dest;
     __MP_ZERO(d);
     d->data = mp_dup(alloc, s->data, s->cap * s->size);
     if (d->data != NULL) {
@@ -2888,7 +2886,7 @@ void __mp_ht_delete(void *ht, mp_Str k) {
     }
 }
 
-void __mp_ht_clone(mp_Alloc alloc, const void *src, void *dest) {
+void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
     const __mp_DynArray *s = src;
     __mp_DynArray       *d = dest;
     __MP_ZERO(d);
@@ -3064,7 +3062,7 @@ void __mp_hti_delete(void *ht, size_t k) {
     }
 }
 
-void __mp_hti_clone(mp_Alloc alloc, const void *src, void *dest) {
+void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
     const __mp_DynArray *s = src;
     __mp_DynArray       *d = dest;
     __MP_ZERO(d);

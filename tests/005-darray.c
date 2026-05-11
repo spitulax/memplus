@@ -45,7 +45,7 @@ int main(void) {
 
     // Clone test
     ArrayInt32 array2;
-    mp_da_clone(alloc, &array, &array2);
+    mp_da_clone(&array2, &array, alloc);
     mp_da_deinit(&array);
 
     expect_eq(array2.len, (size_t) 1, "%zu");

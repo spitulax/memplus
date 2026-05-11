@@ -80,7 +80,7 @@ int main(void) {
 
     // Clone test
     HashTableInt ht2;
-    mp_hti_clone(alloc, &ht, &ht2);
+    mp_hti_clone(&ht2, &ht, alloc);
     expect_eq(ht.len, ht2.len, "%zu");
     expect_eq(ht.cap, ht2.cap, "%zu");
     expect_ne((void *) ht.data, (void *) ht2.data, "%p");
