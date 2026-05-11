@@ -67,20 +67,18 @@ int main(void) {
     expect_eq(t_arena.cap, (size_t) align_down(1050), "%zu");
     test(t_alloc, &t_arena);
 
-    char     tempbuf[24 + 8 * 2];
-    mp_Alloc talloc;
-    mp_talloc(tempbuf, &talloc);
+    {
+        mp_talloc();
 
-    int *i = mp_create(talloc, int);
-    *i     = 67;
-    expect_ne((void *) i, NULL, "%p");
-    expect_eq(*i, 67, "%d");
-    int *j = mp_create(talloc, int);
-    *j     = 69;
-    expect_eq((void *) j, (void *) ((uintptr_t) i + align(sizeof(int))), "%p");
-    expect_eq(*j, 69, "%d");
-    int *k = mp_create(talloc, int);
-    expect_eq((void *) k, NULL, "%p");
+        int *i = mp_create(temp_alloc, int);
+        *i     = 67;
+        expect_ne((void *) i, NULL, "%p");
+        expect_eq(*i, 67, "%d");
+
+        const char *str = mp_str_newf(temp_alloc, "%d!!!", *i).cstr;
+        expect_ne((void *) str, NULL, "%p");
+        expect_streq(str, "67!!!");
+    }
 
     return 0;
 

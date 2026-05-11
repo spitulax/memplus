@@ -1701,10 +1701,12 @@ mp_Alloc mp_sarena_alloc(mp_SArena *a);
  *
  * # Usage
  *
+ * Call \ref mp_talloc macro (or \ref mp_talloc_s) to define and initialize a temporary allocator
+ * for this scope. The allocator will be accessible as `temp_alloc`.
+ *
  * \code
- * char     tempbuf[1024];
- * mp_Alloc talloc;
- * mp_talloc(tempbuf, &talloc);
+ * mp_talloc();
+ * void *ptr = mp_alloc(temp_alloc, 16);
  * \endcode
  *
  * \{
@@ -1720,23 +1722,27 @@ typedef struct {
     size_t cap;
 } mp_Temp;
 
-/// A shortcut for initializing a temp allocator.
+/// Shortcut for defining and initializing a temp allocator.
 /**
- * The beginning portion of \a buf will be used to allocate the \a mp_Temp "allocator context".
+ * Will initialize an \ref mp_Temp 1024 bytes in size.
  *
- * The allocator will **round down** the size to the nearest increment of `sizeof(uintptr_t)`.
- *
- * \param buf (char *) The buffer (at least `sizeof(mp_Temp)` of size)
- * \param ret_alloc (mp_Alloc *) Stores the allocator interface
+ * Defines `temp_alloc` variable for the current scope.
  */
-#define mp_talloc(/* char* */ buf, /* mp_Alloc* */ ret_alloc)                                      \
-    do {                                                                                           \
-        MEMPLUS_ASSERT_MSG(sizeof(buf) >= sizeof(mp_Temp),                                         \
-                           "Buffer size is smaller than `sizeof(mp_Temp)`");                       \
-        mp_Temp *__t = (mp_Temp *) (buf);                                                          \
-        mp_temp_init(__t, ((char *) (buf)) + sizeof(mp_Temp), sizeof(buf) - sizeof(mp_Temp));      \
-        *(ret_alloc) = mp_temp_alloc(__t);                                                         \
-    } while (0)
+#define mp_talloc() mp_talloc_s(1024)
+
+/// Shortcut for defining and initializing a temp allocator \a size bytes in size.
+/**
+ * Will initialize an \ref mp_Temp \a size bytes in size.
+ *
+ * Defines `temp_alloc` variable for the current scope.
+ *
+ * \param size (size_t) The size of the temp buffer (in bytes)
+ */
+#define mp_talloc_s(/* size_t */ size)                                                             \
+    char    __mp_tempbuf[(size)];                                                                  \
+    mp_Temp __mp_temp;                                                                             \
+    mp_temp_init(&__mp_temp, __mp_tempbuf, (size));                                                \
+    mp_Alloc temp_alloc = mp_temp_alloc(&__mp_temp);
 
 /// Initializes a temp allocator with a \buf of size \a cap (in bytes).
 /**
