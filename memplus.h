@@ -30,6 +30,11 @@
  * Initial release.
  */
 
+// TODO: Funcs
+// mp_utf8_get(_s), mp_utf8_getp(_s), mp_utf8_char
+// mp_str_builder_appendc
+// mp_str_to_lower, mp_str_to_upper
+
 /**
  * \file memplus.h
  * \brief The one and only header file in the library.
@@ -877,6 +882,9 @@ void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
  * \return The cloned \ref mp_Str
  */
 mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc);
+
+// DOCS:
+mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc);
 
 /// \}
 
@@ -2792,6 +2800,20 @@ mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc) {
     return (mp_Str) { .len = str->len, .cstr = ptr };
 }
 
+mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc) {
+    mp_StrBuilder sb;
+    mp_str_builder_init(&sb, alloc);
+
+    for (size_t i = 0; i < strs_len; ++i) {
+        if (sep != NULL && i > 0) {
+            mp_str_builder_append(&sb, sep);
+        }
+        mp_str_builder_append(&sb, strs[i]);
+    }
+
+    return mp_str_builder_string_take(&sb, alloc);
+}
+
 void mp_str_builder_init(mp_StrBuilder *sb, mp_Alloc alloc) {
     mp_da_init(mp_StrBuilder, sb, alloc);
 }
@@ -2821,6 +2843,15 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
         mp_da_shrink(sb, 1ul);
         MEMPLUS_ASSERT(result_len == len);
         va_end(args);
+    }
+}
+
+void mp_str_builder_appendc(mp_StrBuilder *sb, char c[4], char c_len) {
+    size_t prev_len = sb->len;
+    mp_da_grow(sb, (size_t) c_len);
+
+    if (sb->data != NULL) {
+        memcpy(sb->data + prev_len, c, (size_t) c_len);
     }
 }
 

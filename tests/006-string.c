@@ -33,6 +33,20 @@ int main(void) {
     mp_str_deinit(&s2, alloc);
     mp_str_deinit(&s1, alloc);
 
+    // String misc. funcs
+    {
+        const char *strs[]   = { "Hello", "World", "69" };
+        size_t      strs_len = sizeof(strs) / sizeof(*strs);
+
+        {
+            mp_talloc();
+            mp_Str str = mp_str_concat(strs, strs_len, NULL, temp_alloc);
+            expect_streq(str.cstr, "HelloWorld69");
+            str = mp_str_concat(strs, strs_len, " ", temp_alloc);
+            expect_streq(str.cstr, "Hello World 69");
+        }
+    }
+
     return 0;
 
 fail:
