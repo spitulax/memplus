@@ -902,10 +902,6 @@ mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc);
 /**
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
  *
- * Use \ref mp_da_init to initialize a builder first.
- *
- * Use \ref mp_da_deinit to deinitialize.
- *
  * To convert \ref mp_StrBuilder to C string, use \ref mp_str_builder_string which
  * returns a **null-terminated** \ref mp_Str.
  */
@@ -913,10 +909,26 @@ typedef struct {
     mp_Alloc alloc;
     size_t   len;
     size_t   cap;
+    size_t   size;
     char    *data;
 } mp_StrBuilder;
 
-/// Appends a **null-terminated** string to a \ref mp_StrBuilder.
+/// Initializes an \ref mp_StrBuilder to be managed by \a alloc.
+/**
+ * Deinit with \ref mp_str_builder_deinit.
+ *
+ * \param sb The string builder
+ * \param alloc The managing allocator
+ */
+void mp_str_builder_init(mp_StrBuilder *sb, mp_Alloc alloc);
+
+/// Frees an \ref mp_StrBuilder.
+/**
+ * \param sb The string builder
+ */
+void mp_str_builder_deinit(mp_StrBuilder *sb);
+
+/// Appends a **null-terminated** string to an \ref mp_StrBuilder.
 /**
  * \a mp_StrBuilder::data becomes NULL if allocation failed.
  *
@@ -925,7 +937,7 @@ typedef struct {
  */
 void mp_str_builder_append(mp_StrBuilder *sb, const char *str);
 
-/// Appends a formatted string to a \ref mp_StrBuilder.
+/// Appends a formatted string to an \ref mp_StrBuilder.
 /**
  * \a mp_StrBuilder::data becomes NULL if allocation failed.
  *
@@ -935,7 +947,7 @@ void mp_str_builder_append(mp_StrBuilder *sb, const char *str);
  */
 void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
 
-/// Copies the buffer of a \ref mp_StrBuilder into a null-terminated \ref mp_Str.
+/// Copies the buffer of an \ref mp_StrBuilder into a null-terminated \ref mp_Str.
 /**
  * Deinit with \ref mp_str_deinit.
  *
@@ -957,7 +969,7 @@ mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc);
  * \param alloc The allocator that allocates the \ref mp_Str
  * \return The **null-terminated** copy of \a sb
  */
-mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc);
+mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
 
 /// \}
 
@@ -2690,6 +2702,14 @@ mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc) {
     return (mp_Str) { .len = str->len, .cstr = ptr };
 }
 
+void mp_str_builder_init(mp_StrBuilder *sb, mp_Alloc alloc) {
+    mp_da_init(mp_StrBuilder, sb, alloc);
+}
+
+void mp_str_builder_deinit(mp_StrBuilder *sb) {
+    mp_da_deinit(sb);
+}
+
 void mp_str_builder_append(mp_StrBuilder *sb, const char *str) {
     mp_da_append_array(sb, str, strlen(str));
 }
@@ -2718,9 +2738,9 @@ mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc) {
     return mp_str_new_len(alloc, sb->data, sb->len);
 }
 
-mp_Str mp_str_builder_string_deinit(mp_StrBuilder *sb, mp_Alloc alloc) {
+mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc) {
     mp_Str res = mp_str_new_len(alloc, sb->data, sb->len);
-    mp_da_deinit(sb);
+    mp_str_builder_deinit(sb);
     return res;
 }
 

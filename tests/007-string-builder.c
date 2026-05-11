@@ -6,7 +6,7 @@ int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
     mp_StrBuilder sb;
-    mp_da_init(&sb, alloc);
+    mp_str_builder_init(&sb, alloc);
 
     mp_str_builder_append(&sb, "Hello, World!");
     expect_eq(sb.len, (size_t) 13, "%zu");
@@ -22,7 +22,7 @@ int main(void) {
     expect_eq(str.len, (size_t) strlen(str.cstr), "%zu");
     expect_streq(str.cstr, "Hello, World! 67");
 
-    mp_Str str2 = mp_str_builder_string_deinit(&sb, alloc);
+    mp_Str str2 = mp_str_builder_string_take(&sb, alloc);
     expect_eq(str2.len, (size_t) strlen(str.cstr), "%zu");
     expect_streq(str2.cstr, "Hello, World! 67");
     expect_streq(str.cstr, str2.cstr);
