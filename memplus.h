@@ -1878,7 +1878,7 @@ mp_Alloc mp_heap_alloc(void);
 /**
  * Use \ref mp_utf8_len_s for non-null-terminated strings.
  *
- * Returns \ref MP_ERROR if \a str is not a valid UTF-8 string.
+ * Invalid UTF-8 characters will be counted as individual bytes.
  *
  * \param str The UTF-8 string (null-terminated)
  * \return The amount of characters in \a str
@@ -1887,7 +1887,7 @@ size_t mp_utf8_len(const char *str);
 
 /// Calculate the amount of characters in a UTF-8 string with size parameter (in bytes).
 /**
- * Returns \ref MP_ERROR if \a str is not a valid UTF-8 string.
+ * Invalid UTF-8 characters will be counted as individual bytes.
  *
  * \param str The UTF-8 string
  * \param size The size of \a str (in bytes)
@@ -1898,6 +1898,8 @@ size_t mp_utf8_len_s(const char *str, size_t size);
 /// Iterator for UTF-8 strings.
 /**
  * \a c and \a c_len can be accessed to get the current character's information.
+ *
+ * Upon encountering an invalid UTF-8 byte, the iterator would yield the byte immediately.
  *
  * # Usage
  *
@@ -3502,40 +3504,11 @@ size_t mp_utf8_len(const char *str) {
 }
 
 size_t mp_utf8_len_s(const char *str, size_t size) {
-    size_t len         = 0;
-    char   bytes_taken = 0;
-    for (size_t i = 0; i < size; ++i) {
-        char byte = str[i];
-        if (bytes_taken == 0) {
-            for (size_t j = 0; j < 4; ++j) {
-                char bit = (byte >> (7 - j)) & 0x1;
-                if (bit == 0) {
-                    break;
-                } else {
-                    ++bytes_taken;
-                }
-            }
-            if (bytes_taken == 0) {
-                bytes_taken = 1;
-            } else if (bytes_taken == 1) {
-                return MP_ERROR;
-            }
-        } else {
-            if ((byte & 0xC0) != 0x80) {
-                return MP_ERROR;
-            }
-        }
-
-        --bytes_taken;
-        if (bytes_taken == 0) {
-            ++len;
-        }
+    mp_Utf8Iter iter = mp_utf8_iter_new_s(str, size);
+    size_t      len  = 0;
+    while (mp_utf8_iter_next(&iter)) {
+        ++len;
     }
-
-    if (bytes_taken > 0) {
-        return MP_ERROR;
-    }
-
     return len;
 }
 
@@ -3562,31 +3535,39 @@ bool mp_utf8_iter_next(mp_Utf8Iter *it) {
 
     char byte = it->_str[it->_i];
 
-    char bytes_taken = 0;
+    char bytes_should_take = 0;
     for (size_t j = 0; j < 4; ++j) {
         char bit = (byte >> (7 - j)) & 0x1;
         if (bit == 0) {
             break;
         } else {
-            ++bytes_taken;
+            ++bytes_should_take;
         }
     }
-    if (bytes_taken == 0) {
-        bytes_taken = 1;
-    } else if (bytes_taken == 1) {
-        return false;
+
+    // For invalid characters, `bytes_should_take` should be 1
+
+    if (bytes_should_take == 0) {
+        bytes_should_take = 1;
+    } else if (bytes_should_take == 1) {
+        bytes_should_take = 1;
     }
 
-    // We don't check if the following bytes is valid
-
-    if (it->_i + (size_t) bytes_taken > it->_size) {
-        return false;
+    if (it->_i + (size_t) bytes_should_take > it->_size) {
+        bytes_should_take = 1;
+    } else {
+        for (char i = 1; i < bytes_should_take; ++i) {
+            char byte = it->_str[it->_i + (size_t) i];
+            if (((byte >> 6) & 0x3) != 0x2) {
+                bytes_should_take = 1;
+            }
+        }
     }
 
-    memcpy(it->c, it->_str + it->_i, (size_t) bytes_taken);
-    it->c_len = bytes_taken;
+    memcpy(it->c, it->_str + it->_i, (size_t) bytes_should_take);
+    it->c_len = bytes_should_take;
 
-    it->_i += (size_t) bytes_taken;
+    it->_i += (size_t) bytes_should_take;
 
     return true;
 }
