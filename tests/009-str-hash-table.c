@@ -23,6 +23,8 @@ int main(void) {
 
     int *val;
 
+    expect(mp_ht_exists(&ht, "foo"));
+
     val = mp_ht_get(&ht, "foo");
     expect_eq(*val, 69, "%d");
 
@@ -45,6 +47,8 @@ int main(void) {
     // Delete test
     mp_ht_delete(&ht, "bar");
     expect_eq(ht.len, (size_t) 1, "%zu");
+
+    expect(!mp_ht_exists(&ht, "bar"));
 
     val = mp_ht_get(&ht, "bar");
     expect_eq((void *) val, NULL, "%p");

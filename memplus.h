@@ -975,8 +975,6 @@ mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
  * $ HASH TABLE (STRING KEY)
  ***********/
 
-// TODO: mp_ht(i)_exists
-
 /**
  * \defgroup HashTableString Hash Table (String Key)
  *
@@ -1105,7 +1103,7 @@ void __mp_ht_deinit(void *ht);
 #define /* void* */ mp_ht_get(/* const StrHashTable* */ ht, /* const char* */ k)                   \
     mp_ht_get_s((ht), mp_str(k))
 
-/// The same as \ref mp_ht_get but accepts pointer to \ref mp_Str.
+/// The same as \ref mp_ht_get but accepts \ref mp_Str.
 /**
  * See \ref mp_ht_get.
  *
@@ -1129,7 +1127,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
 #define mp_ht_set(/* StrHashTable* */ ht, /* const char* */ k, /* <Type> */ v)                     \
     mp_ht_set_s((ht), mp_str(k), (v))
 
-/// The same as \ref mp_ht_set but accepts pointer to \ref mp_Str.
+/// The same as \ref mp_ht_set but accepts \ref mp_Str.
 /**
  * See \ref mp_ht_set.
  *
@@ -1143,6 +1141,27 @@ void *__mp_ht_get(const void *ht, mp_Str k);
         __mp_ht_set((ht), (k), &__it);                                                             \
     } while (0)
 void __mp_ht_set(void *ht, mp_Str k, void *v);
+
+/// Tests if an item at key \a k exists in the given string hash table.
+/**
+ * \param ht (const StrHashTable *) The hash table
+ * \param k (const char *) The key
+ * \return (bool) Whether an item at key \a k exists
+ */
+#define /* bool */ mp_ht_exists(/* const StrHashTable* */ ht, /* const char * */ k)                \
+    __mp_ht_exists((ht), mp_str(k))
+
+/// The same as \ref mp_ht_exists but accepts \ref mp_Str.
+/**
+ * See \ref mp_ht_exists.
+ *
+ * \param ht (const StrHashTable *) The hash table
+ * \param k (mp_Str) The key
+ * \return (bool) Whether an item at key \a k exists
+ */
+#define /* bool */ mp_ht_exists_s(/* const StrHashTable* */ ht, /* mp_Str */ k)                    \
+    __mp_ht_exists((ht), (k))
+bool __mp_ht_exists(const void *ht, mp_Str k);
 
 /// Grows a string hash table by \a offset of the current length.
 /**
@@ -1184,7 +1203,7 @@ void __mp_ht_reset(void *ht);
  */
 #define mp_ht_delete(/* StrHashTable* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
 
-/// The same as \ref mp_ht_delete but accepts pointer to \ref mp_Str.
+/// The same as \ref mp_ht_delete but accepts to \ref mp_Str.
 /**
  * See \ref mp_ht_delete.
  *
@@ -1374,6 +1393,16 @@ void *__mp_hti_get(const void *ht, size_t k);
         __mp_hti_set((ht), (k), &__it);                                                            \
     } while (0)
 void __mp_hti_set(void *ht, size_t k, void *v);
+
+/// Tests if an item at key \a k exists in the given int hash table.
+/**
+ * \param ht (const IntHashTable *) The hash table
+ * \param k (size_t) The key
+ * \return (bool) Whether an item at key \a k exists
+ */
+#define /* bool */ mp_hti_exists(/* const IntHashTable* */ ht, /* size_t */ k)                     \
+    __mp_hti_exists((ht), (k))
+bool __mp_hti_exists(const void *ht, size_t k);
 
 /// Grows an integer hash table by \a offset of the current length.
 /**
@@ -2801,6 +2830,10 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
     }
 }
 
+bool __mp_ht_exists(const void *ht, mp_Str k) {
+    return __mp_ht_get(ht, k) != NULL;
+}
+
 void __mp_ht_grow(void *ht, size_t offset) {
     __mp_DynArray *self = ht;
     if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
@@ -2958,6 +2991,10 @@ void *__mp_hti_get(const void *ht, size_t k) {
         }
     }
     return NULL;
+}
+
+bool __mp_hti_exists(const void *ht, size_t k) {
+    return __mp_hti_get(ht, k) != NULL;
 }
 
 void __mp_hti_set(void *ht, size_t k, void *v) {
