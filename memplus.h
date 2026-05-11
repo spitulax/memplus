@@ -1642,13 +1642,13 @@ mp_Alloc mp_arena_alloc(mp_Arena *a);
 
 /// The internal context of static arena allocators.
 typedef struct {
-    // The arena buffer (of size \a cap).
+    /// The arena buffer (of size \a cap).
     uintptr_t *buf;
-    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    /// The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
     size_t len;
-    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    /// The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
     size_t cap;
-    // The backing allocator, allocator used to allocate \a buf.
+    /// The backing allocator, allocator used to allocate \a buf.
     mp_Alloc alloc;
 } mp_SArena;
 
@@ -1712,11 +1712,11 @@ mp_Alloc mp_sarena_alloc(mp_SArena *a);
 
 /// The internal context of temp allocators.
 typedef struct {
-    // The arena buffer (of size \a cap).
+    /// The arena buffer (of size \a cap).
     uintptr_t *buf;
-    // The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    /// The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
     size_t len;
-    // The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    /// The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
     size_t cap;
 } mp_Temp;
 
