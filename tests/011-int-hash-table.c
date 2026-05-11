@@ -9,7 +9,7 @@ int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
     HashTableInt ht;
-    mp_hti_init(&ht, alloc);
+    mp_hti_init(HashTableInt, &ht, alloc);
 
     // Simple set/get test
     mp_hti_set(&ht, 0, 69);
@@ -17,17 +17,17 @@ int main(void) {
 
     int *val;
 
-    mp_hti_get(&ht, 0, val);
+    val = mp_hti_get(&ht, 0);
     expect_eq(*val, 69, "%d");
 
-    mp_hti_get(&ht, 1, val);
+    val = mp_hti_get(&ht, 1);
     expect_eq(*val, 420, "%d");
 
     mp_hti_set(&ht, 0, 20);
-    mp_hti_get(&ht, 0, val);
+    val = mp_hti_get(&ht, 0);
     expect_eq(*val, 20, "%d");
 
-    mp_hti_get(&ht, 69, val);
+    val = mp_hti_get(&ht, 69);
     expect_eq((void *) val, NULL, "%p");
 
     expect_eq(ht.len, (size_t) 2, "%zu");
@@ -37,11 +37,11 @@ int main(void) {
     mp_hti_delete(&ht, 1);
     expect_eq(ht.len, (size_t) 1, "%zu");
 
-    mp_hti_get(&ht, 1, val);
+    val = mp_hti_get(&ht, 1);
     expect_eq((void *) val, NULL, "%p");
 
     mp_hti_set(&ht, 1, 30);
-    mp_hti_get(&ht, 1, val);
+    val = mp_hti_get(&ht, 1);
     expect_eq(*val, 30, "%d");
 
     mp_hti_reset(&ht);
@@ -64,8 +64,7 @@ int main(void) {
     // printf("\n");
 
     for (int i = 0; i < (int) ht.len; ++i) {
-        int *val;
-        mp_hti_get(&ht, (size_t) i * 2, val);
+        int *val = mp_hti_get(&ht, (size_t) i * 2);
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
     }
@@ -74,9 +73,8 @@ int main(void) {
     HashTableIntIter it;
     mp_hti_iter_init(&it, &ht);
     size_t counter = 0;
-    while (it.ok) {
+    while (mp_hti_iter_next(&it)) {
         ++counter;
-        mp_hti_iter_next(&it);
     }
     expect_eq(counter, ht.len, "%zu");
 
@@ -88,7 +86,7 @@ int main(void) {
     expect_ne((void *) ht.data, (void *) ht2.data, "%p");
 
     mp_hti_iter_init(&it, &ht);
-    while (it.ok) {
+    while (mp_hti_iter_next(&it)) {
         __HashTableIntEntry *o = ht.data + (it._i - 1);
         expect_eq(it.key.key, o->key.key, "%zu");
         expect_eq(it.val, o->val, "%d");

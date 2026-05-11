@@ -67,6 +67,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// TODO: `*_clone` funcs adjust parameter orders
+
 /*
  * Systems
  */
@@ -767,6 +769,9 @@ void __mp_da_quick_delete(void *a, size_t pos);
  * $ STRING
  ***********/
 
+// TODO: mp_str_eq, mp_str_starts/ends_with, mp_str_concat, mp_str_split, mp_str_trim and other
+// helper funcs
+
 /**
  * \defgroup String String
  *
@@ -1079,7 +1084,7 @@ typedef struct {
 #define mp_ht_deinit(/* StrHashTable* */ ht) __mp_ht_deinit(ht)
 void __mp_ht_deinit(void *ht);
 
-/// Gets a pointer to an item with key \a k and put it into \a ret.
+/// Gets a pointer to an item at key \a k.
 /**
  * \a ret becomes NULL if it could not retrieve the item.
  *
@@ -1099,7 +1104,7 @@ void __mp_ht_deinit(void *ht);
  * \return (void *) The retrieved value
  */
 #define /* void* */ mp_ht_get_s(/* const StrHashTable* */ ht, /* mp_Str */ k) __mp_ht_get((ht), (k))
-void *__mp_ht_get(void *ht, mp_Str k);
+void *__mp_ht_get(const void *ht, mp_Str k);
 
 /// Sets the value at key \a k to \a v.
 /**
@@ -1243,7 +1248,7 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * This does not allocate the data immediately. But only once you set something on the hash table.
  * \code
  * IntHashTableInt ht;
- * mp_hti_init(&ht, alloc);
+ * mp_hti_init(IntHashTableInt, &ht, alloc);
  * mp_hti_set(&ht, 0, 10);
  * \endcode
  * Note that zero is a valid key.
@@ -1264,10 +1269,9 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * \code
  * IntHashTableIntIter it;
  * mp_hti_iter_init(&it, &ht);
- * while (it.ok) {
+ * while (mp_hti_iter_next(&it)) {
  *     (void) it.key;
  *     (void) it.val;
- *     mp_hti_iter_next(&it);
  * }
  * \endcode
  *
@@ -1289,11 +1293,10 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
     } __##name##Entry;                                                                             \
     mp_da_create(__##name##Entry, name);                                                           \
     typedef struct {                                                                               \
-        __mp_IntHtKey key;                                                                         \
-        value_type    val;                                                                         \
-        bool          ok;                                                                          \
         const name   *_h;                                                                          \
         size_t        _i;                                                                          \
+        __mp_IntHtKey key;                                                                         \
+        value_type    val;                                                                         \
     } name##Iter
 
 // The key type is wrapped by this struct so it can have 0 as a key.
@@ -1301,6 +1304,20 @@ typedef struct {
     size_t key;
     bool   valid;
 } __mp_IntHtKey;
+
+// Generic int hash table entry type.
+typedef struct {
+    __mp_IntHtKey key;
+    char          val[];
+} __mp_IntHashTableEntry;
+
+// Generic string hash table iterator type.
+typedef struct {
+    const __mp_DynArray *_h;
+    size_t               _i;
+    __mp_IntHtKey        key;
+    char                 val[];
+} __mp_IntHashTableIter;
 
 /// Initializes a new integer hash table managed by \a allocator.
 /**
@@ -1310,42 +1327,28 @@ typedef struct {
  *
  * \a IntHashTable::data becomes NULL if allocation failed.
  *
- * \param ht (IntHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (IntHashTable *) The hash table
  * \param allocator (mp_Alloc) The allocator to manage the hash table
  */
-#define mp_hti_init(/* IntHashTable* */ ht, /* mp_Alloc */ allocator) mp_da_init(ht, allocator)
+#define mp_hti_init(/* Type */ type, /* IntHashTable* */ ht, /* mp_Alloc */ allocator)             \
+    mp_da_init(type, ht, allocator)
 
 /// Frees an integer hash table.
 /**
- * \param ht (IntHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (IntHashTable *) The hash table
  */
 #define mp_hti_deinit(/* IntHashTable* */ ht) mp_da_deinit(ht)
 
-/// Gets a pointer to an item with key \a k and put it into \a ret.
+/// Gets a pointer to an item at key \a k.
 /**
  * \a ret becomes NULL if it could not retrieve the item.
  *
  * \param ht (const IntHashTable *) The hash table (NO SIDE EFFECTS)
  * \param k (size_t) The key
- * \param ret (<Type> *) Stores the retrieved value
+ * \return (void *) The retrieved value
  */
-#define mp_hti_get(/* const IntHashTable* */ ht, /* size_t */ k, /* <Type>* */ ret)                \
-    do {                                                                                           \
-        bool   __found = false;                                                                    \
-        size_t __i     = (size_t) ((k) % (uint64_t) ((ht)->cap - 1));                              \
-        while (__i < (ht)->cap && (((ht)->data[__i].key.valid) || (ht)->data[__i].key.key == 1)) { \
-            if ((ht)->data[__i].key.valid && (k) == (ht)->data[__i].key.key) {                     \
-                (ret)   = &(ht)->data[__i].val;                                                    \
-                __found = true;                                                                    \
-                break;                                                                             \
-            }                                                                                      \
-            ++__i;                                                                                 \
-            if (__i >= (ht)->cap)                                                                  \
-                __i = 0;                                                                           \
-        }                                                                                          \
-        if (!__found)                                                                              \
-            (ret) = NULL;                                                                          \
-    } while (0)
+#define /* void* */ mp_hti_get(/* const IntHashTable* */ ht, /* size_t */ k) __mp_hti_get((ht), (k))
+void *__mp_hti_get(const void *ht, size_t k);
 
 /// Sets the value at key \a k to \a v.
 /**
@@ -1357,29 +1360,10 @@ typedef struct {
  */
 #define mp_hti_set(/* IntHashTable* */ ht, /* size_t */ k, /* <Type> */ v)                         \
     do {                                                                                           \
-        mp_hti_grow((ht), 1);                                                                      \
-        if ((ht)->data != NULL) {                                                                  \
-            size_t __i = (size_t) ((k) % (uint64_t) ((ht)->cap - 1));                              \
-            for (;;) {                                                                             \
-                if (!(ht)->data[__i].key.valid) {                                                  \
-                    (ht)->data[__i].key = (__mp_IntHtKey) {                                        \
-                        .key   = (k),                                                              \
-                        .valid = true,                                                             \
-                    };                                                                             \
-                    (ht)->data[__i].val = (v);                                                     \
-                    break;                                                                         \
-                } else if ((ht)->data[__i].key.key == (k)) {                                       \
-                    (ht)->data[__i].val = (v);                                                     \
-                    --(ht)->len;                                                                   \
-                    break;                                                                         \
-                } else {                                                                           \
-                    ++__i;                                                                         \
-                }                                                                                  \
-                if (__i >= (ht)->cap)                                                              \
-                    __i = 0;                                                                       \
-            }                                                                                      \
-        }                                                                                          \
+        __typeof__(v) __it = (v);                                                                  \
+        __mp_hti_set((ht), (k), &__it);                                                            \
     } while (0)
+void __mp_hti_set(void *ht, size_t k, void *v);
 
 /// Grows an integer hash table by \a offset of the current length.
 /**
@@ -1393,150 +1377,74 @@ typedef struct {
  *
  * \a IntHashTable::data becomes NULL if allocation failed.
  *
- * \param ht (IntHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (IntHashTable *) The hash table
  * \param offset (size_t) The amount to grow
  */
-#define mp_hti_grow(/* IntHashTable* */ ht, /* size_t */ offset)                                   \
-    do {                                                                                           \
-        size_t __off = (offset);                                                                   \
-        if ((ht)->len + __off > (size_t) ((double) (ht)->cap * __MP_HASH_TABLE_MAX_LOAD) &&        \
-            __off > 0) {                                                                           \
-            size_t __old_cap = (ht)->cap;                                                          \
-            if ((ht)->cap == 0)                                                                    \
-                (ht)->cap = __MP_HASH_TABLE_INIT_CAPACITY;                                         \
-            while ((ht)->len + __off > (size_t) ((double) (ht)->cap * __MP_HASH_TABLE_MAX_LOAD))   \
-                (ht)->cap *= 2;                                                                    \
-            __typeof__((ht)->data) __new_data =                                                    \
-                mp_alloc((ht)->alloc, (ht)->cap * sizeof(*(ht)->data));                            \
-            for (size_t __i = 0; __i < __old_cap; ++__i) {                                         \
-                if ((ht)->data[__i].key.valid) {                                                   \
-                    size_t __new_i =                                                               \
-                        (size_t) ((ht)->data[__i].key.key % (uint64_t) ((ht)->cap - 1));           \
-                    for (;;) {                                                                     \
-                        if (!__new_data[__new_i].key.valid) {                                      \
-                            __new_data[__new_i].key = (ht)->data[__i].key;                         \
-                            __new_data[__new_i].val = (ht)->data[__i].val;                         \
-                            break;                                                                 \
-                        } else {                                                                   \
-                            ++__new_i;                                                             \
-                        }                                                                          \
-                        if (__new_i >= (ht)->cap)                                                  \
-                            __new_i = 0;                                                           \
-                    }                                                                              \
-                }                                                                                  \
-            }                                                                                      \
-            mp_free((ht)->alloc, (ht)->data, __old_cap * sizeof(*(ht)->data));                     \
-            (ht)->data = __new_data;                                                               \
-        }                                                                                          \
-        if ((ht)->data != NULL)                                                                    \
-            (ht)->len += __off;                                                                    \
-    } while (0)
+#define mp_hti_grow(/* IntHashTable* */ ht, /* size_t */ offset) __mp_hti_grow((ht), (offset))
+void __mp_hti_grow(void *ht, size_t offset);
 
 /// Sets the length of an integer hash table to 0 and invalidate its keys.
 /**
  * This resets the hash table to "initial condition" but without actually freeing the data.
  *
- * \param ht (IntHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (IntHashTable *) The hash table
  */
-#define mp_hti_reset(/* IntHashTable* */ ht)                                                       \
-    do {                                                                                           \
-        for (size_t __i = 0; __i < (ht)->cap; ++__i) {                                             \
-            if (&(ht)->data[__i].key.valid) {                                                      \
-                __MP_ZERO(&(ht)->data[__i].key);                                                   \
-            }                                                                                      \
-        }                                                                                          \
-        mp_da_reset(ht);                                                                           \
-    } while (0)
+#define mp_hti_reset(/* IntHashTable* */ ht) __mp_hti_reset(ht)
+void __mp_hti_reset(void *ht);
 
 /// Deletes an item at key \a k.
 /**
  * This decreases \a IntHashTable::len but does not actually shrink the hash table, but it just
  * marks the spot as "deleted", which may be overridden by subsequent set operations.
  *
- * \param ht (IntHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (IntHashTable *) The hash table
  * \param k (size_t) The key
  */
-#define mp_hti_delete(/* IntHashTable* */ ht, /* size_t */ k)                                      \
-    do {                                                                                           \
-        size_t __i = (size_t) ((k) % (uint64_t) ((ht)->cap - 1));                                  \
-        while (__i < (ht)->cap && (ht)->data[__i].key.valid) {                                     \
-            if ((k) == (ht)->data[__i].key.key) {                                                  \
-                (ht)->data[__i].key.valid = false;                                                 \
-                (ht)->data[__i].key.key   = 1;                                                     \
-                --(ht)->len;                                                                       \
-                break;                                                                             \
-            }                                                                                      \
-            ++__i;                                                                                 \
-            if (__i >= (ht)->cap)                                                                  \
-                __i = 0;                                                                           \
-        }                                                                                          \
-    } while (0)
+#define mp_hti_delete(/* IntHashTable* */ ht, /* size_t */ k) __mp_hti_delete((ht), (k))
+void __mp_hti_delete(void *ht, size_t k);
 
 /// Clones an integer hash table to \a dest to be managed by \a allocator.
 /**
  * \a dest inherits all fields of \a src.
  * \a dest.data becomes NULL if allocation failed.
  *
- * \param allocator (mp_Alloc) The allocator to manage \a dest (NO SIDE EFFECTS)
- * \param src (const IntHashTable *) The hash table to be cloned (NO SIDE EFFECTS)
- * \param dest (IntHashTable *) Stores the cloned hash table (NO SIDE EFFECTS)
+ * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \param src (const IntHashTable *) The hash table to be cloned
+ * \param dest (IntHashTable *) Stores the cloned hash table
  */
-#define mp_hti_clone(/* mp_Alloc */ allocator, /* const IntHashTable* */ src,                      \
+#define mp_hti_clone(/* mp_Alloc */ alloc, /* const IntHashTable* */ src,                          \
                      /* IntHashTable* */ dest)                                                     \
-    do {                                                                                           \
-        (dest)->data = mp_dup((allocator), (src)->data, (src)->cap * sizeof(*(src)->data));        \
-        if ((dest)->data != NULL) {                                                                \
-            (dest)->alloc = (allocator);                                                           \
-            (dest)->len   = (src)->len;                                                            \
-            (dest)->cap   = (src)->cap;                                                            \
-        } else {                                                                                   \
-            (dest)->alloc = mp_alloc_invalid();                                                    \
-            (dest)->len   = 0;                                                                     \
-            (dest)->cap   = 0;                                                                     \
-        }                                                                                          \
-    } while (0)
+    __mp_hti_clone((alloc), (src), (dest))
+void __mp_hti_clone(mp_Alloc alloc, const void *src, void *dest);
 
 /// Initializes an iterator on an integer hash table.
 /**
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (IntHashTableIter *) The iterator to initialize (NO SIDE EFFECTS)
+ * \param it (IntHashTableIter *) The iterator to initialize
  * \param ht (const IntHashTable *) The hash table to iterate
  */
 #define mp_hti_iter_init(/* IntHashTableIter* */ it, /* const IntHashTable* */ ht)                 \
-    do {                                                                                           \
-        __MP_ZERO(it);                                                                             \
-        (it)->_h = (ht);                                                                           \
-        mp_hti_iter_next(it);                                                                      \
-    } while (0)
+    __mp_hti_iter_init((it), (ht))
+void __mp_hti_iter_init(void *it, const void *ht);
 
 /// Get the next element in the iterator.
 /**
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (IntHashTableIter *) The iterator (NO SIDE EFFECTS)
+ * \param it (IntHashTableIter *) The iterator
+ * \return (bool) Whether it is valid to access the data
  */
-#define mp_hti_iter_next(/* IntHashTableIter* */ it)                                               \
-    do {                                                                                           \
-        (it)->ok = false;                                                                          \
-        while ((it)->_i < (it)->_h->cap) {                                                         \
-            __typeof__((it)->_h->data) __entry = (it)->_h->data + (it)->_i;                        \
-            if (__entry->key.valid) {                                                              \
-                (it)->key = __entry->key;                                                          \
-                (it)->val = __entry->val;                                                          \
-                (it)->ok  = true;                                                                  \
-                ++(it)->_i;                                                                        \
-                break;                                                                             \
-            }                                                                                      \
-            ++(it)->_i;                                                                            \
-        }                                                                                          \
-    } while (0)
+#define /* bool */ mp_hti_iter_next(/* IntHashTableIter* */ it) __mp_hti_iter_next(it)
+bool __mp_hti_iter_next(void *it);
 
 /// \}
 
 /***********
  * $ ALLOCATORS
  ***********/
+
+// TODO: Arena rewinding
 
 /**
  * \defgroup Allocators Allocators
@@ -2827,8 +2735,8 @@ void __mp_ht_deinit(void *ht) {
     mp_da_deinit(self);
 }
 
-void *__mp_ht_get(void *ht, mp_Str k) {
-    __mp_DynArray *self = ht;
+void *__mp_ht_get(const void *ht, mp_Str k) {
+    const __mp_DynArray *self = ht;
     if (mp_str_is_valid(k)) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
@@ -3013,6 +2921,162 @@ uint64_t __mp_ht_hash_str(const mp_Str *str) {
         hash *= __MP_FNV_PRIME;
     }
     return hash;
+}
+
+void *__mp_hti_get(const void *ht, size_t k) {
+    const __mp_DynArray *self = ht;
+    size_t               i    = (size_t) (k % (uint64_t) (self->cap - 1));
+    for (;;) {
+        __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+        if (e->key.valid && k == e->key.key) {
+            return &e->val;
+        }
+        ++i;
+        if (i >= self->cap) {
+            i = 0;
+        }
+        if (!e->key.valid && e->key.key != 1) {
+            break;
+        }
+    }
+    return NULL;
+}
+
+void __mp_hti_set(void *ht, size_t k, void *v) {
+    __mp_DynArray *self = ht;
+    mp_hti_grow(self, 1);
+    if (self->data != NULL) {
+        size_t i = (size_t) (k % (uint64_t) (self->cap - 1));
+        for (;;) {
+            __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+            if (!e->key.valid) {
+                e->key = (__mp_IntHtKey) {
+                    .key   = k,
+                    .valid = true,
+                };
+                memcpy(&e->val, v, self->size - sizeof(e->key));
+                break;
+            } else if (e->key.key == k) {
+                memcpy(&e->val, v, self->size - sizeof(e->key));
+                --self->len;
+                break;
+            } else {
+                ++i;
+            }
+            if (i >= self->cap) {
+                i = 0;
+            }
+        }
+    }
+}
+
+void __mp_hti_grow(void *ht, size_t offset) {
+    __mp_DynArray *self = ht;
+    if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
+        offset > 0) {
+        size_t old_cap = self->cap;
+        if (self->cap == 0) {
+            self->cap = __MP_HASH_TABLE_INIT_CAPACITY;
+        }
+        while (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD)) {
+            self->cap *= 2;
+        }
+        void *new_data = mp_alloc(self->alloc, self->cap * self->size);
+        if (new_data == NULL) {
+            self->data = NULL;
+            return;
+        }
+        for (size_t i = 0; i < old_cap; ++i) {
+            __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+            if (e->key.valid) {
+                size_t new_i = (size_t) (e->key.key % (uint64_t) (self->cap - 1));
+                for (;;) {
+                    __mp_IntHashTableEntry *new_e =
+                        (__mp_IntHashTableEntry *) ((char *) new_data + new_i * self->size);
+                    if (!new_e->key.valid) {
+                        new_e->key = e->key;
+                        memcpy(&new_e->val, &e->val, self->size - sizeof(e->key));
+                        break;
+                    } else {
+                        ++new_i;
+                    }
+                    if (new_i >= self->cap) {
+                        new_i = 0;
+                    }
+                }
+            }
+        }
+        mp_free(self->alloc, self->data, old_cap * self->size);
+        self->data = new_data;
+    }
+    self->len += offset;
+}
+
+void __mp_hti_reset(void *ht) {
+    __mp_DynArray *self = ht;
+    for (size_t i = 0; i < self->cap; ++i) {
+        __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+        if (e->key.valid) {
+            __MP_ZERO(&e->key);
+        }
+    }
+    mp_da_reset(self);
+}
+
+void __mp_hti_delete(void *ht, size_t k) {
+    __mp_DynArray *self = ht;
+    size_t         i    = (size_t) (k % (uint64_t) (self->cap - 1));
+    for (;;) {
+        __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+        if (e->key.valid && k == e->key.key) {
+            e->key.valid = false;
+            e->key.key   = 1;
+            --self->len;
+            break;
+        }
+        ++i;
+        if (i >= self->cap) {
+            i = 0;
+        }
+        if (!e->key.valid) {
+            break;
+        }
+    }
+}
+
+void __mp_hti_clone(mp_Alloc alloc, const void *src, void *dest) {
+    const __mp_DynArray *s = src;
+    __mp_DynArray       *d = dest;
+    __MP_ZERO(d);
+    d->data = mp_dup(alloc, s->data, s->cap * s->size);
+    if (d->data != NULL) {
+        d->alloc = alloc;
+        d->len   = s->len;
+        d->cap   = s->cap;
+        d->size  = s->size;
+    }
+}
+
+void __mp_hti_iter_init(void *it, const void *ht) {
+    __mp_IntHashTableIter *self = it;
+    const __mp_DynArray   *h    = ht;
+    memset(self, 0, sizeof(*self) + h->size);
+    self->_h = h;
+}
+
+bool __mp_hti_iter_next(void *it) {
+    __mp_IntHashTableIter *self = it;
+    while (self->_i < self->_h->cap) {
+        __mp_IntHashTableEntry *entry = __mp_da_get(__mp_IntHashTableEntry, self->_h, self->_i);
+        if (entry->key.valid) {
+            self->key = entry->key;
+            memcpy(&self->val, &entry->val, self->_h->size);
+            ++self->_i;
+            return true;
+        }
+        ++self->_i;
+    }
+    return false;
 }
 
 mp_Region *mp_region_init(mp_Alloc alloc, size_t cap) {

@@ -15,6 +15,7 @@ A library to help with memory allocation and other useful things in C.
 - [x] File IO
 - [ ] Logging
 - [ ] Tracking allocator
+- [ ] Testing
 - [ ] Subprocess
 - [ ] Other kinds of allocators
 - [ ] Socket IO
