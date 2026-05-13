@@ -101,6 +101,16 @@ int main(void) {
 
     mp_da_deinit(&array3);
 
+    // Quick initialization
+    ArrayInt32 array4;
+    mp_da_init_with(ArrayInt32, &array4, alloc, 1, 2, 3, 4, 5);
+    expect_eq(array4.len, (size_t) 5, "%zu");
+    expect_eq(mp_da_get(&array4, 0), (int32_t) 1, "%d");
+    expect_eq(mp_da_get(&array4, 1), (int32_t) 2, "%d");
+    expect_eq(mp_da_get(&array4, 2), (int32_t) 3, "%d");
+    expect_eq(mp_da_get(&array4, 3), (int32_t) 4, "%d");
+    expect_eq(mp_da_get(&array4, 4), (int32_t) 5, "%d");
+
     return 0;
 
 fail:

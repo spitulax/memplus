@@ -440,12 +440,20 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * mp_da_create(int, ArrayInt);
  * \endcode
  *
- * Declare an array then use \ref mp_da_init and pass an allocator to manage the array. This does
- * not allocate the data immediately. But only once you append something to the array.
+ * Declare an array then use \ref mp_da_init or \ref mp_da_init_with and pass an allocator to manage
+ * the array. \ref mp_da_init does not allocate the data immediately. But only once you append
+ * something to the array.
+ *
  * \code
  * ArrayInt array;
- * mp_da_init(&array, alloc);
+ * mp_da_init(ArrayInt, &array, alloc);
  * mp_da_append(&array, 0);
+ * mp_da_append_many(&array, 1, 2);
+ * \endcode
+ *
+ * \code
+ * ArrayInt array;
+ * mp_da_init_with(ArrayInt, &array, alloc, 0, 1, 2);
  * \endcode
  *
  * By default, arrays start allocating memory for a certain number of elements, and if
@@ -507,7 +515,7 @@ typedef struct {
     void    *data;
 } __mp_DynArray;
 
-/// Initializes a new dynamic array managed by \a allocator.
+/// Initializes a new dynamic array managed by \a alloc.
 /**
  * Deinit with \ref mp_da_deinit.
  *
@@ -522,6 +530,26 @@ typedef struct {
 #define mp_da_init(/* Type */ type, /* DynArray* */ a, /* mp_Alloc */ alloc)                       \
     __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data))
 void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
+
+/// Initializes a new dynamic array managed by \a alloc and appends items to it.
+/**
+ * Deinit with \ref mp_da_deinit.
+ *
+ * \a a should not have been already initialized.
+ *
+ * \a DynArray::data becomes NULL if allocation failed.
+ *
+ * \param type (Type) The type of the array
+ * \param a (DynArray *) The array
+ * \param alloc (mp_Alloc) The allocator to manage the array
+ * \param ... (DataType...) The values to append
+ */
+#define mp_da_init_with(/* Type */ type, /* DynArray* */ a, /* mp_Alloc */ alloc,                  \
+                        /* DataType... */...)                                                      \
+    do {                                                                                           \
+        mp_da_init(type, (a), (alloc));                                                            \
+        mp_da_append_many((a), __VA_ARGS__);                                                       \
+    } while (0)
 
 /// Frees a dynamic array.
 /**
