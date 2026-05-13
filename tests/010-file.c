@@ -13,6 +13,8 @@ void del(void) {
 }
 
 int main(void) {
+    // Don't test on Windows
+#ifndef __MP_SYSTEM_WINDOWS
     mp_File  f;
     mp_Err   e;
     mp_Io    io;
@@ -62,11 +64,11 @@ int main(void) {
         mp_io_setbuf(&io, buf, sizeof(buf), MP_SETBUFMODE_LINE);
         expect_erreq(ie, MP_IOERR_NONE, mp_ioerr_str);
 
-#ifdef __GLIBC__
-    #define _IO_USER_BUF 1
+    #ifdef __GLIBC__
+        #define _IO_USER_BUF 1
         expect((f.file->_flags & _IO_USER_BUF) != 0);
-    #undef _IO_USER_BUF
-#endif
+        #undef _IO_USER_BUF
+    #endif
 
         e = mp_file_reopen(&f, ".foo", "r");
         expect_erreq(e, MP_ERR_NONE, mp_err_str);
@@ -100,4 +102,8 @@ int main(void) {
 fail:
     del();
     exit(1);
+
+#else
+    return 0;
+#endif
 }

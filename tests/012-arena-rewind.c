@@ -54,6 +54,8 @@ int main(void) {
         expect(*i2 == *i3);
     }
 
+    return 0;
+
 fail:
     exit(1);
 }

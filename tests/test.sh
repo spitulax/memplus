@@ -46,10 +46,11 @@ run () {
                 else
                     "$name"
                 fi
+                local status=$?
                 local done=$(date +%s%N)
                 local dur_ns=$(($done - $start))
                 local dur_us=$(($dur_ns / 1000))
-                if [[ $? -eq 0 ]]; then
+                if [[ $status -eq 0 ]]; then
                     echo -e "${GREEN}>> $f successful in ${dur_us} microseconds${RESET}"
                 else
                     echo -e "${RED}>> $f failed in ${dur_us} microseconds${RESET}"

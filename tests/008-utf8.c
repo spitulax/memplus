@@ -5,6 +5,8 @@
 #include "test.h"
 
 int main(void) {
+    // Don't test on Windows
+#ifndef __MP_SYSTEM_WINDOWS
     const char *all_kinds =
         " ab국ꦧ𑨀魈􏾀\x80\xC0\xC0\xA0\xE0\xA0\x20\xF4\x90\x90\x90\xED\xA0\x80";
 
@@ -27,7 +29,9 @@ int main(void) {
         mp_Utf8Char ch = mp_utf8_char_s(c.c, c.size);
         if (valid) {
             expect_eq(c.codepoint, codepoints[i], "%d");
-            expect_memeq(&c, &ch, sizeof(ch));
+            expect_eq(c.size, ch.size, "%hhu");
+            expect_eq(c.c, ch.c, "%p");
+            expect_eq(c.codepoint, ch.codepoint, "%04X");
             expect_eq(mp_utf8char_is_valid(ch), valid, "%d");
         }
         size_copy -= c.size;
@@ -83,4 +87,8 @@ int main(void) {
 
 fail:
     exit(1);
+
+#else
+    return 0;
+#endif
 }
