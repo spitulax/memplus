@@ -917,7 +917,7 @@ void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
  */
 mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc);
 
-// DOCS:
+// DOCS: `sep` is nullable
 mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc);
 
 /// \}
@@ -1297,10 +1297,63 @@ bool __mp_ht_iter_next(void *it);
 // Hashes a string with FNV-1a hash algorithm.
 uint64_t __mp_ht_hash_str(const mp_Str *str);
 
+/** \defgroup HashSetString Hash Set (String)
+ *
+ * Hash set with string (**null-terminated**) key.
+ * Represented by a \ref HashTableString "string hash table" with opaque value.
+ *
+ * See \ref HashTableString for details about the actual representation.
+ *
+ * # Usage
+ *
+ * Initialize (and deinitialize) like regular hash tables.
+ * \code
+ * mp_StrSet set;
+ * mp_ht_init(mp_StrSet, &set, mp_heap());
+ * mp_ht_deinit(&set);
+ * \endcode
+ *
+ * The primary usage of this is for setting keys. The value can be whatever but using NULL is
+ * preferred.
+ * \code
+ * mp_ht_set(&set, "foo", NULL);
+ * \endcode
+ *
+ * Getting the pointer to the value is a valid way to assess if the key spot is already occupied.
+ * But dereferencing the pointer does not give meaningful result.
+ * \code
+ * void *v = mp_ht_get(&set, "foo");    // v is not NULL if "foo" exists, alternatively...
+ * mp_ht_exists(&set, "foo");           // true if "foo" exists
+ * \endcode
+ *
+ * Also, iterators can be constructed from hash sets.
+ *
+ * \{
+ */
+
+/// String hash set, essentially just string hash table with opaque value.
+typedef struct {
+    /// The backing allocator.
+    mp_Alloc alloc;
+    /// The amount of used data.
+    size_t len;
+    /// The size of the allocated buffer.
+    size_t cap;
+    /// The size of each entry, since the values are opaque, it is equal to the size of the key.
+    size_t size;
+    /// The entries.
+    __mp_StrHashTableEntry *data;
+} mp_StrSet;
+
+/// Iterator for \ref HashSetString "string hash sets".
+typedef __mp_StrHashTableIter mp_StrSetIter;
+
+/// \}
+
 /// \}
 
 /***********
- * $ HASH TABLE (INTEGER KEY) %
+ * $ HASH TABLE (INTEGER KEY)
  ***********/
 
 /**
@@ -1524,6 +1577,59 @@ void __mp_hti_iter_init(void *it, const void *ht);
  */
 #define /* bool */ mp_hti_iter_next(/* IntHashTableIter* */ it) __mp_hti_iter_next(it)
 bool __mp_hti_iter_next(void *it);
+
+/** \defgroup HashSetInt Hash Set (Integer)
+ *
+ * Hash set with integer key.
+ * Represented by a \ref HashTableInt "integer hash table" with opaque value.
+ *
+ * See \ref HashTableInt for details about the actual representation.
+ *
+ * # Usage
+ *
+ * Initialize (and deinitialize) like regular hash tables.
+ * \code
+ * mp_IntSet set;
+ * mp_hti_init(mp_IntSet, &set, mp_heap());
+ * mp_hti_deinit(&set);
+ * \endcode
+ *
+ * The primary usage of this is for setting keys. The value can be whatever but using NULL is
+ * preferred.
+ * \code
+ * mp_hti_set(&set, 0, NULL);
+ * \endcode
+ *
+ * Getting the pointer to the value is a valid way to assess if the key spot is already occupied.
+ * But dereferencing the pointer does not give meaningful result.
+ * \code
+ * void *v = mp_hti_get(&set, 0);   // v is not NULL if key 0 exists, alternatively...
+ * mp_hti_exists(&set, 0);      // true if key 0 exists
+ * \endcode
+ *
+ * Also, iterators can be constructed from hash sets.
+ *
+ * \{
+ */
+
+/// Integer hash set, essentially just integer hash table with opaque value.
+typedef struct {
+    /// The backing allocator.
+    mp_Alloc alloc;
+    /// The amount of used data.
+    size_t len;
+    /// The size of the allocated buffer.
+    size_t cap;
+    /// The size of each entry, since the values are opaque, it is equal to the size of the key.
+    size_t size;
+    /// The entries.
+    __mp_IntHashTableEntry *data;
+} mp_IntSet;
+
+/// Iterator for \ref HashSetInt "integer hash sets".
+typedef __mp_IntHashTableIter mp_IntSetIter;
+
+/// \}
 
 /// \}
 
@@ -3025,6 +3131,9 @@ void __mp_ht_deinit(void *ht) {
 
 void *__mp_ht_get(const void *ht, mp_Str k) {
     const __mp_DynArray *self = ht;
+    if (self->cap == 0) {
+        return NULL;
+    }
     if (mp_str_is_valid(k)) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
@@ -3184,7 +3293,7 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
 void __mp_ht_iter_init(void *it, const void *ht) {
     __mp_StrHashTableIter *self = it;
     const __mp_DynArray   *h    = ht;
-    memset(self, 0, sizeof(*self) + h->size);
+    memset(self, 0, sizeof(*self) + (h->size - sizeof(self->key)));
     self->_h = h;
 }
 
@@ -3194,7 +3303,7 @@ bool __mp_ht_iter_next(void *it) {
         __mp_StrHashTableEntry *entry = __mp_da_get(__mp_StrHashTableEntry, self->_h, self->_i);
         if (mp_str_is_valid(entry->key)) {
             self->key = entry->key;
-            memcpy(&self->val, &entry->val, self->_h->size);
+            memcpy(&self->val, &entry->val, self->_h->size - sizeof(self->key));
             ++self->_i;
             return true;
         }
@@ -3217,7 +3326,10 @@ uint64_t __mp_ht_hash_str(const mp_Str *str) {
 
 void *__mp_hti_get(const void *ht, size_t k) {
     const __mp_DynArray *self = ht;
-    size_t               i    = (size_t) (k % (uint64_t) (self->cap - 1));
+    if (self->cap == 0) {
+        return NULL;
+    }
+    size_t i = (size_t) (k % (uint64_t) (self->cap - 1));
     for (;;) {
         __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
         if (e->key.valid && k == e->key.key) {
@@ -3356,7 +3468,7 @@ void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
 void __mp_hti_iter_init(void *it, const void *ht) {
     __mp_IntHashTableIter *self = it;
     const __mp_DynArray   *h    = ht;
-    memset(self, 0, sizeof(*self) + h->size);
+    memset(self, 0, sizeof(*self) + (h->size - sizeof(self->key)));
     self->_h = h;
 }
 
@@ -3366,7 +3478,7 @@ bool __mp_hti_iter_next(void *it) {
         __mp_IntHashTableEntry *entry = __mp_da_get(__mp_IntHashTableEntry, self->_h, self->_i);
         if (entry->key.valid) {
             self->key = entry->key;
-            memcpy(&self->val, &entry->val, self->_h->size);
+            memcpy(&self->val, &entry->val, self->_h->size - sizeof(self->key));
             ++self->_i;
             return true;
         }

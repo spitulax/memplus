@@ -12,6 +12,7 @@ A library to help with memory allocation and other useful things in C.
 - [x] String builder
 - [x] UTF-8 string support
 - [x] Hash table
+- [x] Hash set
 - [x] File IO
 - [ ] Logging
 - [ ] Tracking allocator

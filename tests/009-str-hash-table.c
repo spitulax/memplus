@@ -15,6 +15,8 @@ int main(void) {
     HashTableInt ht;
     mp_ht_init(HashTableInt, &ht, alloc);
 
+    expect_eq(mp_ht_get(&ht, "foo"), NULL, "%p");
+
     // Simple set/get test
     mp_ht_set(&ht, "foo", 69);
     mp_ht_set(&ht, "bar", 420);
