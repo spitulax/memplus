@@ -31,7 +31,6 @@
  */
 
 // TODO: Funcs
-// mp_utf8_get(_s), mp_utf8_getp(_s), mp_utf8_char
 // mp_str_builder_appendc
 // mp_str_to_lower, mp_str_to_upper
 
@@ -803,7 +802,7 @@ typedef struct {
         .cstr = NULL,                                                                              \
     })
 
-/// Tests if an \ref mp_Str is valid (i.e. field \a cstr is not NULL).
+/// Tests whether an \ref mp_Str is valid (i.e. field \a cstr is not NULL).
 /**
  * Returns true if \a s is valid.
  *
@@ -1150,7 +1149,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
     } while (0)
 void __mp_ht_set(void *ht, mp_Str k, void *v);
 
-/// Tests if an item at key \a k exists in the given string hash table.
+/// Tests whether an item at key \a k exists in the given string hash table.
 /**
  * \param ht (const StrHashTable *) The hash table
  * \param k (const char *) The key
@@ -1402,7 +1401,7 @@ void *__mp_hti_get(const void *ht, size_t k);
     } while (0)
 void __mp_hti_set(void *ht, size_t k, void *v);
 
-/// Tests if an item at key \a k exists in the given int hash table.
+/// Tests whether an item at key \a k exists in the given int hash table.
 /**
  * \param ht (const IntHashTable *) The hash table
  * \param k (size_t) The key
@@ -1874,32 +1873,139 @@ mp_Alloc mp_heap_alloc(void);
  * \{
  */
 
+/// Stores a pointer to a character and its UTF-8 metadata.
+typedef struct {
+    /// The size of the character (in bytes)
+    unsigned char size;
+    /// The Unicode codepoint of the character
+    unsigned int codepoint;
+    /// The pointer to the start of the character
+    const char *c;
+} mp_Utf8Char;
+
+/// Returns an invalid \ref mp_Utf8Char.
+/**
+ * An invalid \ref mp_Utf8Char requires that field \a codepoint is the maximum possible value of
+ * `unsigned int`.
+ *
+ * An invalid \ref mp_Utf8Char only means that it is not a valid UTF-8 character, but the underlying
+ * bytes may still exist and are accessible.
+ * Invalid does not always mean inacessible, so `c` and `size` may still be usable.
+ *
+ * \param ch (const char *) The start of the error character (nullable)
+ * \param sz (unsigned char) The size of the error character (should be zero if \a ch is NULL)
+ * \return (mp_Utf8Char) An invalid character
+ */
+#define /* mp_Utf8Char */ mp_utf8char_invalid(/* const char* */ ch, /* unsigned char */ sz)        \
+    ((mp_Utf8Char) {                                                                               \
+        .size      = (sz),                                                                         \
+        .codepoint = (unsigned int) -1,                                                            \
+        .c         = (ch),                                                                         \
+    })
+
+/// Shortcut for printing a \ref mp_Utf8Char, use with `%.*s` formt specifier.
+#define mp_utf8char_print(ch) (ch).size, (ch).c
+
+/// Tests whether an \ref mp_Utf8Char is a valid UTF-8 character.
+/**
+ * An invalid \ref mp_Utf8Char requires that field \a codepoint is the maximum possible value of
+ * `unsigned int`.
+ *
+ * The bytes may still be accessible, test with \ref mp_utf8char_is_accessible.
+ *
+ * \param c (mp_Utf8Char) The character
+ * \return (bool) Whether \a c is a valid UTF-8 character.
+ */
+#define /* bool */ mp_utf8char_is_valid(/* mp_Utf8Char */ c) ((c).codepoint != (unsigned int) -1)
+
+/// Tests whether an \ref mp_Utf8Char is accessible.
+/**
+ * \param ch (mp_Utf8Char) The charactr
+ * \return (bool) Whether \a c is accessible
+ */
+#define /* bool */ mp_utf8char_is_accessible(/* mp_Utf8Char */ ch) ((ch).c != NULL)
+
+/// Takes the first valid UTF-8 character or an error character from a string.
+/**
+ * After calling this function, \a str will point to the character after the retrieved character and
+ * \a size is decremented according to the size of the retrieved character.
+ *
+ * The returned character may be a valid UTF-8 character or an invalid error character. Check with
+ * \ref mp_utf8char_is_valid.
+ *
+ * When an error occurs, it will return the error character. The error character may be more than
+ * one bytes if the first character expects that some bytes follow it, but the string ends before it
+ * gets the required amount of bytes, or one of the bytes is not a valid byte (the error string ends
+ * just before it). For more details see <https://en.wikipedia.org/wiki/UTF-8#Error_handling>.
+ *
+ * \param str The pointer to the string
+ * \param size The pointer to the size of \a str (in bytes)
+ * \return The metadata about the character
+ */
+mp_Utf8Char mp_utf8_take(const char **str, size_t *size);
+
+/// Gets a \ref mp_Utf8Char from a **null-terminated** string.
+/**
+ * This function will only read the first UTF-8 character from \a c.
+ *
+ * Returns invalid \ref mp_Utf8Char if \a c is not a valid UTF-8 character.
+ *
+ * \param c The string (**null-terminated**)
+ * \return The character metadata
+ */
+mp_Utf8Char mp_utf8_char(const char *c);
+
+/// Gets a \ref mp_Utf8Char from a string.
+/**
+ * See \ref mp_utf8_char.
+ *
+ * \param c The string
+ * \param size The size of \a str (in bytes)
+ * \return The character metadata
+ */
+mp_Utf8Char mp_utf8_char_s(const char *c, size_t size);
+
 /// Calculate the amount of characters in a **null-terminated** UTF-8 string.
 /**
  * Use \ref mp_utf8_len_s for non-null-terminated strings.
  *
- * Invalid UTF-8 characters will be counted as individual bytes.
- *
- * \param str The UTF-8 string (null-terminated)
+ * \param str The string (**null-terminated**)
  * \return The amount of characters in \a str
  */
 size_t mp_utf8_len(const char *str);
 
 /// Calculate the amount of characters in a UTF-8 string with size parameter (in bytes).
 /**
- * Invalid UTF-8 characters will be counted as individual bytes.
- *
- * \param str The UTF-8 string
+ * \param str The string
  * \param size The size of \a str (in bytes)
  * \return The amount of characters in \a str
  */
 size_t mp_utf8_len_s(const char *str, size_t size);
 
+/// Gets a UTF-8 character from a **null-terminated** string at \a index.
+/**
+ * Returns an invalid \ref mp_Utf8Char if out of bounds.
+ *
+ * \param str The string (**null-terminated**)
+ * \param index The index
+ * \return The character at \a index
+ */
+mp_Utf8Char mp_utf8_get(const char *str, size_t index);
+
+/// Gets a UTF-8 character from a string at \a index.
+/**
+ * See \ref mp_utf8_get.
+ *
+ * \param str The string
+ * \param size The size of \a str (in bytes)
+ * \param index The index
+ * \return The character at \a index
+ */
+mp_Utf8Char mp_utf8_get_s(const char *str, size_t size, size_t index);
+
 /// Iterator for UTF-8 strings.
 /**
- * \a c and \a c_len can be accessed to get the current character's information.
- *
- * Upon encountering an invalid UTF-8 byte, the iterator would yield the byte immediately.
+ * \a c can be accessed to get the current character's information.
  *
  * # Usage
  *
@@ -1907,38 +2013,32 @@ size_t mp_utf8_len_s(const char *str, size_t size);
  * const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂)⸝♡􏾀";
  * mp_Utf8Iter iter = mp_utf8_iter_new(utf8);
  * while (mp_utf8_iter_next(&iter)) {
- *     (void) iter.c;      // The current character (char[4])
- *     (void) iter.c_len;  // The current character size (in bytes)
+ *     (void) iter.c;      // The current character (mp_Utf8Char)
  * }
  * \endcode
  */
 typedef struct {
     /// Holds the current character in iteration.
-    char c[4];
-    /// Holds the current character's size (in bytes).
-    char c_len;
+    mp_Utf8Char c;
 
-    /// The UTF-8 string being iterated on.
+    /// The string being iterated on.
     const char *_str;
-    /// The size of the string (in bytes).
+    /// The remaining size of the string (in bytes).
     size_t _size;
-    /// The current index of the iteration (in bytes).
-    size_t _i;
 } mp_Utf8Iter;
 
-/// Creates a new \ref mp_Utf8Iter that iterates over a **null-terminated** UTF-8 string.
+/// Creates a new \ref mp_Utf8Iter that iterates over a **null-terminated** string.
 /**
  * Use \ref mp_utf8_iter_new_s for non-null-terminated strings.
  *
  * See \ref mp_Utf8Iter for usage.
  *
- * \param str The UTF-8 string (null-terminated)
+ * \param str The UTF-8 string (**null-terminated**)
  * \return The iterator
  */
 mp_Utf8Iter mp_utf8_iter_new(const char *str);
 
-/// Creates a new \ref mp_Utf8Iter that iterates over a UTF-8 string with size parameter (in
-/// bytes).
+/// Creates a new \ref mp_Utf8Iter that iterates over a string with size parameter (in bytes).
 /**
  * See \ref mp_Utf8Iter for usage.
  *
@@ -1951,6 +2051,8 @@ mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
 /// Continues iterating an \ref mp_Utf8Iter.
 /**
  * See \ref mp_Utf8Iter for usage.
+ *
+ * This function consumes \a mp_Utf8Iter::_str.
  *
  * \param it The iterator
  * \return Whether it is valid to access the data
@@ -2472,7 +2574,7 @@ struct mp_Io {
         .f       = NULL,                                                                           \
     })
 
-/// Tests if \a io is valid (i.e. field \a type is not MP_IOTYPE_NONE).
+/// Tests whether \a io is valid (i.e. field \a type is not MP_IOTYPE_NONE).
 /**
  * Returns true if \a io is valid.
  *
@@ -3499,24 +3601,130 @@ static void *mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, s
     __MP_UNREACHABLE();
 }
 
+// Thanks, Wikipedia! <https://en.wikipedia.org/wiki/UTF-8#Description>
+mp_Utf8Char mp_utf8_take(const char **str, size_t *size) {
+    if (!(str != NULL && *str != NULL)) {
+        return mp_utf8char_invalid(NULL, 0);
+    }
+    if (*size == 0) {
+        return mp_utf8char_invalid(NULL, 0);
+    }
+    const char   *ch    = *str;
+    unsigned char first = (unsigned char) ch[0];
+
+    unsigned char char_size           = 0;
+    unsigned char actual_decoded_size = 0;
+    if (first <= 0x7F) {
+        char_size = 1;
+    } else if (first >= 0xC0 && first <= 0xDF) {
+        char_size = 2;
+    } else if (first >= 0xE0 && first <= 0xEF) {
+        char_size = 3;
+    } else if (first >= 0xF0) {
+        char_size = 4;
+    } else {
+        goto fail;
+    }
+
+    unsigned int codepoint = 0x00;
+    for (unsigned char i = 1; i <= char_size; ++i) {
+        if (i > *size) {
+            goto fail;
+        }
+
+        unsigned char byte  = (unsigned char) ch[i - 1];
+        unsigned char order = char_size - i;
+
+        if (i == 1) {
+            unsigned char second_shift = (char_size == 1) ? char_size : char_size + 1;
+            codepoint |= (unsigned int) ((byte & (0xFF >> second_shift)) << 6 * (char_size - 1));
+        } else {
+            // not a "continuation byte"
+            if (!(byte >= 0x80 && byte <= 0xBF)) {
+                goto fail;
+            }
+            codepoint |= (unsigned int) (byte & 0x3F) << 6 * order;
+        }
+        ++actual_decoded_size;
+    }
+
+    MEMPLUS_ASSERT(char_size == actual_decoded_size);
+
+    // checking for overlong encoding
+    if ((actual_decoded_size == 2 && !(codepoint >= 0x0080 && codepoint <= 0x07FF)) ||
+        (actual_decoded_size == 3 && !(codepoint >= 0x0800 && codepoint <= 0xFFFF)) ||
+        (actual_decoded_size == 4 && !(codepoint >= 0x010000))) {
+        goto fail;
+    }
+
+    // surrogates
+    if (codepoint >= 0xD800 && codepoint <= 0xDFFF) {
+        goto fail;
+    }
+
+    if (codepoint > 0x10FFFF) {
+        goto fail;
+    }
+
+    *str += char_size;
+    *size -= char_size;
+
+    return (mp_Utf8Char) {
+        .size      = char_size,
+        .c         = ch,
+        .codepoint = codepoint,
+    };
+
+fail:
+    if (actual_decoded_size == 0) {
+        actual_decoded_size = 1;
+    }
+    *str += actual_decoded_size;
+    *size -= actual_decoded_size;
+    return mp_utf8char_invalid(ch, actual_decoded_size);
+}
+
+mp_Utf8Char mp_utf8_char(const char *c) {
+    return mp_utf8_char_s(c, strlen(c));
+}
+
+mp_Utf8Char mp_utf8_char_s(const char *c, size_t size) {
+    return mp_utf8_take(&c, &size);
+}
+
 size_t mp_utf8_len(const char *str) {
     return mp_utf8_len_s(str, strlen(str));
 }
 
 size_t mp_utf8_len_s(const char *str, size_t size) {
-    mp_Utf8Iter iter = mp_utf8_iter_new_s(str, size);
-    size_t      len  = 0;
-    while (mp_utf8_iter_next(&iter)) {
+    size_t      len = 0;
+    mp_Utf8Char c;
+    while ((c = mp_utf8_take(&str, &size)).c != NULL) {
         ++len;
     }
     return len;
+}
+
+mp_Utf8Char mp_utf8_get(const char *str, size_t index) {
+    return mp_utf8_get_s(str, strlen(str), index);
+}
+
+mp_Utf8Char mp_utf8_get_s(const char *str, size_t size, size_t index) {
+    size_t      i = 0;
+    mp_Utf8Char c;
+    while ((c = mp_utf8_take(&str, &size)).c != NULL) {
+        if (index == i) {
+            return c;
+        }
+        ++i;
+    }
+    return mp_utf8char_invalid(NULL, 0);
 }
 
 mp_Utf8Iter mp_utf8_iter_new(const char *str) {
     return (mp_Utf8Iter) {
         ._str  = str,
         ._size = strlen(str),
-        ._i    = 0,
     };
 }
 
@@ -3524,52 +3732,12 @@ mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size) {
     return (mp_Utf8Iter) {
         ._str  = str,
         ._size = size,
-        ._i    = 0,
     };
 }
 
 bool mp_utf8_iter_next(mp_Utf8Iter *it) {
-    if (it->_i >= it->_size) {
-        return false;
-    }
-
-    char byte = it->_str[it->_i];
-
-    char bytes_should_take = 0;
-    for (size_t j = 0; j < 4; ++j) {
-        char bit = (byte >> (7 - j)) & 0x1;
-        if (bit == 0) {
-            break;
-        } else {
-            ++bytes_should_take;
-        }
-    }
-
-    // For invalid characters, `bytes_should_take` should be 1
-
-    if (bytes_should_take == 0) {
-        bytes_should_take = 1;
-    } else if (bytes_should_take == 1) {
-        bytes_should_take = 1;
-    }
-
-    if (it->_i + (size_t) bytes_should_take > it->_size) {
-        bytes_should_take = 1;
-    } else {
-        for (char i = 1; i < bytes_should_take; ++i) {
-            char byte = it->_str[it->_i + (size_t) i];
-            if (((byte >> 6) & 0x3) != 0x2) {
-                bytes_should_take = 1;
-            }
-        }
-    }
-
-    memcpy(it->c, it->_str + it->_i, (size_t) bytes_should_take);
-    it->c_len = bytes_should_take;
-
-    it->_i += (size_t) bytes_should_take;
-
-    return true;
+    it->c = mp_utf8_take(&it->_str, &it->_size);
+    return mp_utf8char_is_accessible(it->c);
 }
 
 mp_Err mp_err(int errnum) {
