@@ -106,7 +106,7 @@
 #endif
 
 // Define custom assert by modidying the definition of `__mp_assert_fail()`
-#if !(defined(MEMPLUS_ASSERT) && defined(MEMPLUS_ASSERT_MSG))
+#if !(defined(__MP_ASSERT) && defined(__MP_ASSERT_MSG))
 
     #if __STDC_VERSION__ >= 201112L
         #define __MP_NORETURN _Noreturn
@@ -121,28 +121,30 @@
 __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, const char *func,
                                     size_t line, const char *msg);
 
+    /// \cond
     #ifdef NDEBUG
-        #define MEMPLUS_ASSERT(expr)
-        #define MEMPLUS_ASSERT_MSG(expr, msg)
+        #define __MP_ASSERT(expr)
+        #define __MP_ASSERT_MSG(expr, msg)
     #else
-        #define MEMPLUS_ASSERT(expr)                                                               \
+        #define __MP_ASSERT(expr)                                                                  \
             ((expr) ? (void) 0 : __mp_assert_fail(#expr, __FILE__, __func__, __LINE__, ""))
 
-        #define MEMPLUS_ASSERT_MSG(expr, msg)                                                      \
+        #define __MP_ASSERT_MSG(expr, msg)                                                         \
             ((expr) ? (void) 0 : __mp_assert_fail(#expr, __FILE__, __func__, __LINE__, (msg)))
     #endif
+    /// \endcond
 
 #endif
 
 // Assumed have the same behavior as stdlib's `calloc(..., 1)`.
-#ifndef MEMPLUS_ALLOC
+#ifndef __MP_ALLOC
     #include <stdlib.h>
-    #define MEMPLUS_ALLOC(size) calloc((size), 1)
+    #define __MP_ALLOC(size) calloc((size), 1)
 #endif
 // Must have the same signature and behavior as stdlib's `free`.
-#ifndef MEMPLUS_FREE
+#ifndef __MP_FREE
     #include <stdlib.h>
-    #define MEMPLUS_FREE free
+    #define __MP_FREE free
 #endif
 
 /// The version of the library.
@@ -154,7 +156,7 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
 
 // "Private" macros that are used outside of the implementation block.
 #define __MP_ZERO(ptr)            memset((ptr), 0, sizeof(*(ptr)))
-#define __MP_BOUNDS_CHECK(i, len) MEMPLUS_ASSERT_MSG((i) < (len), "Array index out of bounds")
+#define __MP_BOUNDS_CHECK(i, len) __MP_ASSERT_MSG((i) < (len), "Array index out of bounds")
 #if defined(__GNUC__) || defined(__clang__)
     #define __MP_PRINTF_FORMAT(fmt_index)                                                          \
         __attribute__((format(printf, (fmt_index), (fmt_index) + 1)))
@@ -347,9 +349,9 @@ typedef struct {
 /**
  * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
  * \param type (identifier) The type of the allocated data
- * \returns (\a <Type> *) The pointer to the newly allocated block that has the size of \a type
+ * \returns (\a Type *) The pointer to the newly allocated block that has the size of \a type
  */
-#define /* <Type>* */ mp_create(/* mp_Alloc */ alloc, /* Type */ type)                             \
+#define /* Type* */ mp_create(/* mp_Alloc */ alloc, /* "Type" */ type)                             \
     (mp_alloc((alloc), sizeof(type)))
 
 /// Allocates a duplicate of \a data.
@@ -408,6 +410,10 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
  * \endcode
  *
  * \param alloc The allocator
+ * \param old_ptr The pointer to the old block
+ * \param old_size The size of the old block
+ * \param new_size The size of the new block
+ * \return The pointer to the new block
  */
 void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size);
 
@@ -459,13 +465,13 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *     size_t   len;
  *     size_t   cap;
  *     size_t   size;
- *     <Type>   *data;
+ *     Type     *data;
  * };
  * \endcode
  *
  * **Fields**
  * - **alloc**: The allocator that manages the allocation of the array
- * - **len**: The size of the used data of the array
+ * - **len**: The amount of used data in the array
  * - **cap**: The size of the allocated block holding the data
  * - **size**: The size of an individual datum
  * - **data**: The pointer to the first element of the array (the data are continuous in memory)
@@ -483,7 +489,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * \param type (identifier) The type of the data
  * \param name (identifier) The name of the array struct
  */
-#define mp_da_create(/* Type */ type, /* identifier */ name)                                       \
+#define mp_da_create(/* "Type" */ type, /* identifier */ name)                                     \
     typedef struct {                                                                               \
         mp_Alloc alloc;                                                                            \
         size_t   len;                                                                              \
@@ -511,7 +517,7 @@ typedef struct {
  *
  * \param type (Type) The type of the array
  * \param a (DynArray *) The array
- * \param alloc(mp_Alloc) The allocator to manage the array
+ * \param alloc (mp_Alloc) The allocator to manage the array
  */
 #define mp_da_init(/* Type */ type, /* DynArray* */ a, /* mp_Alloc */ alloc)                       \
     __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data))
@@ -531,9 +537,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \a DynArray::data becomes NULL if allocation failed.
  *
  * \param a (DynArray *) The array
- * \param item (<Type>) The item to append to the array
+ * \param item (Type) The item to append to the array
  */
-#define mp_da_append(/* DynArray* */ a, /* <Type> */ item)                                         \
+#define mp_da_append(/* DynArray* */ a, /* Type */ item)                                           \
     do {                                                                                           \
         __typeof__(item) __it = (item);                                                            \
         __mp_da_append((a), &__it, 1);                                                             \
@@ -544,9 +550,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \a DynArray::data becomes NULL if allocation failed.
  *
  * \param a (DynArray *) The array
- * \param ... (<Type>...) The items to append to the array
+ * \param ... (Type...) The items to append to the array
  */
-#define mp_da_append_many(/* DynArray* */ a, /* <Type>... */...)                                   \
+#define mp_da_append_many(/* DynArray* */ a, /* Type... */...)                                     \
     do {                                                                                           \
         __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
         size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
@@ -558,10 +564,10 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \a DynArray::data becomes NULL if allocation failed.
  *
  * \param a (DynArray *) The array
- * \param items (<Type>[]) The array of items to append to the array
+ * \param items (Type[]) The array of items to append to the array
  * \param items_len (size_t) The amount of items in the array
  */
-#define mp_da_append_array(/* DynArray* */ a, /* <Type>[] */ items, /* size_t */ items_len)        \
+#define mp_da_append_array(/* DynArray* */ a, /* Type[] */ items, /* size_t */ items_len)          \
     __mp_da_append((a), (items), (items_len))
 
 /// Gets an item at index \a i.
@@ -570,9 +576,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * \param a (const DynArray*) The array
  * \param i (size_t) The index to the item
- * \return (<Type>) The item at index \a i
+ * \return (Type) The item at index \a i
  */
-#define /* <Type> */ mp_da_get(/* const DynArray* */ a, /* size_t */ i) (a)->data[i]
+#define /* Type */ mp_da_get(/* const DynArray* */ a, /* size_t */ i) (a)->data[i]
 
 /// Gets a pointer to an item at index \a i.
 /**
@@ -580,9 +586,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * \param a (const DynArray*) The array
  * \param i (size_t) The index to the item
- * \return (<Type> *) The pointer to the item at index \a i
+ * \return (Type *) The pointer to the item at index \a i
  */
-#define /* <Type>* */ mp_da_getp(/* const DynArray* */ a, /* size_t */ i) ((a)->data + i)
+#define /* Type* */ mp_da_getp(/* const DynArray* */ a, /* size_t */ i) ((a)->data + i)
 
 /// Gets an item at index \a i with bounds-checking.
 /**
@@ -592,9 +598,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * \param a (const DynArray*) The array
  * \param i (size_t) The index to the item
- * \return (<Type>) The item at index \a i
+ * \return (Type) The item at index \a i
  */
-#define /* <Type> */ mp_da_get_s(/* const DynArray */ a, /* size_t */ i)                           \
+#define /* Type */ mp_da_get_s(/* const DynArray */ a, /* size_t */ i)                             \
     (__MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 
 /// Gets an a pointer to an item at index \a i with bounds-checking.
@@ -605,9 +611,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * \param a (const DynArray*) The array
  * \param i (size_t) The index to the item
- * \return (<Type> *) The pointer to the item at index \a i
+ * \return (Type *) The pointer to the item at index \a i
  */
-#define /* <Type>* */ mp_da_getp_s(/* const DynArray */ a, /* size_t */ i)                         \
+#define /* Type* */ mp_da_getp_s(/* const DynArray */ a, /* size_t */ i)                           \
     (__MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
 
 // Generic dynamic array get function
@@ -616,16 +622,16 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /// Gets the last item in a dynamic array.
 /**
  * \param a (const DynArray *) The array (NO SIDE EFFECTS)
- * \return (<Type>) The the last item
+ * \return (Type) The the last item
  */
-#define /* <Type> */ mp_da_last(/* const DynArray* */ a) (a)->data[(a)->len - 1]
+#define /* Type */ mp_da_last(/* const DynArray* */ a) (a)->data[(a)->len - 1]
 
 /// Deletes the last item in a dynamic array and returns it.
 /**
  * \param a (DynArray *) The array (NO SIDE EFFECTS)
- * \return (<Type>) The last item
+ * \return (Type) The last item
  */
-#define /* <Type> */ mp_da_pop(/* DynArray* */ a) (--(a)->len, (a)->data[(a)->len])
+#define /* Type */ mp_da_pop(/* DynArray* */ a) (--(a)->len, (a)->data[(a)->len])
 
 /// Sets the length of a dynamic array to 0.
 /**
@@ -695,9 +701,9 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \param a (DynArray *) The array
  * \param pos (size_t) The position of the item
- * \param item (<Type>) The item to insert
+ * \param item (Type) The item to insert
  */
-#define mp_da_insert(/* DynArray* */ a, /* size_t */ pos, /* <Type> */ item)                       \
+#define mp_da_insert(/* DynArray* */ a, /* size_t */ pos, /* Type */ item)                         \
     do {                                                                                           \
         __typeof__(item) __it = (item);                                                            \
         __mp_da_insert((a), (pos), &__it, 1);                                                      \
@@ -713,9 +719,9 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \param a (DynArray *) The array
  * \param pos (size_t) The position of the item
- * \param ... (<Type>...) The items to insert
+ * \param ... (Type...) The items to insert
  */
-#define mp_da_insert_many(/* DynArray* */ a, /* size_t */ pos, /* <Type>... */...)                 \
+#define mp_da_insert_many(/* DynArray* */ a, /* size_t */ pos, /* Type... */...)                   \
     do {                                                                                           \
         __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
         size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
@@ -732,10 +738,10 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \param a (DynArray *) The array
  * \param pos (size_t) The position of the item
- * \param items (<Type>[]) The array of items to inserts to the array
+ * \param items (Type[]) The array of items to inserts to the array
  * \param items_len (size_t) The amount of items in the array
  */
-#define mp_da_insert_array(/* DynArray* */ a, /* size_t */ pos, /* <Type>[] */ items,              \
+#define mp_da_insert_array(/* DynArray* */ a, /* size_t */ pos, /* Type[] */ items,                \
                            /* size_t */ items_len)                                                 \
     __mp_da_insert((a), (pos), (items), (items_len))
 
@@ -783,11 +789,12 @@ void __mp_da_quick_delete(void *a, size_t pos);
  * \{
  */
 
-/// Holds a pointer to a **null-terminated** string and its size (excluding the
-/// null-terminator).
+/// Holds a pointer to a **null-terminated** string and its size (excluding the null-terminator).
 typedef struct {
+    /// The length/size of the string (in bytes, excluding the null-terminator).
     size_t len;
-    char  *cstr;
+    /// The pointer to the first character.
+    char *cstr;
 } mp_Str;
 
 /// Returns an invalid \ref mp_Str.
@@ -911,11 +918,16 @@ mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_All
  * returns a **null-terminated** \ref mp_Str.
  */
 typedef struct {
+    /// The backing allocator.
     mp_Alloc alloc;
-    size_t   len;
-    size_t   cap;
-    size_t   size;
-    char    *data;
+    /// The amount of used data (in bytes).
+    size_t len;
+    /// The size of the allocated buffer (in bytes).
+    size_t cap;
+    /// The size of each data, always 1 byte.
+    size_t size;
+    /// The pointer to the data.
+    char *data;
 } mp_StrBuilder;
 
 /// Initializes an \ref mp_StrBuilder to be managed by \a alloc.
@@ -1047,10 +1059,10 @@ mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
  * This also defines the hash table's iterator type, named by suffixing `Iter`
  * after the hash table's type name.
  *
- * \param value_type (idendifier) The type of the value
+ * \param value_type (identifier) The type of the value
  * \param name (identifier) The name of the hash table
  */
-#define mp_ht_create(/* Type */ value_type, /* identifier */ name)                                 \
+#define mp_ht_create(/* "Type" */ value_type, /* identifier */ name)                               \
     typedef struct {                                                                               \
         mp_Str     key;                                                                            \
         value_type val;                                                                            \
@@ -1085,11 +1097,11 @@ typedef struct {
  *
  * \a StrHashTable::data becomes NULL if allocation failed.
  *
- * \param type (Type) The type of the data
+ * \param type (identifier) The type of the hash table
  * \param ht (StrHashTable *) The hash table
  * \param allocator (mp_Alloc) The allocator to manage the hash table
  */
-#define mp_ht_init(/* Type */ type, /* StrHashTable* */ ht, /* mp_Alloc */ allocator)              \
+#define mp_ht_init(/* "Type" */ type, /* StrHashTable* */ ht, /* mp_Alloc */ allocator)            \
     mp_da_init(type, ht, allocator)
 
 /// Frees a string hash table.
@@ -1129,9 +1141,9 @@ void *__mp_ht_get(const void *ht, mp_Str k);
  *
  * \param ht (StrHashTable *) The hash table
  * \param k (const char *) The key
- * \param v (<Type>) The value to be stored
+ * \param v (Type) The value to be stored
  */
-#define mp_ht_set(/* StrHashTable* */ ht, /* const char* */ k, /* <Type> */ v)                     \
+#define mp_ht_set(/* StrHashTable* */ ht, /* const char* */ k, /* Type */ v)                       \
     mp_ht_set_s((ht), mp_str(k), (v))
 
 /// The same as \ref mp_ht_set but accepts \ref mp_Str.
@@ -1140,9 +1152,9 @@ void *__mp_ht_get(const void *ht, mp_Str k);
  *
  * \param ht (StrHashTable *) The hash table
  * \param k (mp_Str) The key
- * \param v (<Type>) The value to be stored
+ * \param v (Type) The value to be stored
  */
-#define mp_ht_set_s(/* StrHashTable* */ ht, /* mp_Str */ k, /* <Type> */ v)                        \
+#define mp_ht_set_s(/* StrHashTable* */ ht, /* mp_Str */ k, /* Type */ v)                          \
     do {                                                                                           \
         __typeof__(v) __it = (v);                                                                  \
         __mp_ht_set((ht), (k), &__it);                                                             \
@@ -1267,7 +1279,7 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * \defgroup HashTableInt Hash Table (Integer Key)
  *
  * Hash table with integer key.
- * The keys are stored as \ref size_t, but any type that can be coerced to \ref size_t should work.
+ * The keys are stored as size_t, but any type that can be coerced to size_t should work.
  *
  * Throughout the documentation, a generic hash table (integer key) type is written as \a
  * IntHashTable. Similarly, its iterator is written as \a IntHashTableIter.
@@ -1319,10 +1331,10 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * This also defines the hash table's iterator type, named by suffixing `Iter`
  * after the hash table's type name.
  *
- * \param value_type (idendifier) The type of the value
+ * \param value_type (identifier) The type of the value
  * \param name (identifier) The name of the hash table
  */
-#define mp_hti_create(/* Type */ value_type, /* identifier */ name)                                \
+#define mp_hti_create(/* "Type" */ value_type, /* identifier */ name)                              \
     typedef struct {                                                                               \
         __mp_IntHtKey key;                                                                         \
         value_type    val;                                                                         \
@@ -1363,10 +1375,11 @@ typedef struct {
  *
  * \a IntHashTable::data becomes NULL if allocation failed.
  *
+ * \param type (identifier) The type of the hash table
  * \param ht (IntHashTable *) The hash table
  * \param allocator (mp_Alloc) The allocator to manage the hash table
  */
-#define mp_hti_init(/* Type */ type, /* IntHashTable* */ ht, /* mp_Alloc */ allocator)             \
+#define mp_hti_init(/* "Type" */ type, /* IntHashTable* */ ht, /* mp_Alloc */ allocator)           \
     mp_da_init(type, ht, allocator)
 
 /// Frees an integer hash table.
@@ -1392,9 +1405,9 @@ void *__mp_hti_get(const void *ht, size_t k);
  *
  * \param ht (IntHashTable *) The hash table
  * \param k (size_t) The key
- * \param v (<Type>) The value to be stored
+ * \param v (Type) The value to be stored
  */
-#define mp_hti_set(/* IntHashTable* */ ht, /* size_t */ k, /* <Type> */ v)                         \
+#define mp_hti_set(/* IntHashTable* */ ht, /* size_t */ k, /* Type */ v)                           \
     do {                                                                                           \
         __typeof__(v) __it = (v);                                                                  \
         __mp_hti_set((ht), (k), &__it);                                                            \
@@ -1530,6 +1543,7 @@ bool __mp_hti_iter_next(void *it);
     #define __MP_REGION_DEFAULT_SIZE (64 * 1024)
 #endif
 
+/// Forward declaration of \ref mp_Region.
 typedef struct mp_Region mp_Region;
 
 /// Linked list element that holds certain size of allocated memory managed by \ref mp_Arena.
@@ -1790,7 +1804,7 @@ typedef struct {
     mp_temp_init(&__mp_temp, __mp_tempbuf, (size));                                                \
     mp_Alloc temp_alloc = mp_temp_alloc(&__mp_temp);
 
-/// Initializes a temp allocator with a \buf of size \a cap (in bytes).
+/// Initializes a temp allocator with \a buf of size \a cap (in bytes).
 /**
  * \a cap should be an increment of `sizeof(uintptr_t)`.
  * If not, the actual \a cap will **round down** to the nearest increment.
@@ -2305,7 +2319,7 @@ typedef enum {
 /// Returns the message of an \ref mp_IoErr "IO error".
 const char *mp_ioerr_str(mp_IoErr e);
 
-/// Modes given to \ref MP_IOOP_SETBUF.
+/// Modes given to MP_IOOP_SETBUF.
 typedef enum {
     /// No buffering (_IONBF)
     MP_SETBUFMODE_NONE,
@@ -2330,10 +2344,10 @@ typedef enum {
  * Stream of a certain type may only call certain functions. A stream may be both read and
  * write.
  *
- * If a stream calls to a function outside of its domain, \ref MP_IOERR_UNSUPPORTED will be
+ * If a stream calls to a function outside of its domain, MP_IOERR_UNSUPPORTED will be
  * returned.
  *
- * \ref MP_IOTYPE_NONE is only used for invalid \ref mp_Io.
+ * MP_IOTYPE_NONE is only used for invalid \ref mp_Io.
  */
 typedef enum {
     MP_IOTYPE_NONE  = 0,
@@ -2341,6 +2355,7 @@ typedef enum {
     MP_IOTYPE_WRITE = 1 << 1,
 } mp_IoType;
 
+/// Forward declaration of \ref mp_Io.
 typedef struct mp_Io mp_Io;
 
 // TODO: Move flush, setbuf, getpos and setpos to the implementation
@@ -2350,11 +2365,11 @@ typedef struct mp_Io mp_Io;
  * Functions of this type do different things depending on the \a op given.
  * They also use their parameters differently on each type.
  *
- * Returns \a mp_IoErr type. \ref MP_IOERR_NONE if successful.
+ * Returns \a mp_IoErr type. MP_IOERR_NONE if successful.
  *
  * Not all operations can be done to all streams.
  * If the operation does not allow to be done on the type it will return
- * \ref MP_IOERR_UNSUPPORTED.
+ *  MP_IOERR_UNSUPPORTED.
  *
  * Operations will ignores parameters that are not listed for them.
  *
@@ -2444,7 +2459,7 @@ typedef struct mp_Io mp_Io;
  *     - **io**: The IO object
  *     - **n1**: The character to write
  *
- * \return \ref MP_IOERR_NONE if successful, \ref MP_IOERR_UNSUPPORTED if the operation is not
+ * \return MP_IOERR_NONE if successful, MP_IOERR_UNSUPPORTED if the operation is not
  * supported by the type, or other errors.
  */
 typedef mp_IoErr (*mp_IoFunc)(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2, size_t *ret);
@@ -2546,7 +2561,7 @@ struct mp_Io {
 /// Calls IO function with **MP_IOOP_GETC**.
 /**
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \param ret_n (size_t *) Stores the retrieved character
+ * \param ret_c (size_t *) Stores the retrieved character
  * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
  */
 #define /* mp_IoErr */ mp_io_getc(/* mp_Io* */ io, /* size_t* */ ret_c)                            \
@@ -2705,8 +2720,8 @@ mp_Io mp_file_io(mp_File *f, mp_IoType type);
     #include <stdio.h>
     #include <string.h>
 
-    #define __MP_UNREACHABLE()      MEMPLUS_ASSERT_MSG(0, "Unreachable")
-    #define __MP_TODO(msg)          MEMPLUS_ASSERT_MSG(0, "todo: " msg)
+    #define __MP_UNREACHABLE()      __MP_ASSERT_MSG(0, "Unreachable")
+    #define __MP_TODO(msg)          __MP_ASSERT_MSG(0, "todo: " msg)
     #define __MP_DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
     #define __MP_ALIGN(a, inc)      (__MP_DIV_ROUNDUP((a), (inc)) * (inc))
     #define __MP_ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
@@ -2717,7 +2732,7 @@ mp_Io mp_file_io(mp_File *f, mp_IoType type);
             uintptr_t _a = (uintptr_t) a;                                                          \
             uintptr_t _b = (uintptr_t) b;                                                          \
             if (__MP_MAX((_a), (_b)) < __MP_MIN((_a) + (a_len), (_b) + (b_len))) {                 \
-                MEMPLUS_ASSERT_MSG(0, "Memory overlaps");                                          \
+                __MP_ASSERT_MSG(0, "Memory overlaps");                                             \
             }                                                                                      \
         } while (0)
 
@@ -2809,7 +2824,7 @@ void __mp_da_grow(void *a, size_t offset) {
 
 void __mp_da_shrink(void *a, size_t offset) {
     __mp_DynArray *self = a;
-    MEMPLUS_ASSERT_MSG(offset < self->len, "`offset` is out of bounds");
+    __MP_ASSERT_MSG(offset < self->len, "`offset` is out of bounds");
     self->len -= offset;
 }
 
@@ -2866,7 +2881,7 @@ mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len) {
         return mp_str_invalid();
     }
     int result_len = snprintf(result, (size_t) (len + 1), "%.*s", (int) len, str);
-    MEMPLUS_ASSERT((size_t) result_len == len);
+    __MP_ASSERT((size_t) result_len == len);
     return (mp_Str) { .len = (size_t) result_len, .cstr = result };
 }
 
@@ -2875,7 +2890,7 @@ mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) {
 
     va_start(args, fmt);
     int len = vsnprintf(NULL, 0, fmt, args);
-    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
+    __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
     va_end(args);
 
     char *result = mp_alloc(alloc, (size_t) (len + 1));
@@ -2885,7 +2900,7 @@ mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) {
 
     va_start(args, fmt);
     int result_len = vsnprintf(result, (size_t) (len + 1), fmt, args);
-    MEMPLUS_ASSERT(result_len == len);
+    __MP_ASSERT(result_len == len);
     va_end(args);
 
     return (mp_Str) { .len = (size_t) result_len, .cstr = result };
@@ -2935,7 +2950,7 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
 
     va_start(args, fmt);
     int len = vsnprintf(NULL, 0, fmt, args);
-    MEMPLUS_ASSERT_MSG(len >= 0, "Failed to count string length");
+    __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
     va_end(args);
 
     size_t prev_len = sb->len;
@@ -2945,7 +2960,7 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
         va_start(args, fmt);
         int result_len = vsnprintf(sb->data + prev_len, (size_t) (len + 1), fmt, args);
         mp_da_shrink(sb, 1ul);
-        MEMPLUS_ASSERT(result_len == len);
+        __MP_ASSERT(result_len == len);
         va_end(args);
     }
 }
@@ -3081,7 +3096,7 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
         __mp_StrHashTableEntry *e = (__mp_StrHashTableEntry *) ((char *) entries + i * size);
         if (mp_str_is_valid(e->key)) {
             mp_str_deinit(&e->key, alloc);
-            MEMPLUS_ASSERT(!mp_str_is_valid(e->key));
+            __MP_ASSERT(!mp_str_is_valid(e->key));
         }
     }
 }
@@ -3101,7 +3116,7 @@ void __mp_ht_delete(void *ht, mp_Str k) {
             __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
             if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
                 mp_str_deinit(&e->key, self->alloc);
-                MEMPLUS_ASSERT(!mp_str_is_valid(e->key));
+                __MP_ASSERT(!mp_str_is_valid(e->key));
                 memset(&e->val, 1, sizeof(char));
                 --self->len;
                 break;
@@ -3132,7 +3147,7 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
             __mp_StrHashTableEntry *d_e = __mp_da_get(__mp_StrHashTableEntry, d, i);
             if (mp_str_is_valid(s_e->key)) {
                 d_e->key = mp_str_clone(&s_e->key, alloc);
-                MEMPLUS_ASSERT(d_e->key.cstr != s_e->key.cstr);
+                __MP_ASSERT(d_e->key.cstr != s_e->key.cstr);
             }
         }
     }
@@ -3414,7 +3429,7 @@ static void *mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, 
             size_t alloc_size = __MP_ALIGN(new_size, sizeof(uintptr_t));
 
             if (ctx->end == NULL) {
-                MEMPLUS_ASSERT(ctx->begin == NULL);
+                __MP_ASSERT(ctx->begin == NULL);
                 size_t capacity = ctx->_def_size;
                 if (capacity < alloc_size) {
                     capacity = alloc_size;
@@ -3432,7 +3447,7 @@ static void *mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, 
             }
 
             if (__MP_ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap) {
-                MEMPLUS_ASSERT(ctx->end->next == NULL);
+                __MP_ASSERT(ctx->end->next == NULL);
                 size_t capacity = ctx->_def_size;
                 if (capacity < alloc_size) {
                     capacity = alloc_size;
@@ -3444,7 +3459,7 @@ static void *mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, 
                 ctx->end = ctx->end->next;
             }
 
-            MEMPLUS_ASSERT(ctx->end->len % sizeof(uintptr_t) == 0);
+            __MP_ASSERT(ctx->end->len % sizeof(uintptr_t) == 0);
             size_t len_words = __MP_DIV_ROUNDUP(ctx->end->len, sizeof(uintptr_t));
             void  *result    = &ctx->end->data[len_words];
             ctx->end->len += alloc_size;
@@ -3518,7 +3533,7 @@ static void *mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size,
 
             size_t alloc_size = __MP_ALIGN(new_size, sizeof(uintptr_t));
 
-            MEMPLUS_ASSERT(ctx->len % sizeof(uintptr_t) == 0);
+            __MP_ASSERT(ctx->len % sizeof(uintptr_t) == 0);
             if (ctx->len + alloc_size > ctx->cap) {
                 return NULL;
             }
@@ -3582,7 +3597,7 @@ static void *mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, s
             if (new_size == 0) {
                 return NULL;
             }
-            return MEMPLUS_ALLOC(new_size);
+            return __MP_ALLOC(new_size);
         } break;
         case MP_ALLOCOP_REALLOC: {
             return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
@@ -3593,7 +3608,7 @@ static void *mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, s
                 return NULL;
             }
             // `new_size` is unused
-            MEMPLUS_FREE(ptr);
+            __MP_FREE(ptr);
             return NULL;
         } break;
         case __MP_ALLOCOP_COUNT: __MP_UNREACHABLE();
@@ -3648,7 +3663,7 @@ mp_Utf8Char mp_utf8_take(const char **str, size_t *size) {
         ++actual_decoded_size;
     }
 
-    MEMPLUS_ASSERT(char_size == actual_decoded_size);
+    __MP_ASSERT(char_size == actual_decoded_size);
 
     // checking for overlong encoding
     if ((actual_decoded_size == 2 && !(codepoint >= 0x0080 && codepoint <= 0x07FF)) ||
