@@ -1671,7 +1671,7 @@ typedef __mp_IntHashTableIter mp_IntSetIter;
 
 // Default size of a single region in bytes.
 /*
- * The value will be aligned to the nearest increment of `sizeof(uintptr_t)`.
+ * The value will be aligned to the nearest multiple of `sizeof(uintptr_t)`.
  */
 #ifndef __MP_REGION_DEFAULT_SIZE
     #define __MP_REGION_DEFAULT_SIZE (64 * 1024)
@@ -1694,7 +1694,7 @@ struct mp_Region {
 
 /// Allocates a new region with \a cap bytes of size using \a alloc.
 /**
- * \a cap will be **rounded up** to the nearest increment of `sizeof(uintptr_t)`.
+ * \a cap will be **rounded up** to the nearest multiple of `sizeof(uintptr_t)`.
  *
  * Deinit with \ref mp_region_deinit.
  *
@@ -1827,7 +1827,7 @@ typedef struct {
 
 /// Initializes and allocates a static arena of size \a cap in bytes.
 /**
- * \a cap will be **rounded up** to the nearest increment of `sizeof(uintptr_t)`.
+ * \a cap will be **rounded up** to the nearest multiple of `sizeof(uintptr_t)`.
  *
  * The arena's buffer will be immediately allocated.
  *
@@ -1940,8 +1940,8 @@ typedef struct {
 
 /// Initializes a temp allocator with \a buf of size \a cap (in bytes).
 /**
- * \a cap should be an increment of `sizeof(uintptr_t)`.
- * If not, the actual \a cap will **round down** to the nearest increment.
+ * \a cap should be an multiple of `sizeof(uintptr_t)`.
+ * If not, the actual \a cap will **round down** to the nearest multiple.
  *
  * \param t The temp arena
  * \param buf The buffer
@@ -2021,20 +2021,22 @@ mp_Alloc mp_heap_alloc(void);
  * \{
  */
 
+/// Value for invalid Unicode codepoint.
+#define MP_UTF8_INVALID_CODEPOINT ((unsigned int) -1)
+
 /// Stores a pointer to a character and its UTF-8 metadata.
 typedef struct {
-    /// The size of the character (in bytes)
+    /// The size of the character (in bytes).
     unsigned char size;
-    /// The Unicode codepoint of the character
+    /// The Unicode codepoint of the character (\ref MP_UTF8_INVALID_CODEPOINT when invalid).
     unsigned int codepoint;
-    /// The pointer to the start of the character
+    /// The pointer to the start of the character.
     const char *c;
 } mp_Utf8Char;
 
 /// Returns an invalid \ref mp_Utf8Char.
 /**
- * An invalid \ref mp_Utf8Char requires that field \a codepoint is the maximum possible value of
- * `unsigned int`.
+ * An invalid \ref mp_Utf8Char requires that field \a codepoint is \ref MP_UTF8_INVALID_CODEPOINT.
  *
  * An invalid \ref mp_Utf8Char only means that it is not a valid UTF-8 character, but the underlying
  * bytes may still exist and are accessible.
@@ -2083,8 +2085,8 @@ typedef struct {
  *
  * When an error occurs, it will return the error character. The error character may be more than
  * one bytes if the first character expects that some bytes follow it, but the string ends before it
- * gets the required amount of bytes, or one of the bytes is not a valid byte (the error string ends
- * just before it). For more details see <https://en.wikipedia.org/wiki/UTF-8#Error_handling>.
+ * gets the required amount of bytes, or one of the bytes is not a valid byte. For more details see
+ * <https://en.wikipedia.org/wiki/UTF-8#Error_handling>.
  *
  * \param str The pointer to the string
  * \param size The pointer to the size of \a str (in bytes)
@@ -2115,6 +2117,8 @@ mp_Utf8Char mp_utf8_char_s(const char *c, size_t size);
 
 /// Calculate the amount of characters in a **null-terminated** UTF-8 string.
 /**
+ * This operation is O(n).
+ *
  * Use \ref mp_utf8_len_s for non-null-terminated strings.
  *
  * \param str The string (**null-terminated**)
@@ -2132,6 +2136,8 @@ size_t mp_utf8_len_s(const char *str, size_t size);
 
 /// Gets a UTF-8 character from a **null-terminated** string at \a index.
 /**
+ * This operation is O(n).
+ *
  * Returns an invalid \ref mp_Utf8Char if out of bounds.
  *
  * \param str The string (**null-terminated**)
