@@ -33,6 +33,8 @@ int main(void) {
 
         mp_alloc(alloc, __MP_REGION_DEFAULT_SIZE);
         expect_ne((void *) arena.end, (void *) prev_end, "%p");
+
+        mp_arena_deinit(&arena);
     }
 
     {
@@ -52,6 +54,8 @@ int main(void) {
         expect_eq(*i1, 1, "%d");
         expect_eq(*i3, 3, "%d");
         expect(*i2 == *i3);
+
+        mp_sarena_deinit(&arena);
     }
 
     return 0;
