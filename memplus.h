@@ -1069,6 +1069,8 @@ mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
  * }
  * \endcode
  *
+ * It is best to not modify the hash table in the middle of iteration.
+ *
  * \{
  */
 
@@ -1403,6 +1405,8 @@ typedef __mp_StrHashTableIter mp_StrSetIter;
  *     (void) it.val;
  * }
  * \endcode
+ *
+ * It is best to not modify the hash table in the middle of iteration.
  *
  * \{
  */
@@ -2170,6 +2174,9 @@ mp_Utf8Char mp_utf8_get_s(const char *str, size_t size, size_t index);
  *     (void) iter.c;      // The current character (mp_Utf8Char)
  * }
  * \endcode
+ *
+ * It is best to not modify the string in the middle of iteration.
+ *
  */
 typedef struct {
     /// Holds the current character in iteration.
