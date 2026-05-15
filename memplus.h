@@ -678,21 +678,33 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
         (a)->len = 0;                                                                              \
     } while (0)
 
-/// Grows a dynamic array by \a offset of the current length.
+/// Grows a dynamic array to be able to hold \a offset more items from the current length.
 /**
- * Increases \a DynArray::cap by \a offset and does other things if necessary.
+ * Does a calculation to determine the new capacity and then calls \ref mp_da_reserve.
  *
- * If \a DynArray::cap is 0, allocates for a certain number of items.
+ * If \a a->cap is 0, reserves for a certain number of items.
  *
- * If \a DynArray::cap is not large enough, allocates for double the current capacity.
+ * If \a a->cap is not large enough, reserves for double of \a a->cap.
  *
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param a (DynArray *) The array
  * \param offset (size_t) The amount to grow
  */
 #define mp_da_grow(/* DynArray* */ a, /* size_t */ offset) __mp_da_grow((a), (offset))
 void __mp_da_grow(void *a, size_t offset);
+
+/// Reserve a dynamic array to hold \a offset more items from the current capacity.
+/**
+ * Increases \a a->cap by \a offset and reallocates if \a offset is bigger than 0.
+ *
+ * \a a->data becomes NULL if allocation failed.
+ *
+ * \param a (DynArray *) The array
+ * \param offset (size_t) The amount to grow
+ */
+#define mp_da_reserve(/* DynArray* */ a, /* size_t */ offset) __mp_da_reserve((a), (offset))
+void __mp_da_reserve(void *a, size_t offset);
 
 /// Clones a dynamic array to \a dest to be managed by \a allocator.
 /**
@@ -1245,17 +1257,16 @@ void __mp_ht_set(void *ht, mp_Str k, void *v);
     __mp_ht_exists((ht), (k))
 bool __mp_ht_exists(const void *ht, mp_Str k);
 
-/// Grows a string hash table by \a offset of the current length.
+/// Grows a string hash table to be able to hold \a offset more items from the current length.
 /**
- * Increases \a StrHashTable::len by \a offset and does other things if necessary.
+ * Does a calculation to determine the new capacity. The increase of the new capacity may not be
+ * equal to \a offset.
  *
- * If \a StrHashTable::cap is 0, allocates for a certain number of items.
+ * If \a ht->cap is 0, reserves for a certain number of items.
  *
- * If \a StrHashTable::cap is not large enough, allocates for double the current capacity.
+ * If \a ht->cap is not large enough, reserves for double of \a ht->cap.
  *
- * Recalculates the positions of every entry if resized.
- *
- * \a StrHashTable::data becomes NULL if allocation failed.
+ * \a ht->data becomes NULL if allocation failed.
  *
  * \param ht (StrHashTable *) The hash table
  * \param offset (size_t) The amount to grow
@@ -1542,19 +1553,18 @@ void __mp_hti_set(void *ht, size_t k, void *v);
     __mp_hti_exists((ht), (k))
 bool __mp_hti_exists(const void *ht, size_t k);
 
-/// Grows an integer hash table by \a offset of the current length.
+/// Grows an integer hash table to be able to hold \a offset more items from the current length.
 /**
- * Increases \a IntHashTable::len by \a offset and does other things if necessary.
+ * Does a calculation to determine the new capacity. The increase of the new capacity may not be
+ * equal to \a offset.
  *
- * If \a IntHashTable::cap is 0, allocates for a certain number of items.
+ * If \a ht->cap is 0, reserves for a certain number of items.
  *
- * If \a IntHashTable::cap is not large enough, allocates for double the current capacity.
+ * If \a ht->cap is not large enough, reserves for double of \a ht->cap.
  *
- * Recalculates the positions of every entry if resized.
+ * \a ht->data becomes NULL if allocation failed.
  *
- * \a IntHashTable::data becomes NULL if allocation failed.
- *
- * \param ht (IntHashTable *) The hash table
+ * \param ht (StrHashTable *) The hash table
  * \param offset (size_t) The amount to grow
  */
 #define mp_hti_grow(/* IntHashTable* */ ht, /* size_t */ offset) __mp_hti_grow((ht), (offset))
@@ -2987,15 +2997,26 @@ void __mp_da_append(void *a, const void *items, size_t items_len) {
 void __mp_da_grow(void *a, size_t offset) {
     __mp_DynArray *self = a;
     if (self->len + offset > self->cap && offset > 0) {
-        size_t old_cap = self->cap;
-        if (self->cap == 0) {
-            self->cap = __MP_DARRAY_INIT_CAPACITY;
+        size_t new_cap = self->cap;
+        if (new_cap == 0) {
+            new_cap = __MP_DARRAY_INIT_CAPACITY;
         }
-        while (self->len + offset > self->cap) {
-            self->cap *= 2;
+        while (self->len + offset > new_cap) {
+            new_cap *= 2;
         }
-        self->data =
-            mp_realloc(self->alloc, self->data, old_cap * self->size, self->cap * self->size);
+        mp_da_reserve(self, new_cap - self->cap);
+    }
+}
+
+void __mp_da_reserve(void *a, size_t offset) {
+    if (offset == 0) {
+        return;
+    }
+    __mp_DynArray *self    = a;
+    size_t         new_cap = self->cap + offset;
+    self->data = mp_realloc(self->alloc, self->data, self->cap * self->size, new_cap * self->size);
+    if (self->data != NULL) {
+        self->cap = new_cap;
     }
 }
 
