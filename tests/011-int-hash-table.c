@@ -3,13 +3,13 @@
 #include "memplus.h"
 #include "test.h"
 
-mp_hti_create(int, HashTableInt);
+mp_hti_typedef(int, Ht_Int);
 
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
-    HashTableInt ht;
-    mp_hti_init(HashTableInt, &ht, alloc);
+    Ht_Int ht;
+    mp_hti_init(Ht_Int, &ht, alloc);
     expect_eq(ht.val_size, sizeof(int), "%zu");
 
     expect_eq(mp_hti_get(&ht, 0), NULL, "%p");
@@ -63,7 +63,7 @@ int main(void) {
     expect_eq(ht.cap, (size_t) __MP_HASH_TABLE_INIT_CAPACITY * 2, "%zu");
 
     // for (size_t i = 0; i < ht.cap; ++i) {
-    //     __HashTableIntEntry entry = ht.data[i];
+    //     __Ht_IntEntry entry = ht.data[i];
     //     mp_Str              key   = mp_str_newf(alloc, "%zu", entry.key.key);
     //     printf("%s ", (entry.key.valid) ? key.cstr : "[]");
     //     mp_str_deinit(&key, alloc);
@@ -77,7 +77,7 @@ int main(void) {
     }
 
     // Iterator test
-    HashTableIntIter it;
+    Ht_Int_Iter it;
     mp_hti_iter_init(&it, &ht);
     size_t counter = 0;
     while (mp_hti_iter_next(&it)) {
@@ -86,7 +86,7 @@ int main(void) {
     expect_eq(counter, ht.len, "%zu");
 
     // Clone test
-    HashTableInt ht2;
+    Ht_Int ht2;
     mp_hti_clone(&ht2, &ht, alloc);
     expect_eq(ht.len, ht2.len, "%zu");
     expect_eq(ht.cap, ht2.cap, "%zu");
@@ -94,7 +94,7 @@ int main(void) {
 
     mp_hti_iter_init(&it, &ht);
     while (mp_hti_iter_next(&it)) {
-        __HashTableIntEntry *o = ht.data + (it._i - 1);
+        __Ht_Int_Entry *o = ht.data + (it._i - 1);
         expect_eq(it.key.key, o->key.key, "%zu");
         expect_eq(it.val, o->val, "%d");
         mp_hti_iter_next(&it);

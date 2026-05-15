@@ -8,8 +8,9 @@ int main(void) {
     mp_talloc_s(4096);
 
     {
-        mp_StrSet str_set;
-        mp_ht_init(mp_StrSet, &str_set, mp_heap());
+        mp_Str_Set str_set;
+        mp_hs_init(&str_set, mp_heap());
+        expect_eq(str_set.val_size, (size_t) 0, "%zu");
 
         for (size_t i = 0; i < nums; ++i) {
             mp_Str key = mp_str_newf(temp_alloc, "key_%zu", i / 2);
@@ -22,7 +23,7 @@ int main(void) {
         }
         expect_eq(str_set.len, nums / 2, "%zu");
 
-        mp_StrSetIter str_set_it;
+        mp_Str_Set_Iter str_set_it;
         mp_ht_iter_init(&str_set_it, &str_set);
         size_t count = 0;
         while (mp_ht_iter_next(&str_set_it)) {
@@ -35,8 +36,9 @@ int main(void) {
     }
 
     {
-        mp_IntSet int_set;
-        mp_hti_init(mp_IntSet, &int_set, mp_heap());
+        mp_Int_Set int_set;
+        mp_hsi_init(&int_set, mp_heap());
+        expect_eq(int_set.val_size, (size_t) 0, "%zu");
 
         for (size_t i = 0; i < nums; ++i) {
             size_t key = i / 2;
@@ -49,7 +51,7 @@ int main(void) {
         }
         expect_eq(int_set.len, nums / 2, "%zu");
 
-        mp_IntSetIter int_set_it;
+        mp_Int_Set_Iter int_set_it;
         mp_hti_iter_init(&int_set_it, &int_set);
         size_t count = 0;
         while (mp_hti_iter_next(&int_set_it)) {

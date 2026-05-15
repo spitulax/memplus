@@ -5,15 +5,15 @@
 #include "memplus.h"
 #include "test.h"
 
-mp_ht_create(int, HashTableInt);
+mp_ht_typedef(int, Ht_Int);
 
 int main(void) {
     mp_talloc_s(4096);
 
     mp_Alloc alloc = mp_heap_alloc();
 
-    HashTableInt ht;
-    mp_ht_init(HashTableInt, &ht, alloc);
+    Ht_Int ht;
+    mp_ht_init(Ht_Int, &ht, alloc);
     expect_eq(ht.val_size, sizeof(int), "%zu");
 
     expect_eq(mp_ht_get(&ht, "foo"), NULL, "%p");
@@ -84,7 +84,7 @@ int main(void) {
     }
 
     // Iterator test
-    HashTableIntIter it;
+    Ht_Int_Iter it;
     mp_ht_iter_init(&it, &ht);
     size_t counter = 0;
     while (mp_ht_iter_next(&it)) {
@@ -93,7 +93,7 @@ int main(void) {
     expect_eq(counter, ht.len, "%zu");
 
     // Clone test
-    HashTableInt ht2;
+    Ht_Int ht2;
     mp_ht_clone(&ht2, &ht, alloc);
     expect_eq(ht.len, ht2.len, "%zu");
     expect_eq(ht.cap, ht2.cap, "%zu");
@@ -101,7 +101,7 @@ int main(void) {
 
     mp_ht_iter_init(&it, &ht);
     while (mp_ht_iter_next(&it)) {
-        __HashTableIntEntry *o = ht.data + (it._i - 1);
+        __Ht_Int_Entry *o = ht.data + (it._i - 1);
         expect_streq(it.key.cstr, o->key.cstr);
         expect_eq(it.val, o->val, "%d");
     }

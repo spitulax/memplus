@@ -184,9 +184,9 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
  *
  * To create an allocator, all you have to consider is the *allocator function* and the
  * *context*.
- * The \ref mp_AllocFunc "allocator function" is a function that handles the operations requested by
- * the user of your allocator. The function may be given a context, which may contain any data
- * specific to the allocator. For details see \ref mp_AllocFunc "here".
+ * The \ref mp_Alloc_Func "allocator function" is a function that handles the operations requested
+ * by the user of your allocator. The function may be given a context, which may contain any data
+ * specific to the allocator. For details see \ref mp_Alloc_Func "here".
  *
  * You may create a structure for the context. This will be accessible to the allocator function.
  * After that, you can use \ref mp_alloc_new and pass the context and the allocator function to get
@@ -198,12 +198,12 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
  * ## Example
  *
  * \code
- * void *alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size, void *ptr) {
+ * void *alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size, void *ptr) {
  *     switch (op) {
- *         case MP_ALLOCOP_ALLOC:   // do something
- *         case MP_ALLOCOP_REALLOC: // do something
- *         case MP_ALLOCOP_FREE:    // do something
- *         case __MP_ALLOCOP_COUNT: assert(0 & "unreachable");
+ *         case MP_ALLOC_OP_ALLOC:   // do something
+ *         case MP_ALLOC_OP_REALLOC: // do something
+ *         case MP_ALLOC_OP_FREE:    // do something
+ *         case __MP_ALLOC_OP_COUNT: assert(0 & "unreachable");
  *     }
  * }
  *
@@ -219,16 +219,16 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
  * \{
  */
 
-/// Possible operations on \ref mp_AllocFunc.
+/// Possible operations on \ref mp_Alloc_Func.
 /**
- * See the documentation for each operation \ref mp_AllocFunc "here".
+ * See the documentation for each operation \ref mp_Alloc_Func "here".
  */
 typedef enum {
-    MP_ALLOCOP_ALLOC,
-    MP_ALLOCOP_REALLOC,
-    MP_ALLOCOP_FREE,
-    __MP_ALLOCOP_COUNT,
-} mp_AllocOp;
+    MP_ALLOC_OP_ALLOC,
+    MP_ALLOC_OP_REALLOC,
+    MP_ALLOC_OP_FREE,
+    __MP_ALLOC_OP_COUNT,
+} mp_Alloc_Op;
 
 // TODO: Alloc location
 
@@ -241,7 +241,7 @@ typedef enum {
  *
  * # Operations
  *
- * - **MP_ALLOCOP_ALLOC**
+ * - **MP_ALLOC_OP_ALLOC**
  *
  *     Allocates a block of memory and returns the pointer to it.
  *
@@ -252,7 +252,7 @@ typedef enum {
  *     - **context**: The allocator context
  *     - **new_size**: The size of the block (in bytes)
  *
- * - **MP_ALLOCOP_REALLOC**
+ * - **MP_ALLOC_OP_REALLOC**
  *
  *     Reallocates a block of memory, i.e. allocates new block, copies over the data from the old
  *     block to the new block then frees the old block. Returns the pointer to the new block.
@@ -262,7 +262,7 @@ typedef enum {
  * \a ptr.
  *     - If \a new_size == 0, does nothing and returns NULL
  *     - If \a old_size == 0 or \a ptr == NULL., skips copying data and freeing the
- * old block, behaving like **MP_ALLOCOP_ALLOC**
+ * old block, behaving like **MP_ALLOC_OP_ALLOC**
  *
  *     **Parameters**
  *     - **context**: The allocator context
@@ -270,7 +270,7 @@ typedef enum {
  *     - **old_size**: The size of the old block
  *     - **new_size**: The new size the new block
  *
- * - **MP_ALLOCOP_FREE**
+ * - **MP_ALLOC_OP_FREE**
  *
  *     Frees a block of memory that has been allocated. Always returns NULL.
  *
@@ -283,10 +283,10 @@ typedef enum {
  *     - **new_size**: The size of the block
  *
  * \return The pointer to the newly allocated memory. May return NULL if allocation failed. Always
- * returns NULL on **MP_ALLOCOP_FREE**
+ * returns NULL on **MP_ALLOC_OP_FREE**
  */
-typedef void *(*mp_AllocFunc)(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
-                              void *ptr);
+typedef void *(*mp_Alloc_Func)(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
+                               void *ptr);
 
 /// Inteface to wrap functions to allocate memory.
 typedef struct {
@@ -298,31 +298,31 @@ typedef struct {
 
     /**
      * \brief Function that handles the operations requested by the user of the allocator. See \ref
-     * mp_AllocFunc.
+     * mp_Alloc_Func.
      */
-    mp_AllocFunc f;
+    mp_Alloc_Func f;
 } mp_Alloc;
 
 /**
  * \defgroup GenericAllocMacros Generic Allocator Macros
  *
- * These macros wrap the operations of \ref mp_AllocFunc.
+ * These macros wrap the operations of \ref mp_Alloc_Func.
  * By passing an \ref mp_Alloc, these macros will call its allocator function and pass the context
  * and the arguments correctly.
  *
  * \{
  */
 
-/// Calls allocator function with **MP_ALLOCOP_ALLOC**.
+/// Calls allocator function with **MP_ALLOC_OP_ALLOC**.
 /**
  * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
  * \param size (size_t) The number of bytes that will be allocated
  * \return (void *) The pointer to the allocated block of memory, NULL if allocation failed
  */
 #define /* void* */ mp_alloc(/* mp_Alloc */ alloc, /* size_t */ size)                              \
-    ((alloc).f(MP_ALLOCOP_ALLOC, (alloc).context, (size), 0, NULL))
+    ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, (size), 0, NULL))
 
-/// Calls allocator function with **MP_ALLOCOP_REALLOC**.
+/// Calls allocator function with **MP_ALLOC_OP_REALLOC**.
 /**
  * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
  * \param old_ptr (void *) The pointer to the block to be reallocated
@@ -332,9 +332,9 @@ typedef struct {
  */
 #define /* void* */ mp_realloc(/* mp_Alloc */ alloc, /* void* */ old_ptr, /* size_t */ old_size,   \
                                /* size_t */ new_size)                                              \
-    ((alloc).f(MP_ALLOCOP_REALLOC, (alloc).context, (new_size), (old_size), (old_ptr)))
+    ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, (new_size), (old_size), (old_ptr)))
 
-/// Calls allocator function with **MP_ALLOCOP_FREE**.
+/// Calls allocator function with **MP_ALLOC_OP_FREE**.
 /**
  * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
  * \param ptr (void *) The pointer to the block to be freed (nullability depends on the allocator
@@ -343,9 +343,9 @@ typedef struct {
  * \returns (void *) Always NULL
  */
 #define /* void* */ mp_free(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size)              \
-    ((alloc).f(MP_ALLOCOP_FREE, (alloc).context, (size), 0, (ptr)))
+    ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, (size), 0, (ptr)))
 
-/// Calls allocator function with **MP_ALLOCOP_ALLOC** with the size of \a type.
+/// Calls allocator function with **MP_ALLOC_OP_ALLOC** with the size of \a type.
 /**
  * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
  * \param type (identifier) The type of the allocated data
@@ -371,10 +371,10 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
 /// Create an \ref mp_Alloc from \a ctx and \a func.
 /**
  * \param ctx (any *) The context passed to the function (automatically casted to void *)
- * \param func (mp_AllocFunc) The allocator function
+ * \param func (mp_Alloc_Func) The allocator function
  * \return An allocator interface that works with the arguments given.
  */
-#define /* mp_Alloc */ mp_alloc_new(/* any* */ ctx, /* mp_AllocFunc */ func)                       \
+#define /* mp_Alloc */ mp_alloc_new(/* any* */ ctx, /* mp_Alloc_Func */ func)                      \
     ((mp_Alloc) {                                                                                  \
         .context = (void *) (ctx),                                                                 \
         .f       = (func),                                                                         \
@@ -403,7 +403,7 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
  * # Example
  * \code
  * // ...
- * case MP_ALLOCOP_REALLOC: {
+ * case MP_ALLOC_OP_REALLOC: {
  *     return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
  * } break;
  * // ...
@@ -430,14 +430,14 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * The elements of dynamic array are stored on the heap and may grow in size by reallocating the
  * memory.
  *
- * Throughout the documentation, a generic dynamic array type is written as \a DynArray.
+ * Throughout the documentation, a generic dynamic array type is written as \a Dyn_Array.
  *
  * # Usage
  *
  * Becase C does not have generics, to store data of a certain type you must define the dynamic
  * array type yourself. Luckily there is a macro that does this job.
  * \code
- * mp_da_create(int, ArrayInt);
+ * mp_da_typedef(int, Da_Int);
  * \endcode
  *
  * Declare an array then use \ref mp_da_init or \ref mp_da_init_with and pass an allocator to manage
@@ -445,15 +445,15 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * something to the array.
  *
  * \code
- * ArrayInt array;
- * mp_da_init(ArrayInt, &array, alloc);
+ * Da_Int array;
+ * mp_da_init(Da_Int, &array, alloc);
  * mp_da_append(&array, 0);
  * mp_da_append_many(&array, 1, 2);
  * \endcode
  *
  * \code
- * ArrayInt array;
- * mp_da_init_with(ArrayInt, &array, alloc, 0, 1, 2);
+ * Da_Int array;
+ * mp_da_init_with(Da_Int, &array, alloc, 0, 1, 2);
  * \endcode
  *
  * By default, arrays start allocating memory for a certain number of elements, and if
@@ -497,7 +497,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * \param type (identifier) The type of the data
  * \param name (identifier) The name of the array struct
  */
-#define mp_da_create(/* "Type" */ type, /* identifier */ name)                                     \
+#define mp_da_typedef(/* "Type" */ type, /* identifier */ name)                                    \
     typedef struct {                                                                               \
         mp_Alloc alloc;                                                                            \
         size_t   len;                                                                              \
@@ -513,7 +513,7 @@ typedef struct {
     size_t   cap;
     size_t   size;
     void    *data;
-} __mp_DynArray;
+} __mp_Dyn_Array;
 
 /// Initializes a new dynamic array managed by \a alloc.
 /**
@@ -521,13 +521,13 @@ typedef struct {
  *
  * \a a should not have been already initialized.
  *
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a Dyn_Array::data becomes NULL if allocation failed.
  *
  * \param type (Type) The type of the array
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param alloc (mp_Alloc) The allocator to manage the array
  */
-#define mp_da_init(/* Type */ type, /* DynArray* */ a, /* mp_Alloc */ alloc)                       \
+#define mp_da_init(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc)                      \
     __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data))
 void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 
@@ -537,14 +537,14 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
  *
  * \a a should not have been already initialized.
  *
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a Dyn_Array::data becomes NULL if allocation failed.
  *
  * \param type (Type) The type of the array
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param alloc (mp_Alloc) The allocator to manage the array
  * \param ... (DataType...) The values to append
  */
-#define mp_da_init_with(/* Type */ type, /* DynArray* */ a, /* mp_Alloc */ alloc,                  \
+#define mp_da_init_with(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc,                 \
                         /* DataType... */...)                                                      \
     do {                                                                                           \
         mp_da_init(type, (a), (alloc));                                                            \
@@ -553,21 +553,21 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 
 /// Frees a dynamic array.
 /**
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  */
-#define mp_da_deinit(/* DynArray* */ a) __mp_da_deinit(a)
+#define mp_da_deinit(/* Dyn_Array* */ a) __mp_da_deinit(a)
 void __mp_da_deinit(void *a);
 
 void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Appends \a item to a dynamic array.
 /**
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a Dyn_Array::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param item (Type) The item to append to the array
  */
-#define mp_da_append(/* DynArray* */ a, /* Type */ item)                                           \
+#define mp_da_append(/* Dyn_Array* */ a, /* Type */ item)                                          \
     do {                                                                                           \
         __typeof__(item) __it = (item);                                                            \
         __mp_da_append((a), &__it, 1);                                                             \
@@ -575,12 +575,12 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Appends multiple items to a dynamic array.
 /**
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a Dyn_Array::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param ... (Type...) The items to append to the array
  */
-#define mp_da_append_many(/* DynArray* */ a, /* Type... */...)                                     \
+#define mp_da_append_many(/* Dyn_Array* */ a, /* Type... */...)                                    \
     do {                                                                                           \
         __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
         size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
@@ -589,34 +589,34 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Appends items in an array to a dynamic array.
 /**
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a Dyn_Array::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param items (Type[]) The array of items to append to the array
  * \param items_len (size_t) The amount of items in the array
  */
-#define mp_da_append_array(/* DynArray* */ a, /* Type[] */ items, /* size_t */ items_len)          \
+#define mp_da_append_array(/* Dyn_Array* */ a, /* Type[] */ items, /* size_t */ items_len)         \
     __mp_da_append((a), (items), (items_len))
 
 /// Gets an item at index \a i.
 /**
  * No bounds checking, use \ref mp_da_get_s for that.
  *
- * \param a (const DynArray*) The array
+ * \param a (const Dyn_Array*) The array
  * \param i (size_t) The index to the item
  * \return (Type) The item at index \a i
  */
-#define /* Type */ mp_da_get(/* const DynArray* */ a, /* size_t */ i) (a)->data[i]
+#define /* Type */ mp_da_get(/* const Dyn_Array* */ a, /* size_t */ i) (a)->data[i]
 
 /// Gets a pointer to an item at index \a i.
 /**
  * No bounds checking, use \ref mp_da_get_s for that.
  *
- * \param a (const DynArray*) The array
+ * \param a (const Dyn_Array*) The array
  * \param i (size_t) The index to the item
  * \return (Type *) The pointer to the item at index \a i
  */
-#define /* Type* */ mp_da_getp(/* const DynArray* */ a, /* size_t */ i) ((a)->data + i)
+#define /* Type* */ mp_da_getp(/* const Dyn_Array* */ a, /* size_t */ i) ((a)->data + i)
 
 /// Gets an item at index \a i with bounds-checking.
 /**
@@ -624,11 +624,11 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * The assert won't trigger if `NDEBUG` is defined.
  *
- * \param a (const DynArray*) The array
+ * \param a (const Dyn_Array*) The array
  * \param i (size_t) The index to the item
  * \return (Type) The item at index \a i
  */
-#define /* Type */ mp_da_get_s(/* const DynArray */ a, /* size_t */ i)                             \
+#define /* Type */ mp_da_get_s(/* const Dyn_Array */ a, /* size_t */ i)                            \
     (__MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 
 /// Gets an a pointer to an item at index \a i with bounds-checking.
@@ -637,11 +637,11 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * The assert won't trigger if `NDEBUG` is defined.
  *
- * \param a (const DynArray*) The array
+ * \param a (const Dyn_Array*) The array
  * \param i (size_t) The index to the item
  * \return (Type *) The pointer to the item at index \a i
  */
-#define /* Type* */ mp_da_getp_s(/* const DynArray */ a, /* size_t */ i)                           \
+#define /* Type* */ mp_da_getp_s(/* const Dyn_Array */ a, /* size_t */ i)                          \
     (__MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
 
 // Generic dynamic array get function
@@ -655,25 +655,25 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Gets the last item in a dynamic array.
 /**
- * \param a (const DynArray *) The array (NO SIDE EFFECTS)
+ * \param a (const Dyn_Array *) The array (NO SIDE EFFECTS)
  * \return (Type) The the last item
  */
-#define /* Type */ mp_da_last(/* const DynArray* */ a) (a)->data[(a)->len - 1]
+#define /* Type */ mp_da_last(/* const Dyn_Array* */ a) (a)->data[(a)->len - 1]
 
 /// Deletes the last item in a dynamic array and returns it.
 /**
- * \param a (DynArray *) The array (NO SIDE EFFECTS)
+ * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
  * \return (Type) The last item
  */
-#define /* Type */ mp_da_pop(/* DynArray* */ a) (--(a)->len, (a)->data[(a)->len])
+#define /* Type */ mp_da_pop(/* Dyn_Array* */ a) (--(a)->len, (a)->data[(a)->len])
 
 /// Sets the length of a dynamic array to 0.
 /**
  * This resets the dynamic array to "initial condition" but without actually freeing the data.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  */
-#define mp_da_reset(/* DynArray* */ a)                                                             \
+#define mp_da_reset(/* Dyn_Array* */ a)                                                            \
     do {                                                                                           \
         (a)->len = 0;                                                                              \
     } while (0)
@@ -688,10 +688,10 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param offset (size_t) The amount to grow
  */
-#define mp_da_grow(/* DynArray* */ a, /* size_t */ offset) __mp_da_grow((a), (offset))
+#define mp_da_grow(/* Dyn_Array* */ a, /* size_t */ offset) __mp_da_grow((a), (offset))
 void __mp_da_grow(void *a, size_t offset);
 
 /// Reserve a dynamic array to hold \a offset more items from the current capacity.
@@ -700,10 +700,10 @@ void __mp_da_grow(void *a, size_t offset);
  *
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param offset (size_t) The amount to grow
  */
-#define mp_da_reserve(/* DynArray* */ a, /* size_t */ offset) __mp_da_reserve((a), (offset))
+#define mp_da_reserve(/* Dyn_Array* */ a, /* size_t */ offset) __mp_da_reserve((a), (offset))
 void __mp_da_reserve(void *a, size_t offset);
 
 /// Clones a dynamic array to \a dest to be managed by \a allocator.
@@ -715,11 +715,11 @@ void __mp_da_reserve(void *a, size_t offset);
  *
  * \a dest->data becomes NULL if allocation failed.
  *
- * \param dest (DynArray *) The destination of the clone
- * \param src (const DynArray *) The source array
+ * \param dest (Dyn_Array *) The destination of the clone
+ * \param src (const Dyn_Array *) The source array
  * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
-#define mp_da_clone(/* DynArray* */ dest, /* const DynArray* */ src, /* mp_Alloc */ alloc)         \
+#define mp_da_clone(/* Dyn_Array* */ dest, /* const Dyn_Array* */ src, /* mp_Alloc */ alloc)       \
     __mp_da_clone((dest), (src), (alloc))
 void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc);
 
@@ -727,17 +727,17 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
 /// Inserts an item at \a pos.
 /**
- * If \a pos > \a DynArray::len, then it just puts the item at \a DynArray::len.
+ * If \a pos > \a Dyn_Array::len, then it just puts the item at \a Dyn_Array::len.
  *
  * \a pos must not be negative.
  *
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a Dyn_Array::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of the item
  * \param item (Type) The item to insert
  */
-#define mp_da_insert(/* DynArray* */ a, /* size_t */ pos, /* Type */ item)                         \
+#define mp_da_insert(/* Dyn_Array* */ a, /* size_t */ pos, /* Type */ item)                        \
     do {                                                                                           \
         __typeof__(item) __it = (item);                                                            \
         __mp_da_insert((a), (pos), &__it, 1);                                                      \
@@ -745,17 +745,17 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
 /// Inserts multiple items at \a pos.
 /**
- * If \a pos > \a DynArray::len, then it just puts the item at \a DynArray::len.
+ * If \a pos > \a Dyn_Array::len, then it just puts the item at \a Dyn_Array::len.
  *
  * \a pos must not be negative.
  *
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a Dyn_Array::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of the item
  * \param ... (Type...) The items to insert
  */
-#define mp_da_insert_many(/* DynArray* */ a, /* size_t */ pos, /* Type... */...)                   \
+#define mp_da_insert_many(/* Dyn_Array* */ a, /* size_t */ pos, /* Type... */...)                  \
     do {                                                                                           \
         __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
         size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
@@ -764,18 +764,18 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
 /// Inserts items in an array at \a pos.
 /**
- * If \a pos > \a DynArray::len, then it just puts the item at \a DynArray::len.
+ * If \a pos > \a Dyn_Array::len, then it just puts the item at \a Dyn_Array::len.
  *
  * \a pos must not be negative.
  *
- * \a DynArray::data becomes NULL if allocation failed.
+ * \a Dyn_Array::data becomes NULL if allocation failed.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of the item
  * \param items (Type[]) The array of items to inserts to the array
  * \param items_len (size_t) The amount of items in the array
  */
-#define mp_da_insert_array(/* DynArray* */ a, /* size_t */ pos, /* Type[] */ items,                \
+#define mp_da_insert_array(/* Dyn_Array* */ a, /* size_t */ pos, /* Type[] */ items,               \
                            /* size_t */ items_len)                                                 \
     __mp_da_insert((a), (pos), (items), (items_len))
 
@@ -787,11 +787,11 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  * If you only want to delete one item and do not care about the order of the elements after the
  * delete, use \ref mp_da_quick_delete instead.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of items to delete
  * \param len (size_t) The amount of items to delete
  */
-#define mp_da_delete(/* DynArray* */ a, /* size_t */ pos, /* size_t */ len)                        \
+#define mp_da_delete(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len)                       \
     __mp_da_move((a), (pos), NULL, (len))
 
 /// Deletes a single item at \a pos if you do not care about the order of items.
@@ -802,10 +802,11 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  * This works by swapping the item to be deleted with the last item and shrinking the array,
  * effectively making it ignore the last item.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of the item to delete
  */
-#define mp_da_quick_delete(/* DynArray* */ a, /* size_t */ pos) __mp_da_quick_move((a), (pos), NULL)
+#define mp_da_quick_delete(/* Dyn_Array* */ a, /* size_t */ pos)                                   \
+    __mp_da_quick_move((a), (pos), NULL)
 
 /// Moves \a len of items at \a pos to \a dest.
 /**
@@ -817,12 +818,12 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a dest must not alias \a a->data.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of items to delete
  * \param len (size_t) The amount of items to delete
  * \param dest (Type *) Where to copy the deleted items (must be at least `len * sizeof(Type)`)
  */
-#define mp_da_move(/* DynArray* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)        \
+#define mp_da_move(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)       \
     __mp_da_move((a), (pos), (dest), (len))
 void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
 
@@ -836,11 +837,11 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
  *
  * \a dest must not alias \a a->data.
  *
- * \param a (DynArray *) The array
+ * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of the item to delete
  * \param dest (Type *) Where to copy the deleted item (must be at least `sizeof(Type)`)
  */
-#define mp_da_quick_move(/* DynArray* */ a, /* size_t */ pos, /* Type* */ dest)                    \
+#define mp_da_quick_move(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ dest)                   \
     __mp_da_quick_move((a), (pos), (dest))
 void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 
@@ -977,7 +978,7 @@ mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_All
  * Holds a **non null-terminated** string that is resizable.
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
 
- * To convert \ref mp_StrBuilder to C string, use \ref mp_str_builder_string which
+ * To convert \ref mp_Str_Builder to C string, use \ref mp_str_builder_string which
  * returns a **null-terminated** \ref mp_Str.
  *
  * \{
@@ -987,7 +988,7 @@ mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_All
 /**
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
  *
- * To convert \ref mp_StrBuilder to C string, use \ref mp_str_builder_string which
+ * To convert \ref mp_Str_Builder to C string, use \ref mp_str_builder_string which
  * returns a **null-terminated** \ref mp_Str.
  */
 typedef struct {
@@ -1001,43 +1002,43 @@ typedef struct {
     size_t size;
     /// The pointer to the data.
     char *data;
-} mp_StrBuilder;
+} mp_Str_Builder;
 
-/// Initializes an \ref mp_StrBuilder to be managed by \a alloc.
+/// Initializes an \ref mp_Str_Builder to be managed by \a alloc.
 /**
  * Deinit with \ref mp_str_builder_deinit.
  *
  * \param sb The string builder
  * \param alloc The managing allocator
  */
-void mp_str_builder_init(mp_StrBuilder *sb, mp_Alloc alloc);
+void mp_str_builder_init(mp_Str_Builder *sb, mp_Alloc alloc);
 
-/// Frees an \ref mp_StrBuilder.
+/// Frees an \ref mp_Str_Builder.
 /**
  * \param sb The string builder
  */
-void mp_str_builder_deinit(mp_StrBuilder *sb);
+void mp_str_builder_deinit(mp_Str_Builder *sb);
 
-/// Appends a **null-terminated** string to an \ref mp_StrBuilder.
+/// Appends a **null-terminated** string to an \ref mp_Str_Builder.
 /**
- * \a mp_StrBuilder::data becomes NULL if allocation failed.
+ * \a mp_Str_Builder::data becomes NULL if allocation failed.
  *
  * \param sb The string builder
  * \param str The **null-terminated** string to be appended
  */
-void mp_str_builder_append(mp_StrBuilder *sb, const char *str);
+void mp_str_builder_append(mp_Str_Builder *sb, const char *str);
 
-/// Appends a formatted string to an \ref mp_StrBuilder.
+/// Appends a formatted string to an \ref mp_Str_Builder.
 /**
- * \a mp_StrBuilder::data becomes NULL if allocation failed.
+ * \a mp_Str_Builder::data becomes NULL if allocation failed.
  *
  * \param sb The string builder
  * \param fmt The formatting string
  * \param ... The formatting arguments
  */
-void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
 
-/// Copies the buffer of an \ref mp_StrBuilder into a null-terminated \ref mp_Str.
+/// Copies the buffer of an \ref mp_Str_Builder into a null-terminated \ref mp_Str.
 /**
  * Deinit with \ref mp_str_deinit.
  *
@@ -1047,7 +1048,7 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) __MP_PRINTF
  * \param alloc The allocator that allocates the \ref mp_Str
  * \return The **null-terminated** copy of \a sb
  */
-mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc);
+mp_Str mp_str_builder_string(const mp_Str_Builder *sb, mp_Alloc alloc);
 
 /// Same as \ref mp_str_builder_string but also deinitializes \a sb.
 /**
@@ -1059,7 +1060,7 @@ mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc);
  * \param alloc The allocator that allocates the \ref mp_Str
  * \return The **null-terminated** copy of \a sb
  */
-mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
+mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
 
 /// \}
 
@@ -1074,21 +1075,21 @@ mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
  * This uses the FNV-1a hash algorithm to hash the string.
  *
  * Throughout the documentation, a generic hash table (string key) type is written as \a
- * StrHashTable. Similarly, its iterator is written as \a StrHashTableIter.
+ * Str_Hash_Table. Similarly, its iterator is written as \a Str_Hash_Table_Iter.
  *
  * # Usage
  *
  * Becase C does not have generics, to store data of a certain type you must define the hash table
  * type yourself. Luckily there is a macro that does this job.
  * \code
- * mp_ht_create(int, StrHashTableInt);
+ * mp_ht_typedef(int, Ht_Int);
  * \endcode
  *
  * Declare a hash table then use \ref mp_ht_init and pass an allocator to manage the hash table.
  * This does not allocate the data immediately. But only once you set something on the hash table.
  * \code
- * StrHashTableInt ht;
- * mp_ht_init(StrHashTableInt, &ht, alloc);
+ * Ht_Int ht;
+ * mp_ht_init(Ht_Int, &ht, alloc);
  * mp_ht_set(&ht, "key", 10);
  * \endcode
  *
@@ -1102,11 +1103,11 @@ mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
  *
  * # Iterator
  *
- * Using \ref mp_ht_create also defines an iterator type for that hash table type, named by
- * suffixing `Iter` to the hash table's type name.
+ * Using \ref mp_ht_typedef also defines an iterator type for that hash table type, named by
+ * suffixing `_Iter` to the hash table's type name.
  * Example usage:
  * \code
- * StrHashTableIntIter it;
+ * Ht_Int_Iter it;
  * mp_ht_iter_init(&it, &ht);
  * while (mp_ht_iter_next(&it)) {
  *     (void) it.key;
@@ -1137,25 +1138,25 @@ mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
  * \param value_type (identifier) The type of the value
  * \param name (identifier) The name of the hash table
  */
-#define mp_ht_create(/* "Type" */ value_type, /* identifier */ name)                               \
+#define mp_ht_typedef(/* "Type" */ value_type, /* identifier */ name)                              \
     typedef struct {                                                                               \
         mp_Str     key;                                                                            \
         value_type val;                                                                            \
-    } __##name##Entry;                                                                             \
+    } __##name##_Entry;                                                                            \
     typedef struct {                                                                               \
-        mp_Alloc         alloc;                                                                    \
-        size_t           len;                                                                      \
-        size_t           cap;                                                                      \
-        size_t           size;                                                                     \
-        __##name##Entry *data;                                                                     \
-        size_t           val_size;                                                                 \
+        mp_Alloc          alloc;                                                                   \
+        size_t            len;                                                                     \
+        size_t            cap;                                                                     \
+        size_t            size;                                                                    \
+        __##name##_Entry *data;                                                                    \
+        size_t            val_size;                                                                \
     } name;                                                                                        \
     typedef struct {                                                                               \
         const name *_h;                                                                            \
         size_t      _i;                                                                            \
         mp_Str      key;                                                                           \
         value_type  val;                                                                           \
-    } name##Iter
+    } name##_Iter
 
 // Generic hash table type.
 typedef struct {
@@ -1165,21 +1166,21 @@ typedef struct {
     size_t   size;
     void    *data;
     size_t   val_size;
-} __mp_HashTable;
+} __mp_Hash_Table;
 
 // Generic string hash table entry type.
 typedef struct {
     mp_Str key;
     char   val[];
-} __mp_StrHashTableEntry;
+} __mp_Str_Ht_Entry;
 
 // Generic string hash table iterator type.
 typedef struct {
-    const __mp_HashTable *_h;
-    size_t                _i;
-    mp_Str                key;
-    char                  val[];
-} __mp_StrHashTableIter;
+    const __mp_Hash_Table *_h;
+    size_t                 _i;
+    mp_Str                 key;
+    char                   val[];
+} __mp_Str_Ht_Iter;
 
 /// Initializes a new string hash table managed by \a allocator.
 /**
@@ -1187,67 +1188,68 @@ typedef struct {
  *
  * \a a should not have been already initialized.
  *
- * \a StrHashTable::data becomes NULL if allocation failed.
+ * \a Str_Hash_Table::data becomes NULL if allocation failed.
  *
  * \param type (identifier) The type of the hash table
- * \param ht (StrHashTable *) The hash table
- * \param allocator (mp_Alloc) The allocator to manage the hash table
+ * \param ht (Str_Hash_Table *) The hash table
+ * \param alloc (mp_Alloc) The allocator to manage the hash table
  */
-#define mp_ht_init(/* "Type" */ type, /* StrHashTable* */ ht, /* mp_Alloc */ allocator)            \
+#define mp_ht_init(/* "Type" */ type, /* Str_Hash_Table* */ ht, /* mp_Alloc */ alloc)              \
     __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val))
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
 
 /// Frees a string hash table.
 /**
- * \param ht (StrHashTable *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table
  */
-#define mp_ht_deinit(/* StrHashTable* */ ht) __mp_ht_deinit(ht)
+#define mp_ht_deinit(/* Str_Hash_Table* */ ht) __mp_ht_deinit(ht)
 void __mp_ht_deinit(void *ht);
 
 /// Gets a pointer to an item at key \a k.
 /**
  * \a ret becomes NULL if it could not retrieve the item.
  *
- * \param ht (const StrHashTable *) The hash table
+ * \param ht (const Str_Hash_Table *) The hash table
  * \param k (const char *) The key (NON-NULL)
  * \return (void *) The retrieved value
  */
-#define /* void* */ mp_ht_get(/* const StrHashTable* */ ht, /* const char* */ k)                   \
+#define /* void* */ mp_ht_get(/* const Str_Hash_Table* */ ht, /* const char* */ k)                 \
     mp_ht_get_s((ht), mp_str(k))
 
 /// The same as \ref mp_ht_get but accepts \ref mp_Str.
 /**
  * See \ref mp_ht_get.
  *
- * \param ht (const StrHashTable *) The hash table
+ * \param ht (const Str_Hash_Table *) The hash table
  * \param k (mp_Str) The key
  * \return (void *) The retrieved value
  */
-#define /* void* */ mp_ht_get_s(/* const StrHashTable* */ ht, /* mp_Str */ k) __mp_ht_get((ht), (k))
+#define /* void* */ mp_ht_get_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                    \
+    __mp_ht_get((ht), (k))
 void *__mp_ht_get(const void *ht, mp_Str k);
 
 /// Sets the value at key \a k to \a v.
 /**
  * When the item at \a k has not been initialized before, the key is cloned.
  *
- * \a StrHashTable::data becomes NULL if allocation failed.
+ * \a Str_Hash_Table::data becomes NULL if allocation failed.
  *
- * \param ht (StrHashTable *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table
  * \param k (const char *) The key
  * \param v (Type) The value to be stored
  */
-#define mp_ht_set(/* StrHashTable* */ ht, /* const char* */ k, /* Type */ v)                       \
+#define mp_ht_set(/* Str_Hash_Table* */ ht, /* const char* */ k, /* Type */ v)                     \
     mp_ht_set_s((ht), mp_str(k), (v))
 
 /// The same as \ref mp_ht_set but accepts \ref mp_Str.
 /**
  * See \ref mp_ht_set.
  *
- * \param ht (StrHashTable *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table
  * \param k (mp_Str) The key
  * \param v (Type) The value to be stored
  */
-#define mp_ht_set_s(/* StrHashTable* */ ht, /* mp_Str */ k, /* Type */ v)                          \
+#define mp_ht_set_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                        \
     do {                                                                                           \
         __typeof__(v) __it = (v);                                                                  \
         __mp_ht_set((ht), (k), &__it);                                                             \
@@ -1256,22 +1258,22 @@ void __mp_ht_set(void *ht, mp_Str k, void *v);
 
 /// Tests whether an item at key \a k exists in the given string hash table.
 /**
- * \param ht (const StrHashTable *) The hash table
+ * \param ht (const Str_Hash_Table *) The hash table
  * \param k (const char *) The key
  * \return (bool) Whether an item at key \a k exists
  */
-#define /* bool */ mp_ht_exists(/* const StrHashTable* */ ht, /* const char * */ k)                \
+#define /* bool */ mp_ht_exists(/* const Str_Hash_Table* */ ht, /* const char * */ k)              \
     __mp_ht_exists((ht), mp_str(k))
 
 /// The same as \ref mp_ht_exists but accepts \ref mp_Str.
 /**
  * See \ref mp_ht_exists.
  *
- * \param ht (const StrHashTable *) The hash table
+ * \param ht (const Str_Hash_Table *) The hash table
  * \param k (mp_Str) The key
  * \return (bool) Whether an item at key \a k exists
  */
-#define /* bool */ mp_ht_exists_s(/* const StrHashTable* */ ht, /* mp_Str */ k)                    \
+#define /* bool */ mp_ht_exists_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                  \
     __mp_ht_exists((ht), (k))
 bool __mp_ht_exists(const void *ht, mp_Str k);
 
@@ -1286,10 +1288,10 @@ bool __mp_ht_exists(const void *ht, mp_Str k);
  *
  * \a ht->data becomes NULL if allocation failed.
  *
- * \param ht (StrHashTable *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table
  * \param offset (size_t) The amount to grow
  */
-#define mp_ht_grow(/* StrHashTable* */ ht, /* size_t */ offset) __mp_ht_grow((ht), (offset))
+#define mp_ht_grow(/* Str_Hash_Table* */ ht, /* size_t */ offset) __mp_ht_grow((ht), (offset))
 void __mp_ht_grow(void *ht, size_t offset);
 
 // Invalidates and frees the string keys
@@ -1299,31 +1301,31 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
 /**
  * This resets the hash table to "initial condition" but without actually freeing the data.
  *
- * \param ht (StrHashTable *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table
  */
-#define mp_ht_reset(/* StrHashTable* */ ht) __mp_ht_reset(ht)
+#define mp_ht_reset(/* Str_Hash_Table* */ ht) __mp_ht_reset(ht)
 void __mp_ht_reset(void *ht);
 
 /// Deletes an item at key \a k.
 /**
- * This decreases \a StrHashTable::len but does not actually shrink the hash table, but it just
+ * This decreases \a Str_Hash_Table::len but does not actually shrink the hash table, but it just
  * marks the spot as "deleted", which may be overridden by subsequent set operations.
  *
  * Does nothing if it cannot find \a k.
  *
- * \param ht (StrHashTable *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table
  * \param k (const char *) The key
  */
-#define mp_ht_delete(/* StrHashTable* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
+#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
 
 /// The same as \ref mp_ht_delete but accepts to \ref mp_Str.
 /**
  * See \ref mp_ht_delete.
  *
- * \param ht (StrHashTable *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table
  * \param k (mp_Str) The key
  */
-#define mp_ht_delete_s(/* StrHashTable* */ ht, /* mp_Str */ k) __mp_ht_delete((ht), (k))
+#define mp_ht_delete_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k) __mp_ht_delete((ht), (k))
 void __mp_ht_delete(void *ht, mp_Str k);
 
 /// Clones a string hash table to \a dest to be managed by \a allocator.
@@ -1331,11 +1333,12 @@ void __mp_ht_delete(void *ht, mp_Str k);
  * \a dest inherits all fields of \a src.
  * \a dest.data becomes NULL if allocation failed.
  *
- * \param dest (StrHashTable *) Stores the cloned hash table
- * \param src (const StrHashTable *) The hash table to be cloned
+ * \param dest (Str_Hash_Table *) Stores the cloned hash table
+ * \param src (const Str_Hash_Table *) The hash table to be cloned
  * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
-#define mp_ht_clone(/* StrHashTable* */ dest, /* const StrHashTable* */ src, /* mp_Alloc */ alloc) \
+#define mp_ht_clone(/* Str_Hash_Table* */ dest, /* const Str_Hash_Table* */ src,                   \
+                    /* mp_Alloc */ alloc)                                                          \
     __mp_ht_clone((dest), (src), (alloc))
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
 
@@ -1343,10 +1346,10 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
 /**
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (StrHashTableIter *) The iterator to initialize
- * \param ht (const StrHashTable *) The hash table to iterate
+ * \param it (Str_Hash_Table_Iter *) The iterator to initialize
+ * \param ht (const Str_Hash_Table *) The hash table to iterate
  */
-#define mp_ht_iter_init(/* StrHashTableIter* */ it, /* const StrHashTable* */ ht)                  \
+#define mp_ht_iter_init(/* Str_Hash_Table_Iter* */ it, /* const Str_Hash_Table* */ ht)             \
     __mp_ht_iter_init((it), (ht))
 void __mp_ht_iter_init(void *it, const void *ht);
 
@@ -1354,16 +1357,17 @@ void __mp_ht_iter_init(void *it, const void *ht);
 /**
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (StrHashTableIter *) The iterator
+ * \param it (Str_Hash_Table_Iter *) The iterator
  * \return (bool) Whether it is valid to access the data
  */
-#define /* bool */ mp_ht_iter_next(/* StrHashTableIter* */ it) __mp_ht_iter_next(it)
+#define /* bool */ mp_ht_iter_next(/* Str_Hash_Table_Iter* */ it) __mp_ht_iter_next(it)
 bool __mp_ht_iter_next(void *it);
 
 // Hashes a string with FNV-1a hash algorithm.
 uint64_t __mp_ht_hash_str(const mp_Str *str);
 
-/** \defgroup HashSetString Hash Set (String)
+/**
+ * \defgroup HashSetString Hash Set (String)
  *
  * Hash set with string (**null-terminated**) key.
  * Represented by a \ref HashTableString "string hash table" with opaque value.
@@ -1372,11 +1376,11 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  *
  * # Usage
  *
- * Initialize (and deinitialize) like regular hash tables.
+ * Initialize and deinitialize with \ref mp_hs_init and \ref mp_hs_deinit.
  * \code
- * mp_StrSet set;
- * mp_ht_init(mp_StrSet, &set, mp_heap());
- * mp_ht_deinit(&set);
+ * mp_Str_Set set;
+ * mp_hs_init(&set, mp_heap());
+ * mp_hs_deinit(&set);
  * \endcode
  *
  * The primary usage of this is for setting keys. The value can be whatever but using NULL is
@@ -1408,11 +1412,33 @@ typedef struct {
     /// The size of each entry, since the values are opaque, it is equal to the size of the key.
     size_t size;
     /// The entries.
-    __mp_StrHashTableEntry *data;
-} mp_StrSet;
+    __mp_Str_Ht_Entry *data;
+    /// Always 0.
+    size_t val_size;
+} mp_Str_Set;
+
+/// Initializes a new string hash set managed by \a allocator.
+/**
+ * Deinit with \ref mp_hs_deinit.
+ *
+ * \a a should not have been already initialized.
+ *
+ * \a mp_Str_Set::data becomes NULL if allocation failed.
+ *
+ * \param hs (mp_Str_Set *) The hash set
+ * \param alloc (mp_Alloc) The allocator to manage the hash set
+ */
+#define mp_hs_init(/* mp_Str_Set* */ hs, /* mp_Alloc */ alloc)                                     \
+    __mp_ht_init((hs), (alloc), sizeof(*((mp_Str_Set *) 0)->data), 0)
+
+/// Frees a string hash set.
+/**
+ * \param hs (mp_Str_Set *) The hash set
+ */
+#define mp_hs_deinit(/* mp_Str_Set* */ hs) __mp_ht_deinit(hs)
 
 /// Iterator for \ref HashSetString "string hash sets".
-typedef __mp_StrHashTableIter mp_StrSetIter;
+typedef __mp_Str_Ht_Iter mp_Str_Set_Iter;
 
 /// \}
 
@@ -1429,21 +1455,21 @@ typedef __mp_StrHashTableIter mp_StrSetIter;
  * The keys are stored as size_t, but any type that can be coerced to size_t should work.
  *
  * Throughout the documentation, a generic hash table (integer key) type is written as \a
- * IntHashTable. Similarly, its iterator is written as \a IntHashTableIter.
+ * Int_Hash_Table. Similarly, its iterator is written as \a Int_Hash_Table_Iter.
  *
  * # Usage
  *
  * Becase C does not have generics, to store data of a certain type you must define the hash table
  * type yourself. Luckily there is a macro that does this job.
  * \code
- * mp_hti_create(int, IntHashTableInt);
+ * mp_hti_typedef(int, Ht_Int);
  * \endcode
  *
  * Declare a hash table then use \ref mp_hti_init and pass an allocator to manage the hash table.
  * This does not allocate the data immediately. But only once you set something on the hash table.
  * \code
- * IntHashTableInt ht;
- * mp_hti_init(IntHashTableInt, &ht, alloc);
+ * Ht_Int ht;
+ * mp_hti_init(Ht_Int, &ht, alloc);
  * mp_hti_set(&ht, 0, 10);
  * \endcode
  * Note that zero is a valid key.
@@ -1458,11 +1484,11 @@ typedef __mp_StrHashTableIter mp_StrSetIter;
  *
  * # Iterator
  *
- * Using \ref mp_hti_create also defines an iterator type for that hash table type, named by
- * suffixing `Iter` to the hash table's type name.
+ * Using \ref mp_hti_typedef also defines an iterator type for that hash table type, named by
+ * suffixing `_Iter` to the hash table's type name.
  * Example usage:
  * \code
- * IntHashTableIntIter it;
+ * Ht_Int_Iter it;
  * mp_hti_iter_init(&it, &ht);
  * while (mp_hti_iter_next(&it)) {
  *     (void) it.key;
@@ -1483,45 +1509,45 @@ typedef __mp_StrHashTableIter mp_StrSetIter;
  * \param value_type (identifier) The type of the value
  * \param name (identifier) The name of the hash table
  */
-#define mp_hti_create(/* "Type" */ value_type, /* identifier */ name)                              \
+#define mp_hti_typedef(/* "Type" */ value_type, /* identifier */ name)                             \
     typedef struct {                                                                               \
-        __mp_IntHtKey key;                                                                         \
-        value_type    val;                                                                         \
-    } __##name##Entry;                                                                             \
+        __mp_Int_Ht_Key key;                                                                       \
+        value_type      val;                                                                       \
+    } __##name##_Entry;                                                                            \
     typedef struct {                                                                               \
-        mp_Alloc         alloc;                                                                    \
-        size_t           len;                                                                      \
-        size_t           cap;                                                                      \
-        size_t           size;                                                                     \
-        __##name##Entry *data;                                                                     \
-        size_t           val_size;                                                                 \
+        mp_Alloc          alloc;                                                                   \
+        size_t            len;                                                                     \
+        size_t            cap;                                                                     \
+        size_t            size;                                                                    \
+        __##name##_Entry *data;                                                                    \
+        size_t            val_size;                                                                \
     } name;                                                                                        \
     typedef struct {                                                                               \
-        const name   *_h;                                                                          \
-        size_t        _i;                                                                          \
-        __mp_IntHtKey key;                                                                         \
-        value_type    val;                                                                         \
-    } name##Iter
+        const name     *_h;                                                                        \
+        size_t          _i;                                                                        \
+        __mp_Int_Ht_Key key;                                                                       \
+        value_type      val;                                                                       \
+    } name##_Iter
 
 // The key type is wrapped by this struct so it can have 0 as a key.
 typedef struct {
     size_t key;
     bool   valid;
-} __mp_IntHtKey;
+} __mp_Int_Ht_Key;
 
 // Generic int hash table entry type.
 typedef struct {
-    __mp_IntHtKey key;
-    char          val[];
-} __mp_IntHashTableEntry;
+    __mp_Int_Ht_Key key;
+    char            val[];
+} __mp_Int_Ht_Entry;
 
 // Generic string hash table iterator type.
 typedef struct {
-    const __mp_HashTable *_h;
-    size_t                _i;
-    __mp_IntHtKey         key;
-    char                  val[];
-} __mp_IntHashTableIter;
+    const __mp_Hash_Table *_h;
+    size_t                 _i;
+    __mp_Int_Ht_Key        key;
+    char                   val[];
+} __mp_Int_Ht_Iter;
 
 /// Initializes a new integer hash table managed by \a allocator.
 /**
@@ -1529,41 +1555,42 @@ typedef struct {
  *
  * \a a should not have been already initialized.
  *
- * \a IntHashTable::data becomes NULL if allocation failed.
+ * \a Int_Hash_Table::data becomes NULL if allocation failed.
  *
  * \param type (identifier) The type of the hash table
- * \param ht (IntHashTable *) The hash table
- * \param allocator (mp_Alloc) The allocator to manage the hash table
+ * \param ht (Int_Hash_Table *) The hash table
+ * \param alloc (mp_Alloc) The allocator to manage the hash table
  */
-#define mp_hti_init(/* "Type" */ type, /* IntHashTable* */ ht, /* mp_Alloc */ allocator)           \
+#define mp_hti_init(/* "Type" */ type, /* Int_Hash_Table* */ ht, /* mp_Alloc */ alloc)             \
     __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val))
 
 /// Frees an integer hash table.
 /**
- * \param ht (IntHashTable *) The hash table
+ * \param ht (Int_Hash_Table *) The hash table
  */
-#define mp_hti_deinit(/* IntHashTable* */ ht) mp_da_deinit(ht)
+#define mp_hti_deinit(/* Int_Hash_Table* */ ht) mp_da_deinit(ht)
 
 /// Gets a pointer to an item at key \a k.
 /**
  * \a ret becomes NULL if it could not retrieve the item.
  *
- * \param ht (const IntHashTable *) The hash table (NO SIDE EFFECTS)
+ * \param ht (const Int_Hash_Table *) The hash table (NO SIDE EFFECTS)
  * \param k (size_t) The key
  * \return (void *) The retrieved value
  */
-#define /* void* */ mp_hti_get(/* const IntHashTable* */ ht, /* size_t */ k) __mp_hti_get((ht), (k))
+#define /* void* */ mp_hti_get(/* const Int_Hash_Table* */ ht, /* size_t */ k)                     \
+    __mp_hti_get((ht), (k))
 void *__mp_hti_get(const void *ht, size_t k);
 
 /// Sets the value at key \a k to \a v.
 /**
- * \a IntHashTable::data becomes NULL if allocation failed.
+ * \a Int_Hash_Table::data becomes NULL if allocation failed.
  *
- * \param ht (IntHashTable *) The hash table
+ * \param ht (Int_Hash_Table *) The hash table
  * \param k (size_t) The key
  * \param v (Type) The value to be stored
  */
-#define mp_hti_set(/* IntHashTable* */ ht, /* size_t */ k, /* Type */ v)                           \
+#define mp_hti_set(/* Int_Hash_Table* */ ht, /* size_t */ k, /* Type */ v)                         \
     do {                                                                                           \
         __typeof__(v) __it = (v);                                                                  \
         __mp_hti_set((ht), (k), &__it);                                                            \
@@ -1572,11 +1599,11 @@ void __mp_hti_set(void *ht, size_t k, void *v);
 
 /// Tests whether an item at key \a k exists in the given int hash table.
 /**
- * \param ht (const IntHashTable *) The hash table
+ * \param ht (const Int_Hash_Table *) The hash table
  * \param k (size_t) The key
  * \return (bool) Whether an item at key \a k exists
  */
-#define /* bool */ mp_hti_exists(/* const IntHashTable* */ ht, /* size_t */ k)                     \
+#define /* bool */ mp_hti_exists(/* const Int_Hash_Table* */ ht, /* size_t */ k)                   \
     __mp_hti_exists((ht), (k))
 bool __mp_hti_exists(const void *ht, size_t k);
 
@@ -1591,32 +1618,32 @@ bool __mp_hti_exists(const void *ht, size_t k);
  *
  * \a ht->data becomes NULL if allocation failed.
  *
- * \param ht (StrHashTable *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table
  * \param offset (size_t) The amount to grow
  */
-#define mp_hti_grow(/* IntHashTable* */ ht, /* size_t */ offset) __mp_hti_grow((ht), (offset))
+#define mp_hti_grow(/* Int_Hash_Table* */ ht, /* size_t */ offset) __mp_hti_grow((ht), (offset))
 void __mp_hti_grow(void *ht, size_t offset);
 
 /// Sets the length of an integer hash table to 0 and invalidate its keys.
 /**
  * This resets the hash table to "initial condition" but without actually freeing the data.
  *
- * \param ht (IntHashTable *) The hash table
+ * \param ht (Int_Hash_Table *) The hash table
  */
-#define mp_hti_reset(/* IntHashTable* */ ht) __mp_hti_reset(ht)
+#define mp_hti_reset(/* Int_Hash_Table* */ ht) __mp_hti_reset(ht)
 void __mp_hti_reset(void *ht);
 
 /// Deletes an item at key \a k.
 /**
- * This decreases \a IntHashTable::len but does not actually shrink the hash table, but it just
+ * This decreases \a Int_Hash_Table::len but does not actually shrink the hash table, but it just
  * marks the spot as "deleted", which may be overridden by subsequent set operations.
  *
  * Does nothing if it cannot find \a k.
  *
- * \param ht (IntHashTable *) The hash table
+ * \param ht (Int_Hash_Table *) The hash table
  * \param k (size_t) The key
  */
-#define mp_hti_delete(/* IntHashTable* */ ht, /* size_t */ k) __mp_hti_delete((ht), (k))
+#define mp_hti_delete(/* Int_Hash_Table* */ ht, /* size_t */ k) __mp_hti_delete((ht), (k))
 void __mp_hti_delete(void *ht, size_t k);
 
 /// Clones an integer hash table to \a dest to be managed by \a allocator.
@@ -1624,11 +1651,11 @@ void __mp_hti_delete(void *ht, size_t k);
  * \a dest inherits all fields of \a src.
  * \a dest.data becomes NULL if allocation failed.
  *
- * \param dest (StrHashTable *) Stores the cloned hash table
- * \param src (const StrHashTable *) The hash table to be cloned
+ * \param dest (Str_Hash_Table *) Stores the cloned hash table
+ * \param src (const Str_Hash_Table *) The hash table to be cloned
  * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
-#define mp_hti_clone(/* IntHashTable* */ dest, /* const IntHashTable* */ src,                      \
+#define mp_hti_clone(/* Int_Hash_Table* */ dest, /* const Int_Hash_Table* */ src,                  \
                      /* mp_Alloc */ alloc)                                                         \
     __mp_hti_clone((dest), (src), (alloc))
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
@@ -1637,10 +1664,10 @@ void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
 /**
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (IntHashTableIter *) The iterator to initialize
- * \param ht (const IntHashTable *) The hash table to iterate
+ * \param it (Int_Hash_Table_Iter *) The iterator to initialize
+ * \param ht (const Int_Hash_Table *) The hash table to iterate
  */
-#define mp_hti_iter_init(/* IntHashTableIter* */ it, /* const IntHashTable* */ ht)                 \
+#define mp_hti_iter_init(/* Int_Hash_Table_Iter* */ it, /* const Int_Hash_Table* */ ht)            \
     __mp_hti_iter_init((it), (ht))
 void __mp_hti_iter_init(void *it, const void *ht);
 
@@ -1648,10 +1675,10 @@ void __mp_hti_iter_init(void *it, const void *ht);
 /**
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (IntHashTableIter *) The iterator
+ * \param it (Int_Hash_Table_Iter *) The iterator
  * \return (bool) Whether it is valid to access the data
  */
-#define /* bool */ mp_hti_iter_next(/* IntHashTableIter* */ it) __mp_hti_iter_next(it)
+#define /* bool */ mp_hti_iter_next(/* Int_Hash_Table_Iter* */ it) __mp_hti_iter_next(it)
 bool __mp_hti_iter_next(void *it);
 
 /** \defgroup HashSetInt Hash Set (Integer)
@@ -1663,11 +1690,11 @@ bool __mp_hti_iter_next(void *it);
  *
  * # Usage
  *
- * Initialize (and deinitialize) like regular hash tables.
+ * Initialize and deinitialize with \ref mp_hsi_init and \ref mp_hsi_deinit.
  * \code
- * mp_IntSet set;
- * mp_hti_init(mp_IntSet, &set, mp_heap());
- * mp_hti_deinit(&set);
+ * mp_Int_Set set;
+ * mp_hsi_init(&set, mp_heap());
+ * mp_hsi_deinit(&set);
  * \endcode
  *
  * The primary usage of this is for setting keys. The value can be whatever but using NULL is
@@ -1699,11 +1726,33 @@ typedef struct {
     /// The size of each entry, since the values are opaque, it is equal to the size of the key.
     size_t size;
     /// The entries.
-    __mp_IntHashTableEntry *data;
-} mp_IntSet;
+    __mp_Int_Ht_Entry *data;
+    /// Always 0.
+    size_t val_size;
+} mp_Int_Set;
+
+/// Initializes a new integer hash set managed by \a allocator.
+/**
+ * Deinit with \ref mp_hsi_deinit.
+ *
+ * \a a should not have been already initialized.
+ *
+ * \a mp_Int_Set::data becomes NULL if allocation failed.
+ *
+ * \param hs (mp_Int_Set *) The hash set
+ * \param alloc (mp_Alloc) The allocator to manage the hash set
+ */
+#define mp_hsi_init(/* mp_Int_Set* */ hs, /* mp_Alloc */ alloc)                                    \
+    __mp_ht_init((hs), (alloc), sizeof(*((mp_Int_Set *) 0)->data), 0)
+
+/// Frees an integer hash set.
+/**
+ * \param hs (mp_Int_Set *) The hash set
+ */
+#define mp_hsi_deinit(/* mp_Int_Set* */ hs) __mp_ht_deinit(hs)
 
 /// Iterator for \ref HashSetInt "integer hash sets".
-typedef __mp_IntHashTableIter mp_IntSetIter;
+typedef __mp_Int_Ht_Iter mp_Int_Set_Iter;
 
 /// \}
 
@@ -1880,7 +1929,7 @@ void mp_arena_rewind(mp_Arena *a, uintptr_t mark);
  * # Usage
  *
  * \code
- * mp_SArena arena;
+ * mp_Sarena arena;
  * mp_sarena_init(&arena, mp_heap_alloc(), 1024);
  * mp_Alloc alloc = mp_sarena_alloc(&arena);
  * void *ptr = mp_alloc(alloc, 10);
@@ -1899,7 +1948,7 @@ typedef struct {
     size_t cap;
     /// The backing allocator, allocator used to allocate \a buf.
     mp_Alloc alloc;
-} mp_SArena;
+} mp_Sarena;
 
 /// Initializes and allocates a static arena of size \a cap in bytes.
 /**
@@ -1915,7 +1964,7 @@ typedef struct {
  * \param alloc The backing allocator
  * \param cap How many bytes to allocate
  */
-void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap);
+void mp_sarena_init(mp_Sarena *a, mp_Alloc alloc, size_t cap);
 
 /// Sets an arena length to 0, but does not free the allocated buffer.
 /**
@@ -1923,7 +1972,7 @@ void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap);
  *
  * \param a The arena
  */
-void mp_sarena_reset(mp_SArena *a);
+void mp_sarena_reset(mp_Sarena *a);
 
 /// Frees an arena and its buffer.
 /**
@@ -1931,16 +1980,16 @@ void mp_sarena_reset(mp_SArena *a);
  *
  * \param a The arena
  */
-void mp_sarena_deinit(mp_SArena *a);
+void mp_sarena_deinit(mp_Sarena *a);
 
-/// Returns an allocator that works with \ref mp_SArena.
+/// Returns an allocator that works with \ref mp_Sarena.
 /**
  * Returns an invalid allocator if \a a->buf is NULL.
  *
  * \param a The arena
  * \return The allocator interface
  */
-mp_Alloc mp_sarena_alloc(mp_SArena *a);
+mp_Alloc mp_sarena_alloc(mp_Sarena *a);
 
 /// Gets the position after the last element.
 /**
@@ -1949,7 +1998,7 @@ mp_Alloc mp_sarena_alloc(mp_SArena *a);
  * \param a The arena
  * \return The pointer (as number) to the end of the last element
  */
-uintptr_t mp_sarena_mark(const mp_SArena *a);
+uintptr_t mp_sarena_mark(const mp_Sarena *a);
 
 /// Sets the pointer to the end of the last element to \a mark.
 /**
@@ -1958,7 +2007,7 @@ uintptr_t mp_sarena_mark(const mp_SArena *a);
  * \param a The arena
  * \param mark The mark
  */
-void mp_sarena_rewind(mp_SArena *a, uintptr_t mark);
+void mp_sarena_rewind(mp_Sarena *a, uintptr_t mark);
 
 /// \}
 
@@ -2047,7 +2096,7 @@ mp_Alloc mp_temp_alloc(mp_Temp *t);
  * \param a The temp arena
  * \return The pointer (as number) to the end of the last element
  */
-uintptr_t mp_temp_mark(const mp_SArena *a);
+uintptr_t mp_temp_mark(const mp_Sarena *a);
 
 /// Sets the pointer to the end of the last element to \a mark.
 /**
@@ -2056,7 +2105,7 @@ uintptr_t mp_temp_mark(const mp_SArena *a);
  * \param a The temp arena
  * \param mark The mark
  */
-void mp_temp_rewind(mp_SArena *a, uintptr_t mark);
+void mp_temp_rewind(mp_Sarena *a, uintptr_t mark);
 
 /// \}
 
@@ -2108,48 +2157,48 @@ typedef struct {
     unsigned int codepoint;
     /// The pointer to the start of the character.
     const char *c;
-} mp_Utf8Char;
+} mp_Utf8_Char;
 
-/// Returns an invalid \ref mp_Utf8Char.
+/// Returns an invalid \ref mp_Utf8_Char.
 /**
- * An invalid \ref mp_Utf8Char requires that field \a codepoint is \ref MP_UTF8_INVALID_CODEPOINT.
+ * An invalid \ref mp_Utf8_Char requires that field \a codepoint is \ref MP_UTF8_INVALID_CODEPOINT.
  *
- * An invalid \ref mp_Utf8Char only means that it is not a valid UTF-8 character, but the underlying
- * bytes may still exist and are accessible.
- * Invalid does not always mean inacessible, so `c` and `size` may still be usable.
+ * An invalid \ref mp_Utf8_Char only means that it is not a valid UTF-8 character, but the
+ * underlying bytes may still exist and are accessible. Invalid does not always mean inacessible, so
+ * `c` and `size` may still be usable.
  *
  * \param ch (const char *) The start of the error character (nullable)
  * \param sz (unsigned char) The size of the error character (should be zero if \a ch is NULL)
- * \return (mp_Utf8Char) An invalid character
+ * \return (mp_Utf8_Char) An invalid character
  */
-#define /* mp_Utf8Char */ mp_utf8char_invalid(/* const char* */ ch, /* unsigned char */ sz)        \
-    ((mp_Utf8Char) {                                                                               \
+#define /* mp_Utf8_Char */ mp_utf8_char_invalid(/* const char* */ ch, /* unsigned char */ sz)      \
+    ((mp_Utf8_Char) {                                                                              \
         .size      = (sz),                                                                         \
         .codepoint = (unsigned int) -1,                                                            \
         .c         = (ch),                                                                         \
     })
 
-/// Shortcut for printing a \ref mp_Utf8Char, use with `%.*s` formt specifier.
-#define mp_utf8char_print(ch) (ch).size, (ch).c
+/// Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` formt specifier.
+#define mp_utf8_char_print(ch) (ch).size, (ch).c
 
-/// Tests whether an \ref mp_Utf8Char is a valid UTF-8 character.
+/// Tests whether an \ref mp_Utf8_Char is a valid UTF-8 character.
 /**
- * An invalid \ref mp_Utf8Char requires that field \a codepoint is the maximum possible value of
+ * An invalid \ref mp_Utf8_Char requires that field \a codepoint is the maximum possible value of
  * `unsigned int`.
  *
- * The bytes may still be accessible, test with \ref mp_utf8char_is_accessible.
+ * The bytes may still be accessible, test with \ref mp_utf8_char_is_accessible.
  *
- * \param c (mp_Utf8Char) The character
+ * \param c (mp_Utf8_Char) The character
  * \return (bool) Whether \a c is a valid UTF-8 character.
  */
-#define /* bool */ mp_utf8char_is_valid(/* mp_Utf8Char */ c) ((c).codepoint != (unsigned int) -1)
+#define /* bool */ mp_utf8_char_is_valid(/* mp_Utf8_Char */ c) ((c).codepoint != (unsigned int) -1)
 
-/// Tests whether an \ref mp_Utf8Char is accessible.
+/// Tests whether an \ref mp_Utf8_Char is accessible.
 /**
- * \param ch (mp_Utf8Char) The charactr
+ * \param ch (mp_Utf8_Char) The charactr
  * \return (bool) Whether \a c is accessible
  */
-#define /* bool */ mp_utf8char_is_accessible(/* mp_Utf8Char */ ch) ((ch).c != NULL)
+#define /* bool */ mp_utf8_char_is_accessible(/* mp_Utf8_Char */ ch) ((ch).c != NULL)
 
 /// Takes the first valid UTF-8 character or an error character from a string.
 /**
@@ -2157,7 +2206,7 @@ typedef struct {
  * \a size is decremented according to the size of the retrieved character.
  *
  * The returned character may be a valid UTF-8 character or an invalid error character. Check with
- * \ref mp_utf8char_is_valid.
+ * \ref mp_utf8_char_is_valid.
  *
  * When an error occurs, it will return the error character. The error character may be more than
  * one bytes if the first character expects that some bytes follow it, but the string ends before it
@@ -2168,20 +2217,20 @@ typedef struct {
  * \param size The pointer to the size of \a str (in bytes)
  * \return The metadata about the character
  */
-mp_Utf8Char mp_utf8_take(const char **str, size_t *size);
+mp_Utf8_Char mp_utf8_take(const char **str, size_t *size);
 
-/// Gets a \ref mp_Utf8Char from a **null-terminated** string.
+/// Gets a \ref mp_Utf8_Char from a **null-terminated** string.
 /**
  * This function will only read the first UTF-8 character from \a c.
  *
- * Returns invalid \ref mp_Utf8Char if \a c is not a valid UTF-8 character.
+ * Returns invalid \ref mp_Utf8_Char if \a c is not a valid UTF-8 character.
  *
  * \param c The string (**null-terminated**)
  * \return The character metadata
  */
-mp_Utf8Char mp_utf8_char(const char *c);
+mp_Utf8_Char mp_utf8_char(const char *c);
 
-/// Gets a \ref mp_Utf8Char from a string.
+/// Gets a \ref mp_Utf8_Char from a string.
 /**
  * See \ref mp_utf8_char.
  *
@@ -2189,7 +2238,7 @@ mp_Utf8Char mp_utf8_char(const char *c);
  * \param size The size of \a str (in bytes)
  * \return The character metadata
  */
-mp_Utf8Char mp_utf8_char_s(const char *c, size_t size);
+mp_Utf8_Char mp_utf8_char_s(const char *c, size_t size);
 
 /// Calculate the amount of characters in a **null-terminated** UTF-8 string.
 /**
@@ -2214,13 +2263,13 @@ size_t mp_utf8_len_s(const char *str, size_t size);
 /**
  * This operation is O(n).
  *
- * Returns an invalid \ref mp_Utf8Char if out of bounds.
+ * Returns an invalid \ref mp_Utf8_Char if out of bounds.
  *
  * \param str The string (**null-terminated**)
  * \param index The index
  * \return The character at \a index
  */
-mp_Utf8Char mp_utf8_get(const char *str, size_t index);
+mp_Utf8_Char mp_utf8_get(const char *str, size_t index);
 
 /// Gets a UTF-8 character from a string at \a index.
 /**
@@ -2231,7 +2280,7 @@ mp_Utf8Char mp_utf8_get(const char *str, size_t index);
  * \param index The index
  * \return The character at \a index
  */
-mp_Utf8Char mp_utf8_get_s(const char *str, size_t size, size_t index);
+mp_Utf8_Char mp_utf8_get_s(const char *str, size_t size, size_t index);
 
 /// Iterator for UTF-8 strings.
 /**
@@ -2241,9 +2290,9 @@ mp_Utf8Char mp_utf8_get_s(const char *str, size_t size, size_t index);
  *
  * \code
  * const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂)⸝♡􏾀";
- * mp_Utf8Iter iter = mp_utf8_iter_new(utf8);
+ * mp_Utf8_Iter iter = mp_utf8_iter_new(utf8);
  * while (mp_utf8_iter_next(&iter)) {
- *     (void) iter.c;      // The current character (mp_Utf8Char)
+ *     (void) iter.c;      // The current character (mp_Utf8_Char)
  * }
  * \endcode
  *
@@ -2252,45 +2301,45 @@ mp_Utf8Char mp_utf8_get_s(const char *str, size_t size, size_t index);
  */
 typedef struct {
     /// Holds the current character in iteration.
-    mp_Utf8Char c;
+    mp_Utf8_Char c;
 
     /// The string being iterated on.
     const char *_str;
     /// The remaining size of the string (in bytes).
     size_t _size;
-} mp_Utf8Iter;
+} mp_Utf8_Iter;
 
-/// Creates a new \ref mp_Utf8Iter that iterates over a **null-terminated** string.
+/// Creates a new \ref mp_Utf8_Iter that iterates over a **null-terminated** string.
 /**
  * Use \ref mp_utf8_iter_new_s for non-null-terminated strings.
  *
- * See \ref mp_Utf8Iter for usage.
+ * See \ref mp_Utf8_Iter for usage.
  *
  * \param str The UTF-8 string (**null-terminated**)
  * \return The iterator
  */
-mp_Utf8Iter mp_utf8_iter_new(const char *str);
+mp_Utf8_Iter mp_utf8_iter_new(const char *str);
 
-/// Creates a new \ref mp_Utf8Iter that iterates over a string with size parameter (in bytes).
+/// Creates a new \ref mp_Utf8_Iter that iterates over a string with size parameter (in bytes).
 /**
- * See \ref mp_Utf8Iter for usage.
+ * See \ref mp_Utf8_Iter for usage.
  *
  * \param str The UTF-8 string
  * \param size The size of \a str (in bytes)
  * \return The iterator
  */
-mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size);
+mp_Utf8_Iter mp_utf8_iter_new_s(const char *str, size_t size);
 
-/// Continues iterating an \ref mp_Utf8Iter.
+/// Continues iterating an \ref mp_Utf8_Iter.
 /**
- * See \ref mp_Utf8Iter for usage.
+ * See \ref mp_Utf8_Iter for usage.
  *
- * This function consumes \a mp_Utf8Iter::_str.
+ * This function consumes \a mp_Utf8_Iter::_str.
  *
  * \param it The iterator
  * \return Whether it is valid to access the data
  */
-bool mp_utf8_iter_next(mp_Utf8Iter *it);
+bool mp_utf8_iter_next(mp_Utf8_Iter *it);
 
 /// \}
 
@@ -2507,72 +2556,72 @@ const char *mp_err_str(mp_Err e);
  * See the documentation for each operation \ref mp_IoFunc "here".
  */
 typedef enum {
-    MP_IOOP_FLUSH,
-    MP_IOOP_SETBUF,
-    MP_IOOP_READ,    // When ret < count, if successful, it means EOF
-    MP_IOOP_WRITE,
-    MP_IOOP_GETPOS,
-    MP_IOOP_SETPOS,
-    MP_IOOP_GETC,
-    MP_IOOP_PUTC,
-    __MP_IOOP_COUNT,
-} mp_IoOp;
+    MP_IO_OP_FLUSH,
+    MP_IO_OP_SETBUF,
+    MP_IO_OP_READ,    // When ret < count, if successful, it means EOF
+    MP_IO_OP_WRITE,
+    MP_IO_OP_GETPOS,
+    MP_IO_OP_SETPOS,
+    MP_IO_OP_GETC,
+    MP_IO_OP_PUTC,
+    __MP_IO_OP_COUNT,
+} mp_Io_Op;
 
 /// Errors that may occur when using IO functions.
 /**
  * For error messages see \ref mp_ioerr_str.
  */
 typedef enum {
-    MP_IOERR_NONE = 0,
-    MP_IOERR_UNSUPPORTED,
-    MP_IOERR_EOF,
-    MP_IOERR_CANNOT_FLUSH,
-    MP_IOERR_CANNOT_SET_BUF,
-    MP_IOERR_CANNOT_READ,
-    MP_IOERR_CANNOT_WRITE,
-    MP_IOERR_CANNOT_GET_POS,
-    MP_IOERR_CANNOT_SET_POS,
-    __MP_IOERR_COUNT,
-} mp_IoErr;
+    MP_IO_ERR_NONE = 0,
+    MP_IO_ERR_UNSUPPORTED,
+    MP_IO_ERR_EOF,
+    MP_IO_ERR_CANNOT_FLUSH,
+    MP_IO_ERR_CANNOT_SET_BUF,
+    MP_IO_ERR_CANNOT_READ,
+    MP_IO_ERR_CANNOT_WRITE,
+    MP_IO_ERR_CANNOT_GET_POS,
+    MP_IO_ERR_CANNOT_SET_POS,
+    __MP_IO_ERR_COUNT,
+} mp_Io_Err;
 
-/// Returns the message of an \ref mp_IoErr "IO error".
-const char *mp_ioerr_str(mp_IoErr e);
+/// Returns the message of an \ref mp_Io_Err "IO error".
+const char *mp_ioerr_str(mp_Io_Err e);
 
-/// Modes given to MP_IOOP_SETBUF.
+/// Modes given to MP_IO_OP_SETBUF.
 typedef enum {
     /// No buffering (_IONBF)
-    MP_SETBUFMODE_NONE,
+    MP_SETBUF_MODE_NONE,
     /// Full buffering (_IOFBF)
-    MP_SETBUFMODE_FULL,
+    MP_SETBUF_MODE_FULL,
     /// Line buffering (_IOLBF)
-    MP_SETBUFMODE_LINE,
-} mp_SetbufMode;
+    MP_SETBUF_MODE_LINE,
+} mp_Setbuf_Mode;
 
 /// Position from which to apply the offset of the seek.
 typedef enum {
     /// Beginning of the stream (SEEK_SET)
-    MP_SETPOSORIGIN_START,
+    MP_SETPOS_ORIGIN_START,
     /// The current position in the stream (SEEK_CUR)
-    MP_SETPOSORIGIN_CURRENT,
+    MP_SETPOS_ORIGIN_CURRENT,
     /// The end of the stream (SEEK_END)
-    MP_SETPOSORIGIN_END,
-} mp_SetposOrigin;
+    MP_SETPOS_ORIGIN_END,
+} mp_Setpos_Origin;
 
 /// The types of streams.
 /**
  * Stream of a certain type may only call certain functions. A stream may be both read and
  * write.
  *
- * If a stream calls to a function outside of its domain, MP_IOERR_UNSUPPORTED will be
+ * If a stream calls to a function outside of its domain, MP_IO_ERR_UNSUPPORTED will be
  * returned.
  *
- * MP_IOTYPE_NONE is only used for invalid \ref mp_Io.
+ * MP_IO_TYPE_NONE is only used for invalid \ref mp_Io.
  */
 typedef enum {
-    MP_IOTYPE_NONE  = 0,
-    MP_IOTYPE_READ  = 1 << 0,
-    MP_IOTYPE_WRITE = 1 << 1,
-} mp_IoType;
+    MP_IO_TYPE_NONE  = 0,
+    MP_IO_TYPE_READ  = 1 << 0,
+    MP_IO_TYPE_WRITE = 1 << 1,
+} mp_Io_Type;
 
 /// Forward declaration of \ref mp_Io.
 typedef struct mp_Io mp_Io;
@@ -2584,17 +2633,17 @@ typedef struct mp_Io mp_Io;
  * Functions of this type do different things depending on the \a op given.
  * They also use their parameters differently on each type.
  *
- * Returns \a mp_IoErr type. MP_IOERR_NONE if successful.
+ * Returns \a mp_Io_Err type. MP_IO_ERR_NONE if successful.
  *
  * Not all operations can be done to all streams.
  * If the operation does not allow to be done on the type it will return
- *  MP_IOERR_UNSUPPORTED.
+ *  MP_IO_ERR_UNSUPPORTED.
  *
  * Operations will ignores parameters that are not listed for them.
  *
  * # Operations
  *
- * - **MP_IOOP_FLUSH** (MP_IOTYPE_WRITE)
+ * - **MP_IO_OP_FLUSH** (MP_IO_TYPE_WRITE)
 
  *     Flushes the stream
  *
@@ -2603,7 +2652,7 @@ typedef struct mp_Io mp_Io;
  *     **Parameters**
  *     - **io**: The IO object
  *
- * - **MP_IOOP_SETBUF** (MP_IOTYPE_WRITE or MP_IOTYPE_READ)
+ * - **MP_IO_OP_SETBUF** (MP_IO_TYPE_WRITE or MP_IO_TYPE_READ)
  *
  *     Changes the buffering mode or/and the size of the internal buffer.
  *     Can also instruct the stream to use use-provided buffer if \a ptr is not NULL.
@@ -2613,14 +2662,14 @@ typedef struct mp_Io mp_Io;
  *     - **io**: The IO object
  *     - **ptr**: The buffer to use (if NULL, only resizes the existing buffer to \a n1)
  *     - **n1**: The size of the buffer (in bytes)
- *     - **n2**: The buffering mode (see \ref mp_SetbufMode)
+ *     - **n2**: The buffering mode (see \ref mp_Setbuf_Mode)
  *
- * - **MP_IOOP_READ** (MP_IOTYPE_READ)
+ * - **MP_IO_OP_READ** (MP_IO_TYPE_READ)
  *
  *     Reads objects into given buffer from the stream.
- *     If an error or EOF occurs, \a ret may be less than \a n2 and returns MP_IOERR_CANNOT_READ
+ *     If an error or EOF occurs, \a ret may be less than \a n2 and returns MP_IO_ERR_CANNOT_READ
  or
- *     MP_IOERR_EOF respsectively. If \a n1 or \a n2 is zero, does nothing and \a ret will be
+ *     MP_IO_ERR_EOF respsectively. If \a n1 or \a n2 is zero, does nothing and \a ret will be
  set to
  *     zero.
  *
@@ -2631,10 +2680,10 @@ typedef struct mp_Io mp_Io;
  *     - **n2**: The number of objects (the total size will be \a n1 * \a n2)
  *     - **ret**: Stores the number of objects read successfully
  *
- * - **MP_IOOP_WRITE** (MP_IOTYPE_WRITE)
+ * - **MP_IO_OP_WRITE** (MP_IO_TYPE_WRITE)
  *
  *     Writes objects from given buffer to the stream.
- *     If an error occurs, \a ret may be less than \a n2 and returns MP_IOERR_CANNOT_WRITE. If
+ *     If an error occurs, \a ret may be less than \a n2 and returns MP_IO_ERR_CANNOT_WRITE. If
  \a n1
  *     or \a n2 is zero, does nothing and \a ret will be set to zero.
  *
@@ -2645,7 +2694,7 @@ typedef struct mp_Io mp_Io;
  *     - **n2**: The number of objects (the total size will be \a n1 * \a n2)
  *     - **ret**: Stores the number of objects written successfully
  *
- * - **MP_IOOP_GETPOS** (MP_IOTYPE_WRITE or MP_IOTYPE_READ)
+ * - **MP_IO_OP_GETPOS** (MP_IO_TYPE_WRITE or MP_IO_TYPE_READ)
  *
  *     Gets the file position indicator of a stream.
  *
@@ -2653,16 +2702,16 @@ typedef struct mp_Io mp_Io;
  *     - **io**: The IO object
  *     - **ret**: Stores the file position indicator (in bytes)
  *
- * - **MP_IOOP_SETPOS** (MP_IOTYPE_WRITE or MP_IOTYPE_READ)
+ * - **MP_IO_OP_SETPOS** (MP_IO_TYPE_WRITE or MP_IO_TYPE_READ)
  *
  *     Sets the file position indicator of a stream.
  *
  *     **Parameters**
  *     - **io**: The IO object
  *     - **n1**: The offset (in bytes)
- *     - **n2**: The origin of the seek (see \ref mp_SetposOrigin)
+ *     - **n2**: The origin of the seek (see \ref mp_Setpos_Origin)
  *
- * - **MP_IOOP_GETC** (MP_IOTYPE_READ)
+ * - **MP_IO_OP_GETC** (MP_IO_TYPE_READ)
  *
  *     Reads the next character from a stream.
  *
@@ -2670,7 +2719,7 @@ typedef struct mp_Io mp_Io;
  *     - **io**: The IO object
  *     - **ret**: Stores the retrieved character
  *
- * - **MP_IOOP_PUTC** (MP_IOTYPE_WRITE)
+ * - **MP_IO_OP_PUTC** (MP_IO_TYPE_WRITE)
  *
  *     Writes a character to a stream .
  *
@@ -2678,10 +2727,11 @@ typedef struct mp_Io mp_Io;
  *     - **io**: The IO object
  *     - **n1**: The character to write
  *
- * \return MP_IOERR_NONE if successful, MP_IOERR_UNSUPPORTED if the operation is not
+ * \return MP_IO_ERR_NONE if successful, MP_IO_ERR_UNSUPPORTED if the operation is not
  * supported by the type, or other errors.
  */
-typedef mp_IoErr (*mp_IoFunc)(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2, size_t *ret);
+typedef mp_Io_Err (*mp_IoFunc)(mp_Io_Op op, mp_Io *io, void *ptr, size_t n1, size_t n2,
+                               size_t *ret);
 
 /// Interface to wrap IO functions.
 struct mp_Io {
@@ -2690,8 +2740,8 @@ struct mp_Io {
      * This can be specified as NULL if context is not needed.
      */
     void *context;
-    /// See \ref mp_IoType.
-    mp_IoType type;
+    /// See \ref mp_Io_Type.
+    mp_Io_Type type;
 
     /**
      * \brief Function that handles the operations requested by the user of the interface. See
@@ -2710,121 +2760,122 @@ struct mp_Io {
  * \{
  */
 
-/// Calls IO function with **MP_IOOP_FLUSH**.
+/// Calls IO function with **MP_IO_OP_FLUSH**.
 /**
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
+ * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
  */
-#define /* mp_IoErr */ mp_io_flush(/* mp_Io* */ io) ((io)->f(MP_IOOP_FLUSH, (io), NULL, 0, 0, NULL))
+#define /* mp_Io_Err */ mp_io_flush(/* mp_Io* */ io)                                               \
+    ((io)->f(MP_IO_OP_FLUSH, (io), NULL, 0, 0, NULL))
 
-/// Calls IO function with **MP_IOOP_SETBUF**.
+/// Calls IO function with **MP_IO_OP_SETBUF**.
 /**
  * The stream must be closed before the lifetime \a buf ends.
  *
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
  * \param buf (char *) The buffer to use (if NULL, only resizes the existing buffer to \a bufsize)
  * \param bufsize (size_t) The size of the buffer (in bytes)
- * \param mode (mp_SetbufMode) The buffering mode
- * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
+ * \param mode (mp_Setbuf_Mode) The buffering mode
+ * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
  */
-#define /* mp_IoErr */ mp_io_setbuf(/* mp_Io* */ io, /* char* */ buf, /* size_t */ bufsize,        \
-                                    /* mp_SetbufMode */ mode)                                      \
-    ((io)->f(MP_IOOP_SETBUF, (io), (buf), (bufsize), (mode), NULL))
+#define /* mp_Io_Err */ mp_io_setbuf(/* mp_Io* */ io, /* char* */ buf, /* size_t */ bufsize,       \
+                                     /* mp_Setbuf_Mode */ mode)                                    \
+    ((io)->f(MP_IO_OP_SETBUF, (io), (buf), (bufsize), (mode), NULL))
 
-/// Calls IO function with **MP_IOOP_READ**.
+/// Calls IO function with **MP_IO_OP_READ**.
 /**
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
  * \param buf (char *) The buffer which the data will be stored
  * \param size (size_t) The size of each object (in bytes)
  * \param count (size_t) The number of objects (the total size will be \a size * \a count)
  * \param ret_n (size_t *) Stores the number of objects read successfully
- * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
+ * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
  */
-#define /* mp_IoErr */ mp_io_read(/* mp_Io* */ io, /* char* */ buf, /* size_t */ size,             \
-                                  /* size_t */ count, /* size_t* */ ret_n)                         \
-    ((io)->f(MP_IOOP_READ, (io), (buf), (size), (count), (ret_n)))
+#define /* mp_Io_Err */ mp_io_read(/* mp_Io* */ io, /* char* */ buf, /* size_t */ size,            \
+                                   /* size_t */ count, /* size_t* */ ret_n)                        \
+    ((io)->f(MP_IO_OP_READ, (io), (buf), (size), (count), (ret_n)))
 
-/// Calls IO function with **MP_IOOP_WRITE**.
+/// Calls IO function with **MP_IO_OP_WRITE**.
 /**
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
  * \param buf (char *) The buffer of the data to be written
  * \param size (size_t) The size of each object (in bytes)
  * \param count (size_t) The number of objects (the total size will be \a size * \a count)
  * \param ret_n (size_t *) Stores the number of objects written successfully
- * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
+ * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
  */
-#define /* mp_IoErr */ mp_io_write(/* mp_Io* */ io, /* char* */ buf, /* size_t */ size,            \
-                                   /* size_t */ count, /* size_t* */ ret_n)                        \
-    ((io)->f(MP_IOOP_WRITE, (io), (void *) (buf), (size), (count), (ret_n)))
+#define /* mp_Io_Err */ mp_io_write(/* mp_Io* */ io, /* char* */ buf, /* size_t */ size,           \
+                                    /* size_t */ count, /* size_t* */ ret_n)                       \
+    ((io)->f(MP_IO_OP_WRITE, (io), (void *) (buf), (size), (count), (ret_n)))
 
-/// Calls IO function with **MP_IOOP_GETPOS**.
+/// Calls IO function with **MP_IO_OP_GETPOS**.
 /**
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
  * \param ret_n (size_t *) Stores the file position indicator (in bytes)
- * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
+ * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
  */
-#define /* mp_IoErr */ mp_io_getpos(/* mp_Io* */ io, /* size_t* */ ret_n)                          \
-    ((io)->f(MP_IOOP_GETPOS, (io), NULL, 0, 0, (ret_n)))
+#define /* mp_Io_Err */ mp_io_getpos(/* mp_Io* */ io, /* size_t* */ ret_n)                         \
+    ((io)->f(MP_IO_OP_GETPOS, (io), NULL, 0, 0, (ret_n)))
 
-/// Calls IO function with **MP_IOOP_SETPOS**.
+/// Calls IO function with **MP_IO_OP_SETPOS**.
 /**
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
  * \param offset (size_t) The offset (in bytes)
  * \param origin (size_t) The origin of the seek
- * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
+ * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
  */
-#define /* mp_IoErr */ mp_io_setpos(/* mp_Io* */ io, /* size_t */ offset,                          \
-                                    /* mp_SetposOrigin */ origin)                                  \
-    ((io)->f(MP_IOOP_SETPOS, (io), NULL, (offset), (origin), NULL))
+#define /* mp_Io_Err */ mp_io_setpos(/* mp_Io* */ io, /* size_t */ offset,                         \
+                                     /* mp_Setpos_Origin */ origin)                                \
+    ((io)->f(MP_IO_OP_SETPOS, (io), NULL, (offset), (origin), NULL))
 
-/// Calls IO function with **MP_IOOP_GETC**.
+/// Calls IO function with **MP_IO_OP_GETC**.
 /**
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
  * \param ret_c (size_t *) Stores the retrieved character
- * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
+ * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
  */
-#define /* mp_IoErr */ mp_io_getc(/* mp_Io* */ io, /* size_t* */ ret_c)                            \
-    ((io)->f(MP_IOOP_GETC, (io), NULL, 0, 0, (ret_c)))
+#define /* mp_Io_Err */ mp_io_getc(/* mp_Io* */ io, /* size_t* */ ret_c)                           \
+    ((io)->f(MP_IO_OP_GETC, (io), NULL, 0, 0, (ret_c)))
 
-/// Calls IO function with **MP_IOOP_PUTC**.
+/// Calls IO function with **MP_IO_OP_PUTC**.
 /**
  * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
  * \param c (size_t) The character to write
- * \return (mp_IoErr) The error, returns MP_IOERR_NONE if successful
+ * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
  */
-#define /* mp_IoErr */ mp_io_putc(/* mp_Io* */ io, /* size_t */ c)                                 \
-    ((io)->f(MP_IOOP_PUTC, (io), NULL, (size_t) (c), 0, NULL))
+#define /* mp_Io_Err */ mp_io_putc(/* mp_Io* */ io, /* size_t */ c)                                \
+    ((io)->f(MP_IO_OP_PUTC, (io), NULL, (size_t) (c), 0, NULL))
 
 /// \}
 
 /// Returns an invalid \ref mp_Io.
 /**
- * Invalid \ref mp_Io requires field \a type is MP_IOTYPE_NONE.
+ * Invalid \ref mp_Io requires field \a type is MP_IO_TYPE_NONE.
  */
 #define /* mp_Io */ mp_io_invalid()                                                                \
     ((mp_Io) {                                                                                     \
         .context = NULL,                                                                           \
-        .type    = MP_IOTYPE_NONE,                                                                 \
+        .type    = MP_IO_TYPE_NONE,                                                                \
         .f       = NULL,                                                                           \
     })
 
-/// Tests whether \a io is valid (i.e. field \a type is not MP_IOTYPE_NONE).
+/// Tests whether \a io is valid (i.e. field \a type is not MP_IO_TYPE_NONE).
 /**
  * Returns true if \a io is valid.
  *
  * \param io (mp_Io) The IO object
  * \return (bool) Whether \a io is valid
  */
-#define /* bool */ mp_io_is_valid(/* mp_Io */ io) ((io).type != MP_IOTYPE_NONE)
+#define /* bool */ mp_io_is_valid(/* mp_Io */ io) ((io).type != MP_IO_TYPE_NONE)
 
 /// Creates an \ref mp_Io given the context, the type and the function.
 /**
  * \param ctx (any *) The context passed to the function (automatically casted to void *)
- * \param type (mp_IoType) The type of the interface
+ * \param type (mp_Io_Type) The type of the interface
  * \param func (mp_IoFunc) The IO function
  * \return An IO interface that works with the arguments given.
  */
-#define /* mp_Io */ mp_io_new(/* any* */ ctx, /* mp_IoType */ type, /* mp_IoFunc */ func)          \
+#define /* mp_Io */ mp_io_new(/* any* */ ctx, /* mp_Io_Type */ type, /* mp_IoFunc */ func)         \
     ((mp_Io) {                                                                                     \
         .context = (void *) (ctx),                                                                 \
         .type    = (type),                                                                         \
@@ -2855,18 +2906,18 @@ struct mp_Io {
  * \code
  * mp_File f;
  * mp_Err e = mp_file_open(&f, "foo.txt", "r");
- * mp_Io io = mp_file_io(&f, MP_IOTYPE_READ);
+ * mp_Io io = mp_file_io(&f, MP_IO_TYPE_READ);
  * const char m[] = "foobar";
  * size_t     n   = 0;
- * mp_IoErr   ie  = mp_io_write(&io, m, 1, sizeof(m) - 1, &n);
+ * mp_Io_Err   ie  = mp_io_write(&io, m, 1, sizeof(m) - 1, &n);
  * \endcode
  *
  * \{
  */
 
 // TODO: Put this notice somewhere
-/* Binary streams may not support MP_SETPOSORIGIN_END or SEEK_END. For text streams, offset may
- * only be zero or the result of earlier `MP_IOOP_GETPOS` (for MP_SETPOSORIGIN_START or SEEK_SET
+/* Binary streams may not support MP_SETPOS_ORIGIN_END or SEEK_END. For text streams, offset may
+ * only be zero or the result of earlier `MP_IO_OP_GETPOS` (for MP_SETPOS_ORIGIN_START or SEEK_SET
  * only). For wide-oriented streams, the restrictions of both binary and text streams apply. */
 
 /// The internal context of file IO.
@@ -2874,7 +2925,7 @@ typedef struct {
     /// The handled file object
     FILE *file;
     /// The supported IO type for the file object
-    mp_IoType supported_type;
+    mp_Io_Type supported_type;
 } mp_File;
 
 /// Opens a file at \a filename.
@@ -2922,7 +2973,7 @@ void mp_file_deinit(mp_File *f);
  * \param type The IO type
  * \return The IO object, returns an invalid \a mp_Io if failed
  */
-mp_Io mp_file_io(mp_File *f, mp_IoType type);
+mp_Io mp_file_io(mp_File *f, mp_Io_Type type);
 
 /// \}
 
@@ -2955,15 +3006,15 @@ mp_Io mp_file_io(mp_File *f, mp_IoType type);
             }                                                                                      \
         } while (0)
 
-static void *mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
+static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                  void *ptr);
-static void *mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
+static void *mp_sarena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                   void *ptr);
-static void *mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
+static void *mp_heap_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                 void *ptr);
 
-static mp_IoErr mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2,
-                                size_t *ret);
+static mp_Io_Err mp_file_io_func(mp_Io_Op op, mp_Io *io, void *ptr, size_t n1, size_t n2,
+                                 size_t *ret);
 
     #ifdef __MP_NEED_ASSERT
 __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, const char *func,
@@ -2999,7 +3050,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
 }
 
 void __mp_da_init(void *a, mp_Alloc alloc, size_t size) {
-    __mp_DynArray *self = a;
+    __mp_Dyn_Array *self = a;
     __MP_ZERO(self);
     self->alloc = alloc;
     self->len   = 0;
@@ -3009,13 +3060,13 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size) {
 }
 
 void __mp_da_deinit(void *a) {
-    __mp_DynArray *self = a;
+    __mp_Dyn_Array *self = a;
     mp_free(self->alloc, self->data, self->cap * self->size);
     __MP_ZERO(self);
 }
 
 void __mp_da_append(void *a, const void *items, size_t items_len) {
-    __mp_DynArray *self = a;
+    __mp_Dyn_Array *self = a;
     mp_da_grow(self, items_len);
     if (self->data != NULL) {
         memcpy((char *) self->data + self->len * self->size, items, items_len * self->size);
@@ -3024,7 +3075,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len) {
 }
 
 void __mp_da_grow(void *a, size_t offset) {
-    __mp_DynArray *self = a;
+    __mp_Dyn_Array *self = a;
     if (self->len + offset > self->cap && offset > 0) {
         size_t new_cap = self->cap;
         if (new_cap == 0) {
@@ -3041,8 +3092,8 @@ void __mp_da_reserve(void *a, size_t offset) {
     if (offset == 0) {
         return;
     }
-    __mp_DynArray *self    = a;
-    size_t         new_cap = self->cap + offset;
+    __mp_Dyn_Array *self    = a;
+    size_t          new_cap = self->cap + offset;
     self->data = mp_realloc(self->alloc, self->data, self->cap * self->size, new_cap * self->size);
     if (self->data != NULL) {
         self->cap = new_cap;
@@ -3050,8 +3101,8 @@ void __mp_da_reserve(void *a, size_t offset) {
 }
 
 void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc) {
-    const __mp_DynArray *s = src;
-    __mp_DynArray       *d = dest;
+    const __mp_Dyn_Array *s = src;
+    __mp_Dyn_Array       *d = dest;
     __MP_ZERO(d);
     d->data = mp_dup(alloc, s->data, s->cap * s->size);
     if (d->data != NULL) {
@@ -3063,8 +3114,8 @@ void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc) {
 }
 
 void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len) {
-    __mp_DynArray *self       = a;
-    size_t         actual_pos = (pos > self->len) ? self->len : pos;
+    __mp_Dyn_Array *self       = a;
+    size_t          actual_pos = (pos > self->len) ? self->len : pos;
     mp_da_grow(self, items_len);
     if (self->data != NULL) {
         memmove((char *) self->data + (actual_pos + items_len) * self->size,
@@ -3075,7 +3126,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len) {
 }
 
 void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len) {
-    __mp_DynArray *self = a;
+    __mp_Dyn_Array *self = a;
     __MP_BOUNDS_CHECK(pos, self->len);
     size_t moved = self->len - (pos + items_len);
     if (ret_items != NULL) {
@@ -3089,7 +3140,7 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len) {
 }
 
 void __mp_da_quick_move(void *a, size_t pos, void *ret_item) {
-    __mp_DynArray *self = a;
+    __mp_Dyn_Array *self = a;
     __MP_BOUNDS_CHECK(pos, self->len);
     if (ret_item != NULL) {
         memcpy(ret_item, (char *) self->data + pos * self->size, self->size);
@@ -3150,7 +3201,7 @@ mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc) {
 }
 
 mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc) {
-    mp_StrBuilder sb;
+    mp_Str_Builder sb;
     mp_str_builder_init(&sb, alloc);
 
     for (size_t i = 0; i < strs_len; ++i) {
@@ -3163,19 +3214,19 @@ mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_All
     return mp_str_builder_string_take(&sb, alloc);
 }
 
-void mp_str_builder_init(mp_StrBuilder *sb, mp_Alloc alloc) {
-    mp_da_init(mp_StrBuilder, sb, alloc);
+void mp_str_builder_init(mp_Str_Builder *sb, mp_Alloc alloc) {
+    mp_da_init(mp_Str_Builder, sb, alloc);
 }
 
-void mp_str_builder_deinit(mp_StrBuilder *sb) {
+void mp_str_builder_deinit(mp_Str_Builder *sb) {
     mp_da_deinit(sb);
 }
 
-void mp_str_builder_append(mp_StrBuilder *sb, const char *str) {
+void mp_str_builder_append(mp_Str_Builder *sb, const char *str) {
     mp_da_append_array(sb, str, strlen(str));
 }
 
-void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
+void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
@@ -3193,8 +3244,8 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
     }
 }
 
-// TODO: Use mp_Utf8Char
-void mp_str_builder_appendc(mp_StrBuilder *sb, char c[4], char c_len) {
+// TODO: Use mp_Utf8_Char
+void mp_str_builder_appendc(mp_Str_Builder *sb, char c[4], char c_len) {
     mp_da_grow(sb, (size_t) c_len);
 
     if (sb->data != NULL) {
@@ -3203,26 +3254,26 @@ void mp_str_builder_appendc(mp_StrBuilder *sb, char c[4], char c_len) {
     }
 }
 
-mp_Str mp_str_builder_string(const mp_StrBuilder *sb, mp_Alloc alloc) {
+mp_Str mp_str_builder_string(const mp_Str_Builder *sb, mp_Alloc alloc) {
     return mp_str_new_len(alloc, sb->data, sb->len);
 }
 
-mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc) {
+mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc) {
     mp_Str res = mp_str_new_len(alloc, sb->data, sb->len);
     mp_str_builder_deinit(sb);
     return res;
 }
 
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     __mp_da_init(self, alloc, size);
     self->val_size = val_size;
 }
 
 void __mp_ht_deinit(void *ht) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     for (size_t i = 0; i < self->cap; i++) {
-        __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+        __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
         if (mp_str_is_valid(e->key)) {
             mp_str_deinit(&e->key, self->alloc);
         }
@@ -3231,7 +3282,7 @@ void __mp_ht_deinit(void *ht) {
 }
 
 void *__mp_ht_get(const void *ht, mp_Str k) {
-    const __mp_HashTable *self = ht;
+    const __mp_Hash_Table *self = ht;
     if (self->cap == 0) {
         return NULL;
     }
@@ -3239,7 +3290,7 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
-            __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+            __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
                 return &e->val;
             }
@@ -3256,13 +3307,13 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
 }
 
 void __mp_ht_set(void *ht, mp_Str k, void *v) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     mp_ht_grow(self, 1);
     if (self->data != NULL) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
-            __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+            __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (!mp_str_is_valid(e->key)) {
                 e->key = mp_str_clone(&k, self->alloc);
                 memcpy(&e->val, v, self->val_size);
@@ -3286,7 +3337,7 @@ bool __mp_ht_exists(const void *ht, mp_Str k) {
 }
 
 void __mp_ht_grow(void *ht, size_t offset) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
         offset > 0) {
         size_t old_cap = self->cap;
@@ -3302,13 +3353,13 @@ void __mp_ht_grow(void *ht, size_t offset) {
             return;
         }
         for (size_t i = 0; i < old_cap; ++i) {
-            __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+            __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (mp_str_is_valid(e->key)) {
                 uint64_t hash  = __mp_ht_hash_str(&e->key);
                 size_t   new_i = (size_t) (hash % (uint64_t) (self->cap - 1));
                 for (;;) {
-                    __mp_StrHashTableEntry *new_e =
-                        (__mp_StrHashTableEntry *) ((char *) new_data + new_i * self->size);
+                    __mp_Str_Ht_Entry *new_e =
+                        (__mp_Str_Ht_Entry *) ((char *) new_data + new_i * self->size);
                     if (!mp_str_is_valid(new_e->key)) {
                         new_e->key = mp_str_clone(&e->key, self->alloc);
                         memcpy(&new_e->val, &e->val, self->val_size);
@@ -3331,7 +3382,7 @@ void __mp_ht_grow(void *ht, size_t offset) {
 
 void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size) {
     for (size_t i = 0; i < cap; ++i) {
-        __mp_StrHashTableEntry *e = (__mp_StrHashTableEntry *) ((char *) entries + i * size);
+        __mp_Str_Ht_Entry *e = (__mp_Str_Ht_Entry *) ((char *) entries + i * size);
         if (mp_str_is_valid(e->key)) {
             mp_str_deinit(&e->key, alloc);
             __MP_ASSERT(!mp_str_is_valid(e->key));
@@ -3340,19 +3391,19 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
 }
 
 void __mp_ht_reset(void *ht) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     __mp_ht_free_entries(self->data, self->alloc, self->cap, self->size);
     mp_da_reset(self);
 }
 
 // TODO: mp_ht(i)_move
 void __mp_ht_delete(void *ht, mp_Str k) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     if (mp_str_is_valid(k)) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
-            __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
+            __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
                 mp_str_deinit(&e->key, self->alloc);
                 __MP_ASSERT(!mp_str_is_valid(e->key));
@@ -3373,14 +3424,14 @@ void __mp_ht_delete(void *ht, mp_Str k) {
 
 // TODO: notice to clone funcs that dest and src must not overlap
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
-    const __mp_HashTable *s = src;
-    __mp_HashTable       *d = dest;
-    memcpy(d, s, sizeof(__mp_HashTable));
+    const __mp_Hash_Table *s = src;
+    __mp_Hash_Table       *d = dest;
+    memcpy(d, s, sizeof(__mp_Hash_Table));
     d->data = mp_dup(alloc, s->data, s->cap * s->size);
     if (d->data != NULL) {
         for (size_t i = 0; i < s->cap; ++i) {
-            __mp_StrHashTableEntry *s_e = __mp_da_get(__mp_StrHashTableEntry, s, i);
-            __mp_StrHashTableEntry *d_e = __mp_da_get(__mp_StrHashTableEntry, d, i);
+            __mp_Str_Ht_Entry *s_e = __mp_da_get(__mp_Str_Ht_Entry, s, i);
+            __mp_Str_Ht_Entry *d_e = __mp_da_get(__mp_Str_Ht_Entry, d, i);
             if (mp_str_is_valid(s_e->key)) {
                 d_e->key = mp_str_clone(&s_e->key, alloc);
                 __MP_ASSERT(d_e->key.cstr != s_e->key.cstr);
@@ -3392,19 +3443,21 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
 }
 
 void __mp_ht_iter_init(void *it, const void *ht) {
-    __mp_StrHashTableIter *self = it;
-    const __mp_HashTable  *h    = ht;
-    memset(self, 0, sizeof(*self) + (h->size - sizeof(self->key)));
+    __mp_Str_Ht_Iter      *self = it;
+    const __mp_Hash_Table *h    = ht;
+    memset(self, 0, sizeof(*self) + h->val_size);
     self->_h = h;
 }
 
 bool __mp_ht_iter_next(void *it) {
-    __mp_StrHashTableIter *self = it;
+    __mp_Str_Ht_Iter *self = it;
     while (self->_i < self->_h->cap) {
-        __mp_StrHashTableEntry *entry = __mp_da_get(__mp_StrHashTableEntry, self->_h, self->_i);
+        __mp_Str_Ht_Entry *entry = __mp_da_get(__mp_Str_Ht_Entry, self->_h, self->_i);
         if (mp_str_is_valid(entry->key)) {
             self->key = entry->key;
-            memcpy(&self->val, &entry->val, self->_h->val_size);
+            if (self->_h->val_size > 0) {
+                memcpy(&self->val, &entry->val, self->_h->val_size);
+            }
             ++self->_i;
             return true;
         }
@@ -3426,13 +3479,13 @@ uint64_t __mp_ht_hash_str(const mp_Str *str) {
 }
 
 void *__mp_hti_get(const void *ht, size_t k) {
-    const __mp_HashTable *self = ht;
+    const __mp_Hash_Table *self = ht;
     if (self->cap == 0) {
         return NULL;
     }
     size_t i = (size_t) (k % (uint64_t) (self->cap - 1));
     for (;;) {
-        __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+        __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
         if (e->key.valid && k == e->key.key) {
             return &e->val;
         }
@@ -3452,14 +3505,14 @@ bool __mp_hti_exists(const void *ht, size_t k) {
 }
 
 void __mp_hti_set(void *ht, size_t k, void *v) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     mp_hti_grow(self, 1);
     if (self->data != NULL) {
         size_t i = (size_t) (k % (uint64_t) (self->cap - 1));
         for (;;) {
-            __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+            __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
             if (!e->key.valid) {
-                e->key = (__mp_IntHtKey) {
+                e->key = (__mp_Int_Ht_Key) {
                     .key   = k,
                     .valid = true,
                 };
@@ -3480,7 +3533,7 @@ void __mp_hti_set(void *ht, size_t k, void *v) {
 }
 
 void __mp_hti_grow(void *ht, size_t offset) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
         offset > 0) {
         size_t old_cap = self->cap;
@@ -3496,12 +3549,12 @@ void __mp_hti_grow(void *ht, size_t offset) {
             return;
         }
         for (size_t i = 0; i < old_cap; ++i) {
-            __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+            __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
             if (e->key.valid) {
                 size_t new_i = (size_t) (e->key.key % (uint64_t) (self->cap - 1));
                 for (;;) {
-                    __mp_IntHashTableEntry *new_e =
-                        (__mp_IntHashTableEntry *) ((char *) new_data + new_i * self->size);
+                    __mp_Int_Ht_Entry *new_e =
+                        (__mp_Int_Ht_Entry *) ((char *) new_data + new_i * self->size);
                     if (!new_e->key.valid) {
                         new_e->key = e->key;
                         memcpy(&new_e->val, &e->val, self->val_size);
@@ -3522,9 +3575,9 @@ void __mp_hti_grow(void *ht, size_t offset) {
 }
 
 void __mp_hti_reset(void *ht) {
-    __mp_HashTable *self = ht;
+    __mp_Hash_Table *self = ht;
     for (size_t i = 0; i < self->cap; ++i) {
-        __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+        __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
         if (e->key.valid) {
             __MP_ZERO(&e->key);
         }
@@ -3533,10 +3586,10 @@ void __mp_hti_reset(void *ht) {
 }
 
 void __mp_hti_delete(void *ht, size_t k) {
-    __mp_HashTable *self = ht;
-    size_t          i    = (size_t) (k % (uint64_t) (self->cap - 1));
+    __mp_Hash_Table *self = ht;
+    size_t           i    = (size_t) (k % (uint64_t) (self->cap - 1));
     for (;;) {
-        __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
+        __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
         if (e->key.valid && k == e->key.key) {
             e->key.valid = false;
             e->key.key   = 1;
@@ -3554,9 +3607,9 @@ void __mp_hti_delete(void *ht, size_t k) {
 }
 
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
-    const __mp_HashTable *s = src;
-    __mp_HashTable       *d = dest;
-    memcpy(d, s, sizeof(__mp_HashTable));
+    const __mp_Hash_Table *s = src;
+    __mp_Hash_Table       *d = dest;
+    memcpy(d, s, sizeof(__mp_Hash_Table));
     d->data = mp_dup(alloc, s->data, s->cap * s->size);
     if (d->data == NULL) {
         __MP_ZERO(d);
@@ -3564,19 +3617,21 @@ void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
 }
 
 void __mp_hti_iter_init(void *it, const void *ht) {
-    __mp_IntHashTableIter *self = it;
-    const __mp_HashTable  *h    = ht;
-    memset(self, 0, sizeof(*self) + (h->size - sizeof(self->key)));
+    __mp_Int_Ht_Iter      *self = it;
+    const __mp_Hash_Table *h    = ht;
+    memset(self, 0, sizeof(*self) + h->val_size);
     self->_h = h;
 }
 
 bool __mp_hti_iter_next(void *it) {
-    __mp_IntHashTableIter *self = it;
+    __mp_Int_Ht_Iter *self = it;
     while (self->_i < self->_h->cap) {
-        __mp_IntHashTableEntry *entry = __mp_da_get(__mp_IntHashTableEntry, self->_h, self->_i);
+        __mp_Int_Ht_Entry *entry = __mp_da_get(__mp_Int_Ht_Entry, self->_h, self->_i);
         if (entry->key.valid) {
             self->key = entry->key;
-            memcpy(&self->val, &entry->val, self->_h->size - sizeof(self->key));
+            if (self->_h->val_size > 0) {
+                memcpy(&self->val, &entry->val, self->_h->val_size);
+            }
             ++self->_i;
             return true;
         }
@@ -3650,13 +3705,13 @@ void mp_arena_rewind(mp_Arena *a, uintptr_t mark) {
     }
 }
 
-static void *mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
+static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                  void *ptr) {
     mp_Arena *ctx   = context;
     mp_Alloc  alloc = mp_alloc_new(ctx, mp_arena_alloc_func);
 
     switch (op) {
-        case MP_ALLOCOP_ALLOC: {
+        case MP_ALLOC_OP_ALLOC: {
             (void) old_size;
             (void) ptr;
 
@@ -3704,20 +3759,20 @@ static void *mp_arena_alloc_func(mp_AllocOp op, void *context, size_t new_size, 
             ctx->len += alloc_size;
             return result;
         } break;
-        case MP_ALLOCOP_REALLOC: {
+        case MP_ALLOC_OP_REALLOC: {
             return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
         } break;
-        case MP_ALLOCOP_FREE: {
+        case MP_ALLOC_OP_FREE: {
             (void) old_size;
 
             return NULL;
         } break;
-        case __MP_ALLOCOP_COUNT: __MP_UNREACHABLE();
+        case __MP_ALLOC_OP_COUNT: __MP_UNREACHABLE();
     }
     __MP_UNREACHABLE();
 }
 
-void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap) {
+void mp_sarena_init(mp_Sarena *a, mp_Alloc alloc, size_t cap) {
     size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
     uintptr_t *buffer = mp_alloc(alloc, bytes);
     a->alloc          = alloc;
@@ -3726,38 +3781,38 @@ void mp_sarena_init(mp_SArena *a, mp_Alloc alloc, size_t cap) {
     a->cap            = bytes;
 }
 
-void mp_sarena_reset(mp_SArena *a) {
+void mp_sarena_reset(mp_Sarena *a) {
     // memset(a->buf, 0, a->cap);
     a->len = 0;
 }
 
-void mp_sarena_deinit(mp_SArena *a) {
+void mp_sarena_deinit(mp_Sarena *a) {
     mp_free(a->alloc, a->buf, a->cap * sizeof(*(a)->buf));
     __MP_ZERO(a);
 }
 
-mp_Alloc mp_sarena_alloc(mp_SArena *a) {
+mp_Alloc mp_sarena_alloc(mp_Sarena *a) {
     if (a->buf == NULL) {
         return mp_alloc_invalid();
     }
     return mp_alloc_new(a, mp_sarena_alloc_func);
 }
 
-uintptr_t mp_sarena_mark(const mp_SArena *a) {
+uintptr_t mp_sarena_mark(const mp_Sarena *a) {
     return (uintptr_t) (char *) a->buf + a->len;
 }
 
-void mp_sarena_rewind(mp_SArena *a, uintptr_t mark) {
+void mp_sarena_rewind(mp_Sarena *a, uintptr_t mark) {
     a->len = mark - (uintptr_t) a->buf;
 }
 
-static void *mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
+static void *mp_sarena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                   void *ptr) {
-    mp_SArena *ctx   = context;
+    mp_Sarena *ctx   = context;
     mp_Alloc   alloc = mp_alloc_new(ctx, mp_sarena_alloc_func);
 
     switch (op) {
-        case MP_ALLOCOP_ALLOC: {
+        case MP_ALLOC_OP_ALLOC: {
             (void) old_size;
             (void) ptr;
 
@@ -3780,18 +3835,18 @@ static void *mp_sarena_alloc_func(mp_AllocOp op, void *context, size_t new_size,
             ctx->len += alloc_size;
             return result;
         } break;
-        case MP_ALLOCOP_REALLOC: {
+        case MP_ALLOC_OP_REALLOC: {
             if (ctx->buf == NULL) {
                 return NULL;
             }
             return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
         } break;
-        case MP_ALLOCOP_FREE: {
+        case MP_ALLOC_OP_FREE: {
             (void) old_size;
 
             return NULL;
         } break;
-        case __MP_ALLOCOP_COUNT: __MP_UNREACHABLE();
+        case __MP_ALLOC_OP_COUNT: __MP_UNREACHABLE();
     }
     __MP_UNREACHABLE();
 }
@@ -3811,11 +3866,11 @@ mp_Alloc mp_temp_alloc(mp_Temp *t) {
     return mp_alloc_new(t, mp_sarena_alloc_func);
 }
 
-uintptr_t mp_temp_mark(const mp_SArena *a) {
+uintptr_t mp_temp_mark(const mp_Sarena *a) {
     return mp_sarena_mark(a);
 }
 
-void mp_temp_rewind(mp_SArena *a, uintptr_t mark) {
+void mp_temp_rewind(mp_Sarena *a, uintptr_t mark) {
     mp_sarena_rewind(a, mark);
 }
 
@@ -3823,13 +3878,13 @@ mp_Alloc mp_heap_alloc(void) {
     return mp_alloc_new(NULL, mp_heap_alloc_func);
 }
 
-static void *mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, size_t old_size,
+static void *mp_heap_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                 void *ptr) {
     (void) context;
     mp_Alloc alloc = mp_alloc_new(NULL, mp_heap_alloc_func);
 
     switch (op) {
-        case MP_ALLOCOP_ALLOC: {
+        case MP_ALLOC_OP_ALLOC: {
             (void) old_size;
             (void) ptr;
             if (new_size == 0) {
@@ -3837,10 +3892,10 @@ static void *mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, s
             }
             return __MP_ALLOC(new_size);
         } break;
-        case MP_ALLOCOP_REALLOC: {
+        case MP_ALLOC_OP_REALLOC: {
             return mp_alloc_handle_realloc(alloc, ptr, old_size, new_size);
         } break;
-        case MP_ALLOCOP_FREE: {
+        case MP_ALLOC_OP_FREE: {
             (void) old_size;
             if (ptr == NULL) {
                 return NULL;
@@ -3849,18 +3904,18 @@ static void *mp_heap_alloc_func(mp_AllocOp op, void *context, size_t new_size, s
             __MP_FREE(ptr);
             return NULL;
         } break;
-        case __MP_ALLOCOP_COUNT: __MP_UNREACHABLE();
+        case __MP_ALLOC_OP_COUNT: __MP_UNREACHABLE();
     }
     __MP_UNREACHABLE();
 }
 
 // Thanks, Wikipedia! <https://en.wikipedia.org/wiki/UTF-8#Description>
-mp_Utf8Char mp_utf8_take(const char **str, size_t *size) {
+mp_Utf8_Char mp_utf8_take(const char **str, size_t *size) {
     if (!(str != NULL && *str != NULL)) {
-        return mp_utf8char_invalid(NULL, 0);
+        return mp_utf8_char_invalid(NULL, 0);
     }
     if (*size == 0) {
-        return mp_utf8char_invalid(NULL, 0);
+        return mp_utf8_char_invalid(NULL, 0);
     }
     const char   *ch    = *str;
     unsigned char first = (unsigned char) ch[0];
@@ -3922,7 +3977,7 @@ mp_Utf8Char mp_utf8_take(const char **str, size_t *size) {
     *str += char_size;
     *size -= char_size;
 
-    return (mp_Utf8Char) {
+    return (mp_Utf8_Char) {
         .size      = char_size,
         .c         = ch,
         .codepoint = codepoint,
@@ -3934,14 +3989,14 @@ fail:
     }
     *str += actual_decoded_size;
     *size -= actual_decoded_size;
-    return mp_utf8char_invalid(ch, actual_decoded_size);
+    return mp_utf8_char_invalid(ch, actual_decoded_size);
 }
 
-mp_Utf8Char mp_utf8_char(const char *c) {
+mp_Utf8_Char mp_utf8_char(const char *c) {
     return mp_utf8_char_s(c, strlen(c));
 }
 
-mp_Utf8Char mp_utf8_char_s(const char *c, size_t size) {
+mp_Utf8_Char mp_utf8_char_s(const char *c, size_t size) {
     return mp_utf8_take(&c, &size);
 }
 
@@ -3950,47 +4005,47 @@ size_t mp_utf8_len(const char *str) {
 }
 
 size_t mp_utf8_len_s(const char *str, size_t size) {
-    size_t      len = 0;
-    mp_Utf8Char c;
+    size_t       len = 0;
+    mp_Utf8_Char c;
     while ((c = mp_utf8_take(&str, &size)).c != NULL) {
         ++len;
     }
     return len;
 }
 
-mp_Utf8Char mp_utf8_get(const char *str, size_t index) {
+mp_Utf8_Char mp_utf8_get(const char *str, size_t index) {
     return mp_utf8_get_s(str, strlen(str), index);
 }
 
-mp_Utf8Char mp_utf8_get_s(const char *str, size_t size, size_t index) {
-    size_t      i = 0;
-    mp_Utf8Char c;
+mp_Utf8_Char mp_utf8_get_s(const char *str, size_t size, size_t index) {
+    size_t       i = 0;
+    mp_Utf8_Char c;
     while ((c = mp_utf8_take(&str, &size)).c != NULL) {
         if (index == i) {
             return c;
         }
         ++i;
     }
-    return mp_utf8char_invalid(NULL, 0);
+    return mp_utf8_char_invalid(NULL, 0);
 }
 
-mp_Utf8Iter mp_utf8_iter_new(const char *str) {
-    return (mp_Utf8Iter) {
+mp_Utf8_Iter mp_utf8_iter_new(const char *str) {
+    return (mp_Utf8_Iter) {
         ._str  = str,
         ._size = strlen(str),
     };
 }
 
-mp_Utf8Iter mp_utf8_iter_new_s(const char *str, size_t size) {
-    return (mp_Utf8Iter) {
+mp_Utf8_Iter mp_utf8_iter_new_s(const char *str, size_t size) {
+    return (mp_Utf8_Iter) {
         ._str  = str,
         ._size = size,
     };
 }
 
-bool mp_utf8_iter_next(mp_Utf8Iter *it) {
+bool mp_utf8_iter_next(mp_Utf8_Iter *it) {
     it->c = mp_utf8_take(&it->_str, &it->_size);
-    return mp_utf8char_is_accessible(it->c);
+    return mp_utf8_char_is_accessible(it->c);
 }
 
 mp_Err mp_err(int errnum) {
@@ -4324,18 +4379,18 @@ const char *mp_err_str(mp_Err e) {
     __MP_UNREACHABLE();
 }
 
-const char *mp_ioerr_str(mp_IoErr e) {
+const char *mp_ioerr_str(mp_Io_Err e) {
     switch (e) {
-        case MP_IOERR_NONE:           return "Success";
-        case MP_IOERR_UNSUPPORTED:    return "Unsupported operation";
-        case MP_IOERR_EOF:            return "Reached end-of-file";
-        case MP_IOERR_CANNOT_FLUSH:   return "Cannot flush";
-        case MP_IOERR_CANNOT_SET_BUF: return "Cannot set internal buffer";
-        case MP_IOERR_CANNOT_READ:    return "Cannot read from stream";
-        case MP_IOERR_CANNOT_WRITE:   return "Cannot write to stream";
-        case MP_IOERR_CANNOT_GET_POS: return "Cannot get file position indicator";
-        case MP_IOERR_CANNOT_SET_POS: return "Cannot set file position indicator";
-        case __MP_IOERR_COUNT:        __MP_UNREACHABLE();
+        case MP_IO_ERR_NONE:           return "Success";
+        case MP_IO_ERR_UNSUPPORTED:    return "Unsupported operation";
+        case MP_IO_ERR_EOF:            return "Reached end-of-file";
+        case MP_IO_ERR_CANNOT_FLUSH:   return "Cannot flush";
+        case MP_IO_ERR_CANNOT_SET_BUF: return "Cannot set internal buffer";
+        case MP_IO_ERR_CANNOT_READ:    return "Cannot read from stream";
+        case MP_IO_ERR_CANNOT_WRITE:   return "Cannot write to stream";
+        case MP_IO_ERR_CANNOT_GET_POS: return "Cannot get file position indicator";
+        case MP_IO_ERR_CANNOT_SET_POS: return "Cannot set file position indicator";
+        case __MP_IO_ERR_COUNT:        __MP_UNREACHABLE();
     }
 
     __MP_UNREACHABLE();
@@ -4346,14 +4401,14 @@ mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode) {
     FILE *file;
     if ((file = fopen(filename, mode)) != NULL) {
         f->file           = file;
-        f->supported_type = MP_IOTYPE_NONE;
+        f->supported_type = MP_IO_TYPE_NONE;
 
         if (strchr(mode, '+') != NULL) {
-            f->supported_type = MP_IOTYPE_WRITE | MP_IOTYPE_READ;
+            f->supported_type = MP_IO_TYPE_WRITE | MP_IO_TYPE_READ;
         } else if (strchr(mode, 'w') != NULL || strchr(mode, 'a') != NULL) {
-            f->supported_type = MP_IOTYPE_WRITE;
+            f->supported_type = MP_IO_TYPE_WRITE;
         } else if (strchr(mode, 'r') != NULL) {
-            f->supported_type = MP_IOTYPE_READ;
+            f->supported_type = MP_IO_TYPE_READ;
         }
 
         return MP_ERR_NONE;
@@ -4369,14 +4424,14 @@ mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode) {
     }
 
     if ((f->file = freopen(filename, mode, f->file)) != NULL) {
-        f->supported_type = MP_IOTYPE_NONE;
+        f->supported_type = MP_IO_TYPE_NONE;
 
         if (strchr(mode, '+') != NULL) {
-            f->supported_type = MP_IOTYPE_WRITE | MP_IOTYPE_READ;
+            f->supported_type = MP_IO_TYPE_WRITE | MP_IO_TYPE_READ;
         } else if (strchr(mode, 'w') != NULL || strchr(mode, 'a') != NULL) {
-            f->supported_type = MP_IOTYPE_WRITE;
+            f->supported_type = MP_IO_TYPE_WRITE;
         } else if (strchr(mode, 'r') != NULL) {
-            f->supported_type = MP_IOTYPE_READ;
+            f->supported_type = MP_IO_TYPE_READ;
         }
 
         return MP_ERR_NONE;
@@ -4393,58 +4448,58 @@ void mp_file_deinit(mp_File *f) {
     __MP_ZERO(f);
 }
 
-mp_Io mp_file_io(mp_File *f, mp_IoType type) {
-    if (type == MP_IOTYPE_READ && (f->supported_type & MP_IOTYPE_READ) == 0) {
+mp_Io mp_file_io(mp_File *f, mp_Io_Type type) {
+    if (type == MP_IO_TYPE_READ && (f->supported_type & MP_IO_TYPE_READ) == 0) {
         return mp_io_invalid();
     }
-    if (type == MP_IOTYPE_WRITE && (f->supported_type & MP_IOTYPE_WRITE) == 0) {
+    if (type == MP_IO_TYPE_WRITE && (f->supported_type & MP_IO_TYPE_WRITE) == 0) {
         return mp_io_invalid();
     }
     return mp_io_new(f, type, mp_file_io_func);
 }
 
-static mp_IoErr mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, size_t n2,
-                                size_t *ret) {
+static mp_Io_Err mp_file_io_func(mp_Io_Op op, mp_Io *io, void *ptr, size_t n1, size_t n2,
+                                 size_t *ret) {
     mp_File *ctx = io->context;
 
     switch (op) {
-        case MP_IOOP_FLUSH: {
+        case MP_IO_OP_FLUSH: {
             (void) ptr;
             (void) n1;
             (void) n2;
             (void) ret;
 
-            if ((io->type & MP_IOTYPE_WRITE) == 0) {
-                return MP_IOERR_UNSUPPORTED;
+            if ((io->type & MP_IO_TYPE_WRITE) == 0) {
+                return MP_IO_ERR_UNSUPPORTED;
             }
 
             if (fflush(ctx->file) == EOF && ferror(ctx->file)) {
-                return MP_IOERR_CANNOT_FLUSH;
+                return MP_IO_ERR_CANNOT_FLUSH;
             };
         } break;
-        case MP_IOOP_SETBUF: {
+        case MP_IO_OP_SETBUF: {
             (void) ret;
 
-            int           mode    = 0;
-            mp_SetbufMode mp_mode = (mp_SetbufMode) n2;
+            int            mode    = 0;
+            mp_Setbuf_Mode mp_mode = (mp_Setbuf_Mode) n2;
             switch (mp_mode) {
-                case MP_SETBUFMODE_NONE: {
+                case MP_SETBUF_MODE_NONE: {
                     mode = _IONBF;
                 } break;
-                case MP_SETBUFMODE_FULL: {
+                case MP_SETBUF_MODE_FULL: {
                     mode = _IOFBF;
                 } break;
-                case MP_SETBUFMODE_LINE: {
+                case MP_SETBUF_MODE_LINE: {
                     mode = _IOLBF;
                 } break;
             }
             if (setvbuf(ctx->file, ptr, (int) mode, n1)) {
-                return MP_IOERR_CANNOT_SET_BUF;
+                return MP_IO_ERR_CANNOT_SET_BUF;
             };
         } break;
-        case MP_IOOP_READ: {
-            if ((io->type & MP_IOTYPE_READ) == 0) {
-                return MP_IOERR_UNSUPPORTED;
+        case MP_IO_OP_READ: {
+            if ((io->type & MP_IO_TYPE_READ) == 0) {
+                return MP_IO_ERR_UNSUPPORTED;
             }
 
             size_t res = fread(ptr, n1, n2, ctx->file);
@@ -4453,16 +4508,16 @@ static mp_IoErr mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, siz
             }
             if (res < n2) {
                 if (feof(ctx->file)) {
-                    return MP_IOERR_EOF;
+                    return MP_IO_ERR_EOF;
                 }
                 if (ferror(ctx->file)) {
-                    return MP_IOERR_CANNOT_READ;
+                    return MP_IO_ERR_CANNOT_READ;
                 }
             }
         } break;
-        case MP_IOOP_WRITE: {
-            if ((io->type & MP_IOTYPE_WRITE) == 0) {
-                return MP_IOERR_UNSUPPORTED;
+        case MP_IO_OP_WRITE: {
+            if ((io->type & MP_IO_TYPE_WRITE) == 0) {
+                return MP_IO_ERR_UNSUPPORTED;
             }
 
             size_t res = fwrite(ptr, n1, n2, ctx->file);
@@ -4470,78 +4525,78 @@ static mp_IoErr mp_file_io_func(mp_IoOp op, mp_Io *io, void *ptr, size_t n1, siz
                 *ret = res;
             }
             if (res < n2) {
-                return MP_IOERR_CANNOT_WRITE;
+                return MP_IO_ERR_CANNOT_WRITE;
             }
         } break;
-        case MP_IOOP_GETPOS: {
+        case MP_IO_OP_GETPOS: {
             (void) ptr;
             (void) n1;
             (void) n2;
 
             long res = ftell(ctx->file);
             if (res == -1l) {
-                return MP_IOERR_CANNOT_GET_POS;
+                return MP_IO_ERR_CANNOT_GET_POS;
             }
             *ret = (size_t) res;
         } break;
-        case MP_IOOP_SETPOS: {
+        case MP_IO_OP_SETPOS: {
             (void) ptr;
             (void) ret;
 
-            int             origin    = 0;
-            mp_SetposOrigin mp_origin = (mp_SetposOrigin) n2;
+            int              origin    = 0;
+            mp_Setpos_Origin mp_origin = (mp_Setpos_Origin) n2;
             switch (mp_origin) {
-                case MP_SETPOSORIGIN_START: {
+                case MP_SETPOS_ORIGIN_START: {
                     origin = SEEK_SET;
                 } break;
-                case MP_SETPOSORIGIN_CURRENT: {
+                case MP_SETPOS_ORIGIN_CURRENT: {
                     origin = SEEK_CUR;
                 } break;
-                case MP_SETPOSORIGIN_END: {
+                case MP_SETPOS_ORIGIN_END: {
                     origin = SEEK_END;
                 } break;
             }
             if (fseek(ctx->file, (long) n1, origin)) {
-                return MP_IOERR_CANNOT_SET_POS;
+                return MP_IO_ERR_CANNOT_SET_POS;
             }
         } break;
-        case MP_IOOP_GETC: {
+        case MP_IO_OP_GETC: {
             (void) ptr;
             (void) n1;
             (void) n2;
 
-            if ((io->type & MP_IOTYPE_READ) == 0) {
-                return MP_IOERR_UNSUPPORTED;
+            if ((io->type & MP_IO_TYPE_READ) == 0) {
+                return MP_IO_ERR_UNSUPPORTED;
             }
 
             int res = fgetc(ctx->file);
             if (res == EOF) {
                 if (feof(ctx->file)) {
-                    return MP_IOERR_EOF;
+                    return MP_IO_ERR_EOF;
                 }
                 if (ferror(ctx->file)) {
-                    return MP_IOERR_CANNOT_READ;
+                    return MP_IO_ERR_CANNOT_READ;
                 }
             }
             *ret = (size_t) res;
         } break;
-        case MP_IOOP_PUTC: {
+        case MP_IO_OP_PUTC: {
             (void) ptr;
             (void) n2;
             (void) ret;
 
-            if ((io->type & MP_IOTYPE_WRITE) == 0) {
-                return MP_IOERR_UNSUPPORTED;
+            if ((io->type & MP_IO_TYPE_WRITE) == 0) {
+                return MP_IO_ERR_UNSUPPORTED;
             }
 
             if (fputc((int) n1, ctx->file) == EOF) {
-                return MP_IOERR_CANNOT_WRITE;
+                return MP_IO_ERR_CANNOT_WRITE;
             }
         } break;
-        case __MP_IOOP_COUNT: __MP_UNREACHABLE();
+        case __MP_IO_OP_COUNT: __MP_UNREACHABLE();
     }
 
-    return MP_IOERR_NONE;
+    return MP_IO_ERR_NONE;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */

@@ -20,19 +20,19 @@ int main(void) {
     unsigned char sizes[]      = { 1, 1, 1, 3, 3, 4, 3, 4, 1, 1, 2, 2, 1, 4, 3 };
     size_t        size         = strlen(all_kinds);
     size_t        size_copy    = size;
-    mp_Utf8Char   c;
+    mp_Utf8_Char  c;
     size_t        i = 0;
     while ((c = mp_utf8_take(&all_kinds, &size)).c != NULL) {
-        bool valid = mp_utf8char_is_valid(c);
+        bool valid = mp_utf8_char_is_valid(c);
         expect_eq(valid, valids[i], "%d");
         expect_eq(c.size, sizes[i], "%d");
-        mp_Utf8Char ch = mp_utf8_char_s(c.c, c.size);
+        mp_Utf8_Char ch = mp_utf8_char_s(c.c, c.size);
         if (valid) {
             expect_eq(c.codepoint, codepoints[i], "%d");
             expect_eq(c.size, ch.size, "%hhu");
             expect_eq(c.c, ch.c, "%p");
             expect_eq(c.codepoint, ch.codepoint, "%04X");
-            expect_eq(mp_utf8char_is_valid(ch), valid, "%d");
+            expect_eq(mp_utf8_char_is_valid(ch), valid, "%d");
         }
         size_copy -= c.size;
         ++i;
@@ -44,7 +44,7 @@ int main(void) {
     expect_eq(mp_utf8_len(all_valid), (size_t) 23, "%zu");
     expect_eq(mp_utf8_char("大").size, 3, "%u");
     expect_memeq(mp_utf8_get(all_valid, 4).c, "大", mp_utf8_char("大").size);
-    expect(!mp_utf8char_is_valid(mp_utf8_get(all_valid, 23)));
+    expect(!mp_utf8_char_is_valid(mp_utf8_get(all_valid, 23)));
 
     /* Error checking */
     {
@@ -74,10 +74,10 @@ int main(void) {
         expect_eq(mp_utf8_len_s(invalid_continuation, 2), (size_t) 2, "%zu");
     }
 
-    mp_Utf8Iter iter  = mp_utf8_iter_new(all_valid);
-    size_t      count = 0;
+    mp_Utf8_Iter iter  = mp_utf8_iter_new(all_valid);
+    size_t       count = 0;
     while (mp_utf8_iter_next(&iter)) {
-        logfn("%.*s", mp_utf8char_print(iter.c));
+        logfn("%.*s", mp_utf8_char_print(iter.c));
         ++count;
     }
     logfn("\n");

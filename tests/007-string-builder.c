@@ -5,7 +5,7 @@
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
-    mp_StrBuilder sb;
+    mp_Str_Builder sb;
     mp_str_builder_init(&sb, alloc);
 
     mp_str_builder_append(&sb, "Hello, World!");

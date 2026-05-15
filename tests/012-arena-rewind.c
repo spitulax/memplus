@@ -38,7 +38,7 @@ int main(void) {
     }
 
     {
-        mp_SArena arena;
+        mp_Sarena arena;
         mp_sarena_init(&arena, mp_heap(), 1024);
         mp_Alloc alloc = mp_sarena_alloc(&arena);
 

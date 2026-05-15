@@ -52,7 +52,7 @@ int main(void) {
     mp_arena_init(&parent_arena, mp_heap_alloc());
     mp_Alloc parent_alloc = mp_arena_alloc(&parent_arena);
 
-    mp_SArena s_arena;
+    mp_Sarena s_arena;
     mp_sarena_init(&s_arena, parent_alloc, __MP_REGION_DEFAULT_SIZE);
     mp_Alloc s_alloc = mp_sarena_alloc(&s_arena);
     expect_eq(s_arena.cap, (size_t) align(__MP_REGION_DEFAULT_SIZE), "%zu");

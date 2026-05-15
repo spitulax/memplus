@@ -4,13 +4,13 @@
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 
-mp_da_create(int32_t, ArrayInt32);
+mp_da_typedef(int32_t, Da_Int32);
 
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
-    ArrayInt32 array;
-    mp_da_init(ArrayInt32, &array, alloc);
+    Da_Int32 array;
+    mp_da_init(Da_Int32, &array, alloc);
     expect_eq(array.size, sizeof(int32_t), "%zu");
 
     // Append test
@@ -46,7 +46,7 @@ int main(void) {
     expect_eq(array.cap, (size_t) __MP_DARRAY_INIT_CAPACITY * 2 * 2, "%zu");
 
     // Clone test
-    ArrayInt32 array2;
+    Da_Int32 array2;
     mp_da_clone(&array2, &array, alloc);
     mp_da_deinit(&array);
 
@@ -91,8 +91,8 @@ int main(void) {
     mp_da_deinit(&array2);
 
     // Append many test
-    ArrayInt32 array3;
-    mp_da_init(ArrayInt32, &array3, alloc);
+    Da_Int32 array3;
+    mp_da_init(Da_Int32, &array3, alloc);
     mp_da_append_many(&array3, 69, 420, 67, 13, 37);
     mp_da_insert_many(&array3, 2, 10, 20);
     expect_eq(array3.len, (size_t) 7, "%zu");
@@ -120,8 +120,8 @@ int main(void) {
     mp_da_deinit(&array3);
 
     // Quick initialization
-    ArrayInt32 array4;
-    mp_da_init_with(ArrayInt32, &array4, alloc, 1, 2, 3, 4, 5);
+    Da_Int32 array4;
+    mp_da_init_with(Da_Int32, &array4, alloc, 1, 2, 3, 4, 5);
     expect_eq(array4.len, (size_t) 5, "%zu");
     expect_eq(mp_get(&array4, 0), (int32_t) 1, "%d");
     expect_eq(mp_get(&array4, 1), (int32_t) 2, "%d");
