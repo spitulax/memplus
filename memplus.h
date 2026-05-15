@@ -647,6 +647,12 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 // Generic dynamic array get function
 #define __mp_da_get(type, a, i) (type *) ((char *) (a)->data + (i) * (a)->size)
 
+/// Alias of \ref mp_da_get.
+#define mp_get mp_da_get
+
+/// Alias of \ref mp_da_getp.
+#define mp_getp mp_da_getp
+
 /// Gets the last item in a dynamic array.
 /**
  * \param a (const DynArray *) The array (NO SIDE EFFECTS)
@@ -761,31 +767,70 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
                            /* size_t */ items_len)                                                 \
     __mp_da_insert((a), (pos), (items), (items_len))
 
-/// Deletes an item at \a pos.
+/// Deletes \a len of items at \a pos.
 /**
- * This operation is O(n) in the worst case.
- * If you do not care about the order of the elements after delete, use \ref mp_da_quick_delete
- * instead.
+ * This operation is O(n) in the worst case. This may move items to the deleted slots with items
+ * from the slots after it.
+ *
+ * If you only want to delete one item and do not care about the order of the elements after the
+ * delete, use \ref mp_da_quick_delete instead.
  *
  * \param a (DynArray *) The array
- * \param pos (size_t) The position of the item to delete
+ * \param pos (size_t) The position of items to delete
+ * \param len (size_t) The amount of items to delete
  */
-#define mp_da_delete(/* DynArray* */ a, /* size_t */ pos) __mp_da_delete((a), (pos))
-void __mp_da_delete(void *a, size_t pos);
+#define mp_da_delete(/* DynArray* */ a, /* size_t */ pos, /* size_t */ len)                        \
+    __mp_da_move((a), (pos), NULL, (len))
 
-/// Deletes an item at \a pos if you do not care about the order of items.
+/// Deletes a single item at \a pos if you do not care about the order of items.
 /**
  * This operation is O(1) and a much faster alternative to \ref mp_da_delete if you do not care
  * about the order of items.
  *
- * This works by swapping the item to be deleted with the last item an shrinking the array,
- * effectively making it "ignore" the last item.
+ * This works by swapping the item to be deleted with the last item and shrinking the array,
+ * effectively making it ignore the last item.
  *
  * \param a (DynArray *) The array
  * \param pos (size_t) The position of the item to delete
  */
-#define mp_da_quick_delete(/* DynArray* */ a, /* size_t */ pos) __mp_da_quick_delete((a), (pos))
-void __mp_da_quick_delete(void *a, size_t pos);
+#define mp_da_quick_delete(/* DynArray* */ a, /* size_t */ pos) __mp_da_quick_move((a), (pos), NULL)
+
+/// Moves \a len of items at \a pos to \a dest.
+/**
+ * This operation is O(n) in the worst case. This may move items to the deleted slots with items
+ * from the slots after it.
+ *
+ * If you only want to move one item and do not care about the order of the elements after the
+ * delete, use \ref mp_da_quick_move instead.
+ *
+ * \a dest must not alias \a a->data.
+ *
+ * \param a (DynArray *) The array
+ * \param pos (size_t) The position of items to delete
+ * \param len (size_t) The amount of items to delete
+ * \param dest (Type *) Where to copy the deleted items (must be at least `len * sizeof(Type)`)
+ */
+#define mp_da_move(/* DynArray* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)        \
+    __mp_da_move((a), (pos), (dest), (len))
+void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
+
+/// Moves a single item at \a pos to \a dest if you do not care about the order of items.
+/**
+ * This operation is O(1) and a much faster alternative to \ref mp_da_move if you do not care
+ * about the order of items.
+ *
+ * This works by swapping the item to be deleted with the last item and shrinking the array,
+ * effectively making it ignore the last item.
+ *
+ * \a dest must not alias \a a->data.
+ *
+ * \param a (DynArray *) The array
+ * \param pos (size_t) The position of the item to delete
+ * \param dest (Type *) Where to copy the deleted item (must be at least `sizeof(Type)`)
+ */
+#define mp_da_quick_move(/* DynArray* */ a, /* size_t */ pos, /* Type* */ dest)                    \
+    __mp_da_quick_move((a), (pos), (dest))
+void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 
 /// \}
 
@@ -2979,22 +3024,30 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len) {
     }
 }
 
-void __mp_da_delete(void *a, size_t pos) {
+void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len) {
     __mp_DynArray *self = a;
     __MP_BOUNDS_CHECK(pos, self->len);
-    size_t moved = self->len - pos;
+    size_t moved = self->len - (pos + items_len);
+    if (ret_items != NULL) {
+        memcpy(ret_items, (char *) self->data + pos * self->size, items_len * self->size);
+    }
     if (moved >= 1) {
         memmove((char *) self->data + pos * self->size,
-                (char *) self->data + (pos + 1) * self->size, moved * self->size);
-        --self->len;
+                (char *) self->data + (pos + items_len) * self->size, moved * self->size);
+        self->len -= items_len;
     }
 }
 
-void __mp_da_quick_delete(void *a, size_t pos) {
+void __mp_da_quick_move(void *a, size_t pos, void *ret_item) {
     __mp_DynArray *self = a;
-    __MP_BOUNDS_CHECK((pos), self->len);
-    memcpy((char *) self->data + pos * self->size,
-           (char *) self->data + (self->len - 1) * self->size, self->size);
+    __MP_BOUNDS_CHECK(pos, self->len);
+    if (ret_item != NULL) {
+        memcpy(ret_item, (char *) self->data + pos * self->size, self->size);
+    }
+    if (pos != self->len - 1) {
+        memcpy((char *) self->data + pos * self->size,
+               (char *) self->data + (self->len - 1) * self->size, self->size);
+    }
     --self->len;
 }
 
