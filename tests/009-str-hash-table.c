@@ -14,6 +14,7 @@ int main(void) {
 
     HashTableInt ht;
     mp_ht_init(HashTableInt, &ht, alloc);
+    expect_eq(ht.val_size, sizeof(int), "%zu");
 
     expect_eq(mp_ht_get(&ht, "foo"), NULL, "%p");
 

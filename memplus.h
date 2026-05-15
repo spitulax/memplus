@@ -1142,13 +1142,30 @@ mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc);
         mp_Str     key;                                                                            \
         value_type val;                                                                            \
     } __##name##Entry;                                                                             \
-    mp_da_create(__##name##Entry, name);                                                           \
+    typedef struct {                                                                               \
+        mp_Alloc         alloc;                                                                    \
+        size_t           len;                                                                      \
+        size_t           cap;                                                                      \
+        size_t           size;                                                                     \
+        __##name##Entry *data;                                                                     \
+        size_t           val_size;                                                                 \
+    } name;                                                                                        \
     typedef struct {                                                                               \
         const name *_h;                                                                            \
         size_t      _i;                                                                            \
         mp_Str      key;                                                                           \
         value_type  val;                                                                           \
     } name##Iter
+
+// Generic hash table type.
+typedef struct {
+    mp_Alloc alloc;
+    size_t   len;
+    size_t   cap;
+    size_t   size;
+    void    *data;
+    size_t   val_size;
+} __mp_HashTable;
 
 // Generic string hash table entry type.
 typedef struct {
@@ -1158,10 +1175,10 @@ typedef struct {
 
 // Generic string hash table iterator type.
 typedef struct {
-    const __mp_DynArray *_h;
-    size_t               _i;
-    mp_Str               key;
-    char                 val[];
+    const __mp_HashTable *_h;
+    size_t                _i;
+    mp_Str                key;
+    char                  val[];
 } __mp_StrHashTableIter;
 
 /// Initializes a new string hash table managed by \a allocator.
@@ -1177,7 +1194,8 @@ typedef struct {
  * \param allocator (mp_Alloc) The allocator to manage the hash table
  */
 #define mp_ht_init(/* "Type" */ type, /* StrHashTable* */ ht, /* mp_Alloc */ allocator)            \
-    mp_da_init(type, ht, allocator)
+    __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val))
+void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
 
 /// Frees a string hash table.
 /**
@@ -1290,6 +1308,8 @@ void __mp_ht_reset(void *ht);
 /**
  * This decreases \a StrHashTable::len but does not actually shrink the hash table, but it just
  * marks the spot as "deleted", which may be overridden by subsequent set operations.
+ *
+ * Does nothing if it cannot find \a k.
  *
  * \param ht (StrHashTable *) The hash table
  * \param k (const char *) The key
@@ -1468,7 +1488,14 @@ typedef __mp_StrHashTableIter mp_StrSetIter;
         __mp_IntHtKey key;                                                                         \
         value_type    val;                                                                         \
     } __##name##Entry;                                                                             \
-    mp_da_create(__##name##Entry, name);                                                           \
+    typedef struct {                                                                               \
+        mp_Alloc         alloc;                                                                    \
+        size_t           len;                                                                      \
+        size_t           cap;                                                                      \
+        size_t           size;                                                                     \
+        __##name##Entry *data;                                                                     \
+        size_t           val_size;                                                                 \
+    } name;                                                                                        \
     typedef struct {                                                                               \
         const name   *_h;                                                                          \
         size_t        _i;                                                                          \
@@ -1490,10 +1517,10 @@ typedef struct {
 
 // Generic string hash table iterator type.
 typedef struct {
-    const __mp_DynArray *_h;
-    size_t               _i;
-    __mp_IntHtKey        key;
-    char                 val[];
+    const __mp_HashTable *_h;
+    size_t                _i;
+    __mp_IntHtKey         key;
+    char                  val[];
 } __mp_IntHashTableIter;
 
 /// Initializes a new integer hash table managed by \a allocator.
@@ -1509,7 +1536,7 @@ typedef struct {
  * \param allocator (mp_Alloc) The allocator to manage the hash table
  */
 #define mp_hti_init(/* "Type" */ type, /* IntHashTable* */ ht, /* mp_Alloc */ allocator)           \
-    mp_da_init(type, ht, allocator)
+    __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val))
 
 /// Frees an integer hash table.
 /**
@@ -1583,6 +1610,8 @@ void __mp_hti_reset(void *ht);
 /**
  * This decreases \a IntHashTable::len but does not actually shrink the hash table, but it just
  * marks the spot as "deleted", which may be overridden by subsequent set operations.
+ *
+ * Does nothing if it cannot find \a k.
  *
  * \param ht (IntHashTable *) The hash table
  * \param k (size_t) The key
@@ -3184,8 +3213,14 @@ mp_Str mp_str_builder_string_take(mp_StrBuilder *sb, mp_Alloc alloc) {
     return res;
 }
 
+void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
+    __mp_HashTable *self = ht;
+    __mp_da_init(self, alloc, size);
+    self->val_size = val_size;
+}
+
 void __mp_ht_deinit(void *ht) {
-    __mp_DynArray *self = ht;
+    __mp_HashTable *self = ht;
     for (size_t i = 0; i < self->cap; i++) {
         __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
         if (mp_str_is_valid(e->key)) {
@@ -3196,7 +3231,7 @@ void __mp_ht_deinit(void *ht) {
 }
 
 void *__mp_ht_get(const void *ht, mp_Str k) {
-    const __mp_DynArray *self = ht;
+    const __mp_HashTable *self = ht;
     if (self->cap == 0) {
         return NULL;
     }
@@ -3221,7 +3256,7 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
 }
 
 void __mp_ht_set(void *ht, mp_Str k, void *v) {
-    __mp_DynArray *self = ht;
+    __mp_HashTable *self = ht;
     mp_ht_grow(self, 1);
     if (self->data != NULL) {
         uint64_t hash = __mp_ht_hash_str(&k);
@@ -3230,10 +3265,10 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
             __mp_StrHashTableEntry *e = __mp_da_get(__mp_StrHashTableEntry, self, i);
             if (!mp_str_is_valid(e->key)) {
                 e->key = mp_str_clone(&k, self->alloc);
-                memcpy(&e->val, v, self->size - sizeof(e->key));
+                memcpy(&e->val, v, self->val_size);
                 break;
             } else if (strcmp(e->key.cstr, k.cstr) == 0) {
-                memcpy(&e->val, v, self->size - sizeof(e->key));
+                memcpy(&e->val, v, self->val_size);
                 --self->len;
                 break;
             } else {
@@ -3251,7 +3286,7 @@ bool __mp_ht_exists(const void *ht, mp_Str k) {
 }
 
 void __mp_ht_grow(void *ht, size_t offset) {
-    __mp_DynArray *self = ht;
+    __mp_HashTable *self = ht;
     if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
         offset > 0) {
         size_t old_cap = self->cap;
@@ -3276,7 +3311,7 @@ void __mp_ht_grow(void *ht, size_t offset) {
                         (__mp_StrHashTableEntry *) ((char *) new_data + new_i * self->size);
                     if (!mp_str_is_valid(new_e->key)) {
                         new_e->key = mp_str_clone(&e->key, self->alloc);
-                        memcpy(&new_e->val, &e->val, self->size - sizeof(e->key));
+                        memcpy(&new_e->val, &e->val, self->val_size);
                         break;
                     } else {
                         ++new_i;
@@ -3305,13 +3340,14 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
 }
 
 void __mp_ht_reset(void *ht) {
-    __mp_DynArray *self = ht;
+    __mp_HashTable *self = ht;
     __mp_ht_free_entries(self->data, self->alloc, self->cap, self->size);
     mp_da_reset(self);
 }
 
+// TODO: mp_ht(i)_move
 void __mp_ht_delete(void *ht, mp_Str k) {
-    __mp_DynArray *self = ht;
+    __mp_HashTable *self = ht;
     if (mp_str_is_valid(k)) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
@@ -3335,16 +3371,13 @@ void __mp_ht_delete(void *ht, mp_Str k) {
     }
 }
 
+// TODO: notice to clone funcs that dest and src must not overlap
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
-    const __mp_DynArray *s = src;
-    __mp_DynArray       *d = dest;
-    __MP_ZERO(d);
+    const __mp_HashTable *s = src;
+    __mp_HashTable       *d = dest;
+    memcpy(d, s, sizeof(__mp_HashTable));
     d->data = mp_dup(alloc, s->data, s->cap * s->size);
     if (d->data != NULL) {
-        d->alloc = alloc;
-        d->len   = s->len;
-        d->cap   = s->cap;
-        d->size  = s->size;
         for (size_t i = 0; i < s->cap; ++i) {
             __mp_StrHashTableEntry *s_e = __mp_da_get(__mp_StrHashTableEntry, s, i);
             __mp_StrHashTableEntry *d_e = __mp_da_get(__mp_StrHashTableEntry, d, i);
@@ -3353,12 +3386,14 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
                 __MP_ASSERT(d_e->key.cstr != s_e->key.cstr);
             }
         }
+    } else {
+        __MP_ZERO(d);
     }
 }
 
 void __mp_ht_iter_init(void *it, const void *ht) {
     __mp_StrHashTableIter *self = it;
-    const __mp_DynArray   *h    = ht;
+    const __mp_HashTable  *h    = ht;
     memset(self, 0, sizeof(*self) + (h->size - sizeof(self->key)));
     self->_h = h;
 }
@@ -3369,7 +3404,7 @@ bool __mp_ht_iter_next(void *it) {
         __mp_StrHashTableEntry *entry = __mp_da_get(__mp_StrHashTableEntry, self->_h, self->_i);
         if (mp_str_is_valid(entry->key)) {
             self->key = entry->key;
-            memcpy(&self->val, &entry->val, self->_h->size - sizeof(self->key));
+            memcpy(&self->val, &entry->val, self->_h->val_size);
             ++self->_i;
             return true;
         }
@@ -3391,7 +3426,7 @@ uint64_t __mp_ht_hash_str(const mp_Str *str) {
 }
 
 void *__mp_hti_get(const void *ht, size_t k) {
-    const __mp_DynArray *self = ht;
+    const __mp_HashTable *self = ht;
     if (self->cap == 0) {
         return NULL;
     }
@@ -3417,7 +3452,7 @@ bool __mp_hti_exists(const void *ht, size_t k) {
 }
 
 void __mp_hti_set(void *ht, size_t k, void *v) {
-    __mp_DynArray *self = ht;
+    __mp_HashTable *self = ht;
     mp_hti_grow(self, 1);
     if (self->data != NULL) {
         size_t i = (size_t) (k % (uint64_t) (self->cap - 1));
@@ -3428,10 +3463,10 @@ void __mp_hti_set(void *ht, size_t k, void *v) {
                     .key   = k,
                     .valid = true,
                 };
-                memcpy(&e->val, v, self->size - sizeof(e->key));
+                memcpy(&e->val, v, self->val_size);
                 break;
             } else if (e->key.key == k) {
-                memcpy(&e->val, v, self->size - sizeof(e->key));
+                memcpy(&e->val, v, self->val_size);
                 --self->len;
                 break;
             } else {
@@ -3445,7 +3480,7 @@ void __mp_hti_set(void *ht, size_t k, void *v) {
 }
 
 void __mp_hti_grow(void *ht, size_t offset) {
-    __mp_DynArray *self = ht;
+    __mp_HashTable *self = ht;
     if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
         offset > 0) {
         size_t old_cap = self->cap;
@@ -3469,7 +3504,7 @@ void __mp_hti_grow(void *ht, size_t offset) {
                         (__mp_IntHashTableEntry *) ((char *) new_data + new_i * self->size);
                     if (!new_e->key.valid) {
                         new_e->key = e->key;
-                        memcpy(&new_e->val, &e->val, self->size - sizeof(e->key));
+                        memcpy(&new_e->val, &e->val, self->val_size);
                         break;
                     } else {
                         ++new_i;
@@ -3487,7 +3522,7 @@ void __mp_hti_grow(void *ht, size_t offset) {
 }
 
 void __mp_hti_reset(void *ht) {
-    __mp_DynArray *self = ht;
+    __mp_HashTable *self = ht;
     for (size_t i = 0; i < self->cap; ++i) {
         __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
         if (e->key.valid) {
@@ -3498,8 +3533,8 @@ void __mp_hti_reset(void *ht) {
 }
 
 void __mp_hti_delete(void *ht, size_t k) {
-    __mp_DynArray *self = ht;
-    size_t         i    = (size_t) (k % (uint64_t) (self->cap - 1));
+    __mp_HashTable *self = ht;
+    size_t          i    = (size_t) (k % (uint64_t) (self->cap - 1));
     for (;;) {
         __mp_IntHashTableEntry *e = __mp_da_get(__mp_IntHashTableEntry, self, i);
         if (e->key.valid && k == e->key.key) {
@@ -3519,21 +3554,18 @@ void __mp_hti_delete(void *ht, size_t k) {
 }
 
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
-    const __mp_DynArray *s = src;
-    __mp_DynArray       *d = dest;
-    __MP_ZERO(d);
+    const __mp_HashTable *s = src;
+    __mp_HashTable       *d = dest;
+    memcpy(d, s, sizeof(__mp_HashTable));
     d->data = mp_dup(alloc, s->data, s->cap * s->size);
-    if (d->data != NULL) {
-        d->alloc = alloc;
-        d->len   = s->len;
-        d->cap   = s->cap;
-        d->size  = s->size;
+    if (d->data == NULL) {
+        __MP_ZERO(d);
     }
 }
 
 void __mp_hti_iter_init(void *it, const void *ht) {
     __mp_IntHashTableIter *self = it;
-    const __mp_DynArray   *h    = ht;
+    const __mp_HashTable  *h    = ht;
     memset(self, 0, sizeof(*self) + (h->size - sizeof(self->key)));
     self->_h = h;
 }

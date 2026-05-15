@@ -10,6 +10,7 @@ int main(void) {
 
     HashTableInt ht;
     mp_hti_init(HashTableInt, &ht, alloc);
+    expect_eq(ht.val_size, sizeof(int), "%zu");
 
     expect_eq(mp_hti_get(&ht, 0), NULL, "%p");
 

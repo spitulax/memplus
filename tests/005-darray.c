@@ -11,6 +11,7 @@ int main(void) {
 
     ArrayInt32 array;
     mp_da_init(ArrayInt32, &array, alloc);
+    expect_eq(array.size, sizeof(int32_t), "%zu");
 
     // Append test
     mp_da_append(&array, 0);
