@@ -26,13 +26,16 @@
  *
  * # Changelog
  *
- * ## 0.1.0
- * Initial release.
+ * ## TODO: Changelog
+ *
  */
 
-// TODO: Funcs
-// mp_str_builder_appendc
-// mp_str_to_lower, mp_str_to_upper
+// FIXME: change *::* to *->* in docs
+
+// TODO: mp_str_builder_appendc
+// TODO: mp_str_to_lower, mp_str_to_upper
+// TODO: mp_str_eq, mp_str_starts/ends_with, mp_str_concat, mp_str_split, mp_str_trim and other
+// TODO: Alloc location
 
 /**
  * \file memplus.h
@@ -229,8 +232,6 @@ typedef enum {
     MP_ALLOC_OP_FREE,
     __MP_ALLOC_OP_COUNT,
 } mp_Alloc_Op;
-
-// TODO: Alloc location
 
 /// Function prototype used for allocators.
 /**
@@ -514,8 +515,6 @@ typedef struct {
     size_t   size;
     void    *data;
 } __mp_Dyn_Array;
-
-// TODO: change *::* to *->* in docs
 
 /// Initializes a new dynamic array managed by \a alloc.
 /**
@@ -852,9 +851,6 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 /***********
  * $ STRING
  ***********/
-
-// TODO: mp_str_eq, mp_str_starts/ends_with, mp_str_concat, mp_str_split, mp_str_trim and other
-// helper funcs
 
 /**
  * \defgroup String String
@@ -2618,7 +2614,7 @@ const char *mp_err_str(mp_Err e);
  *
  * # Creating Your Own IO Implementation
  *
- * > TODO: Will be done after I'm really sure about things in this interface.
+ * > MAYBE: Will be done after I'm really sure about things in this interface.
  *
  * > NOTE: This interface may be (or will certainly be) reworked.
  *
@@ -2700,7 +2696,7 @@ typedef enum {
 /// Forward declaration of \ref mp_Io.
 typedef struct mp_Io mp_Io;
 
-// TODO: Move flush, setbuf, getpos and setpos to the implementation
+// MAYBE: Move flush, setbuf, getpos and setpos to the implementation
 
 /// Function protoype used for IO implementations.
 /**
@@ -2989,7 +2985,7 @@ struct mp_Io {
  * \{
  */
 
-// TODO: Put this notice somewhere
+// MAYBE: Put this notice somewhere
 /* Binary streams may not support MP_SETPOS_ORIGIN_END or SEEK_END. For text streams, offset may
  * only be zero or the result of earlier `MP_IO_OP_GETPOS` (for MP_SETPOS_ORIGIN_START or SEEK_SET
  * only). For wide-oriented streams, the restrictions of both binary and text streams apply. */
@@ -3029,7 +3025,7 @@ mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
  */
 mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode);
 
-// TODO: mp_file_open_from_fd
+// MAYBE: mp_file_open_from_fd
 
 /// Closes an open file.
 /**
@@ -3496,7 +3492,7 @@ void __mp_ht_delete(void *ht, mp_Str k) {
     }
 }
 
-// TODO: notice to clone funcs that dest and src must not overlap
+// DOCS: notice to clone funcs that dest and src must not overlap
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
     const __mp_Hash_Table *s = src;
     __mp_Hash_Table       *d = dest;
