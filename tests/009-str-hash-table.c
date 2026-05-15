@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #define MEMPLUS_IMPLEMENTATION
 #define __MP_HASH_TABLE_MAX_LOAD 1    // test when any conflict arises
@@ -6,6 +7,7 @@
 #include "test.h"
 
 mp_ht_typedef(int, Ht_Int);
+mp_da_typedef(int, Da_Int);
 
 int main(void) {
     mp_talloc_s(4096);
@@ -15,6 +17,7 @@ int main(void) {
     Ht_Int ht;
     mp_ht_init(Ht_Int, &ht, alloc);
     expect_eq(ht.val_size, sizeof(int), "%zu");
+    expect_eq(ht.size, sizeof(__Ht_Int_Entry), "%zu");
 
     expect_eq(mp_ht_get(&ht, "foo"), NULL, "%p");
 
@@ -91,6 +94,27 @@ int main(void) {
         ++counter;
     }
     expect_eq(counter, ht.len, "%zu");
+
+    // Extract test
+    mp_Ht_Keys keys;
+    mp_da_init(mp_Ht_Keys, &keys, alloc);
+    mp_ht_keys(&ht, &keys);
+    expect_eq(keys.len, ht.len, "%zu");
+    expect_eq(keys.cap, ht.len, "%zu");
+
+    Da_Int vals;
+    mp_da_init(Da_Int, &vals, alloc);
+    mp_ht_values(&ht, &vals);
+    expect_eq(vals.len, ht.len, "%zu");
+    expect_eq(vals.cap, ht.len, "%zu");
+
+    for (size_t i = 0; i < keys.len; ++i) {
+        int val_from_key = atoi(mp_get(&keys, i).cstr + 4);
+        expect_eq(val_from_key, mp_get(&vals, i), "%d");
+    }
+
+    mp_da_deinit(&vals);
+    mp_ht_keys_deinit(&keys);
 
     // Clone test
     Ht_Int ht2;

@@ -4,6 +4,7 @@
 #include "test.h"
 
 mp_hti_typedef(int, Ht_Int);
+mp_da_typedef(int, Da_Int);
 
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
@@ -11,6 +12,7 @@ int main(void) {
     Ht_Int ht;
     mp_hti_init(Ht_Int, &ht, alloc);
     expect_eq(ht.val_size, sizeof(int), "%zu");
+    expect_eq(ht.size, sizeof(__Ht_Int_Entry), "%zu");
 
     expect_eq(mp_hti_get(&ht, 0), NULL, "%p");
 
@@ -84,6 +86,26 @@ int main(void) {
         ++counter;
     }
     expect_eq(counter, ht.len, "%zu");
+
+    // Extract test
+    mp_Hti_Keys keys;
+    mp_da_init(mp_Hti_Keys, &keys, alloc);
+    mp_hti_keys(&ht, &keys);
+    expect_eq(keys.len, ht.len, "%zu");
+    expect_eq(keys.cap, ht.len, "%zu");
+
+    Da_Int vals;
+    mp_da_init(Da_Int, &vals, alloc);
+    mp_hti_values(&ht, &vals);
+    expect_eq(vals.len, ht.len, "%zu");
+    expect_eq(vals.cap, ht.len, "%zu");
+
+    for (size_t i = 0; i < keys.len; ++i) {
+        expect_eq(mp_get(&keys, i), (size_t) mp_get(&vals, i) * 2, "%zu");
+    }
+
+    mp_da_deinit(&vals);
+    mp_da_deinit(&keys);
 
     // Clone test
     Ht_Int ht2;

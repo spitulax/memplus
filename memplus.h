@@ -102,7 +102,7 @@
 #elif __STDC_VERSION__ >= 201112L
     #define __MP_STATIC_ASSERT(...) _Static_assert(__VA_ARGS__)
 #else
-    #define __MP_STATIC_ASSERT(...)
+    #define __MP_STATIC_ASSERT(...) (void) 0
 #endif
 
 // Define custom assert by modidying the definition of `__mp_assert_fail()`
@@ -514,6 +514,8 @@ typedef struct {
     size_t   size;
     void    *data;
 } __mp_Dyn_Array;
+
+// TODO: change *::* to *->* in docs
 
 /// Initializes a new dynamic array managed by \a alloc.
 /**
@@ -1342,6 +1344,44 @@ void __mp_ht_delete(void *ht, mp_Str k);
     __mp_ht_clone((dest), (src), (alloc))
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
 
+/// An array of \ref mp_Str to hold the keys of \ref StrHashTable "string hash tables".
+mp_da_typedef(mp_Str, mp_Ht_Keys);
+
+/// Deinitializes an \ref mp_Ht_Keys.
+void mp_ht_keys_deinit(mp_Ht_Keys *keys);
+
+/// Extracts the keys from a string hash table to an array.
+/**
+ * \a keys **must be initialized** with \ref mp_da_init first.
+ *
+ * Each key will be cloned using the allocator of \a keys, so free \a keys with \ref
+ * mp_ht_keys_deinit.
+ *
+ * \a keys->data becomes NULL if allocation failed.
+ *
+ * \param ht (const Str_Hash_Table *) The hash table
+ * \param keys (mp_Ht_Keys *) The array to put the keys into
+ */
+#define mp_ht_keys(/* const Str_Hash_Table* */ ht, /* mp_Ht_Keys* */ keys)                         \
+    __mp_ht_keys((ht), (keys))
+void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
+
+/// Extracts the keys from a string hash table to an array.
+/**
+ * \a values is a \ref DynamicArray "dynamic array" and its data type **must match** the
+ * value type of \a ht.
+ *
+ * \a values must be initialized with \ref mp_da_init first.
+ *
+ * \a values->data becomes NULL if allocation failed.
+ *
+ * \param ht (const Str_Hash_Table *) The hash table
+ * \param values (Dyn_Array *) The array to put the values into
+ */
+#define mp_ht_values(/* const Str_Hash_Table* */ ht, /* Dyn_Array* */ values)                      \
+    __mp_ht_values((ht), (values))
+void __mp_ht_values(const void *ht, void *values);
+
 /// Initializes an iterator on a string hash table.
 /**
  * To use hash table iterators, see \ref HashTableString.
@@ -1659,6 +1699,40 @@ void __mp_hti_delete(void *ht, size_t k);
                      /* mp_Alloc */ alloc)                                                         \
     __mp_hti_clone((dest), (src), (alloc))
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
+
+/// An array of size_t to hold the keys of \ref IntHashTable "integer hash tables".
+mp_da_typedef(size_t, mp_Hti_Keys);
+
+/// Extracts the keys from an integer hash table to an array.
+/**
+ * \a keys **must be initialized** with \ref mp_da_init first.
+ *
+ * Deinit \a keys with \ref mp_da_deinit.
+ *
+ * \a keys->data becomes NULL if allocation failed.
+ *
+ * \param ht (const Int_Hash_Table *) The hash table
+ * \param keys (mp_Hti_Keys *) The array to put the keys into
+ */
+#define mp_hti_keys(/* const IntHashTable* */ ht, /* mp_Hti_Keys* */ keys)                         \
+    __mp_hti_keys((ht), (keys))
+void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
+
+/// Extracts the keys from an integer hash table to an array.
+/**
+ * \a values is a \ref DynamicArray "dynamic array" and its data type **must match** the
+ * value type of \a ht.
+ *
+ * \a values must be initialized with \ref mp_da_init first.
+ *
+ * \a values->data becomes NULL if allocation failed.
+ *
+ * \param ht (const Int_Hash_Table *) The hash table
+ * \param values (Dyn_Array *) The array to put the values into
+ */
+#define mp_hti_values(/* const Int_Hash_Table* */ ht, /* Dyn_Array* */ values)                     \
+    __mp_hti_values((ht), (values))
+void __mp_hti_values(const void *ht, void *values);
 
 /// Initializes an iterator on an integer hash table.
 /**
@@ -3442,6 +3516,40 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
     }
 }
 
+void mp_ht_keys_deinit(mp_Ht_Keys *keys) {
+    for (size_t i = 0; i < keys->len; ++i) {
+        mp_str_deinit(&mp_get(keys, i), keys->alloc);
+    }
+    mp_da_deinit(keys);
+}
+
+void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
+    const __mp_Hash_Table *self = ht;
+    mp_da_reserve(keys, self->len);
+    if (keys->data != NULL) {
+        __mp_Str_Ht_Iter it;
+        mp_ht_iter_init(&it, self);
+        while (mp_ht_iter_next(&it)) {
+            mp_da_append(keys, mp_str_clone(&it.key, keys->alloc));
+        }
+    }
+}
+
+void __mp_ht_values(const void *ht, void *values) {
+    const __mp_Hash_Table *self = ht;
+    __mp_Hash_Table       *vals = values;
+    __MP_ASSERT(self->val_size == vals->size);
+    mp_da_reserve(vals, self->len);
+    if (vals->data != NULL) {
+        __mp_Str_Ht_Iter it;
+        mp_ht_iter_init(&it, self);
+        while (mp_ht_iter_next(&it)) {
+            memcpy((char *) vals->data + vals->len * vals->size, it.val, vals->size);
+            ++vals->len;
+        }
+    }
+}
+
 void __mp_ht_iter_init(void *it, const void *ht) {
     __mp_Str_Ht_Iter      *self = it;
     const __mp_Hash_Table *h    = ht;
@@ -3613,6 +3721,33 @@ void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
     d->data = mp_dup(alloc, s->data, s->cap * s->size);
     if (d->data == NULL) {
         __MP_ZERO(d);
+    }
+}
+
+void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys) {
+    const __mp_Hash_Table *self = ht;
+    mp_da_reserve(keys, self->len);
+    if (keys->data != NULL) {
+        __mp_Int_Ht_Iter it;
+        mp_hti_iter_init(&it, self);
+        while (mp_hti_iter_next(&it)) {
+            mp_da_append(keys, it.key.key);
+        }
+    }
+}
+
+void __mp_hti_values(const void *ht, void *values) {
+    const __mp_Hash_Table *self = ht;
+    __mp_Hash_Table       *vals = values;
+    __MP_ASSERT(self->val_size == vals->size);
+    mp_da_reserve(vals, self->len);
+    if (vals->data != NULL) {
+        __mp_Int_Ht_Iter it;
+        mp_hti_iter_init(&it, self);
+        while (mp_hti_iter_next(&it)) {
+            memcpy((char *) vals->data + vals->len * vals->size, it.val, vals->size);
+            ++vals->len;
+        }
     }
 }
 

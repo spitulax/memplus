@@ -8,7 +8,7 @@ WINDOWS=${WINDOWS:-}
 COMPILER=${COMPILER:-cc}
 export WINEDEBUG=-all
 
-CCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb"
+CCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb -Og"
 MSVCARGS="/nologo /std:clatest /I. /I.. /TC"
 
 if [[ $QUIET -eq 1 ]]; then
