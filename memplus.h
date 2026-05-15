@@ -507,6 +507,15 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
         type    *data;                                                                             \
     } name
 
+#define __mp_da_struct(type, name)                                                                 \
+    struct name {                                                                                  \
+        mp_Alloc alloc;                                                                            \
+        size_t   len;                                                                              \
+        size_t   cap;                                                                              \
+        size_t   size;                                                                             \
+        type    *data;                                                                             \
+    }
+
 // Generic dynamic array type.
 typedef struct {
     mp_Alloc alloc;
@@ -982,6 +991,8 @@ mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_All
  * \{
  */
 
+__mp_da_struct(char, __mp_Str_Builder);
+
 /// Holds a **non null-terminated** string that is resizable.
 /**
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
@@ -989,18 +1000,7 @@ mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_All
  * To convert \ref mp_Str_Builder to C string, use \ref mp_str_builder_string which
  * returns a **null-terminated** \ref mp_Str.
  */
-typedef struct {
-    /// The backing allocator.
-    mp_Alloc alloc;
-    /// The amount of used data (in bytes).
-    size_t len;
-    /// The size of the allocated buffer (in bytes).
-    size_t cap;
-    /// The size of each data, always 1 byte.
-    size_t size;
-    /// The pointer to the data.
-    char *data;
-} mp_Str_Builder;
+typedef struct __mp_Str_Builder mp_Str_Builder;
 
 /// Initializes an \ref mp_Str_Builder to be managed by \a alloc.
 /**
@@ -1155,6 +1155,16 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
         mp_Str      key;                                                                           \
         value_type  val;                                                                           \
     } name##_Iter
+
+#define __mp_ht_struct(entry_type, name)                                                           \
+    struct name {                                                                                  \
+        mp_Alloc    alloc;                                                                         \
+        size_t      len;                                                                           \
+        size_t      cap;                                                                           \
+        size_t      size;                                                                          \
+        entry_type *data;                                                                          \
+        size_t      val_size;                                                                      \
+    }
 
 // Generic hash table type.
 typedef struct {
@@ -1340,8 +1350,13 @@ void __mp_ht_delete(void *ht, mp_Str k);
     __mp_ht_clone((dest), (src), (alloc))
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
 
-/// An array of \ref mp_Str to hold the keys of \ref StrHashTable "string hash tables".
-mp_da_typedef(mp_Str, mp_Ht_Keys);
+/**
+ * \brief A \ref DynamicArray "dynamic array" of \ref mp_Str to hold the keys of \ref
+ * HashTableString "string hash tables".
+ */
+typedef struct __mp_Ht_Keys mp_Ht_Keys;
+
+__mp_da_struct(mp_Str, __mp_Ht_Keys);
 
 /// Deinitializes an \ref mp_Ht_Keys.
 void mp_ht_keys_deinit(mp_Ht_Keys *keys);
@@ -1437,21 +1452,10 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * \{
  */
 
-/// String hash set, essentially just string hash table with opaque value.
-typedef struct {
-    /// The backing allocator.
-    mp_Alloc alloc;
-    /// The amount of used data.
-    size_t len;
-    /// The size of the allocated buffer.
-    size_t cap;
-    /// The size of each entry, since the values are opaque, it is equal to the size of the key.
-    size_t size;
-    /// The entries.
-    __mp_Str_Ht_Entry *data;
-    /// Always 0.
-    size_t val_size;
-} mp_Str_Set;
+/// String hash set, essentially just \ref HashTableString "string hash table" with dummy value.
+typedef struct __mp_Str_Set mp_Str_Set;
+
+__mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
 
 /// Initializes a new string hash set managed by \a allocator.
 /**
@@ -1696,8 +1700,13 @@ void __mp_hti_delete(void *ht, size_t k);
     __mp_hti_clone((dest), (src), (alloc))
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
 
-/// An array of size_t to hold the keys of \ref IntHashTable "integer hash tables".
-mp_da_typedef(size_t, mp_Hti_Keys);
+/**
+ * \brief A \ref DynamicArray "dynamic array" of size_t to hold the keys of \ref
+ * HashTableInt "integer hash tables".
+ */
+typedef struct __mp_Hti_Keys mp_Hti_Keys;
+
+__mp_da_struct(size_t, __mp_Hti_Keys);
 
 /// Extracts the keys from an integer hash table to an array.
 /**
@@ -1785,21 +1794,10 @@ bool __mp_hti_iter_next(void *it);
  * \{
  */
 
-/// Integer hash set, essentially just integer hash table with opaque value.
-typedef struct {
-    /// The backing allocator.
-    mp_Alloc alloc;
-    /// The amount of used data.
-    size_t len;
-    /// The size of the allocated buffer.
-    size_t cap;
-    /// The size of each entry, since the values are opaque, it is equal to the size of the key.
-    size_t size;
-    /// The entries.
-    __mp_Int_Ht_Entry *data;
-    /// Always 0.
-    size_t val_size;
-} mp_Int_Set;
+/// Integer hash set, essentially just \ref HashTableInt "integer hash table" with dummy value.
+typedef struct __mp_Int_Set mp_Int_Set;
+
+__mp_ht_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 
 /// Initializes a new integer hash set managed by \a allocator.
 /**
