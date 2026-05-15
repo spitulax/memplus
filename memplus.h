@@ -674,7 +674,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Grows a dynamic array by \a offset of the current length.
 /**
- * Increases \a DynArray::len by \a offset and does other things if necessary.
+ * Increases \a DynArray::cap by \a offset and does other things if necessary.
  *
  * If \a DynArray::cap is 0, allocates for a certain number of items.
  *
@@ -687,18 +687,6 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_grow(/* DynArray* */ a, /* size_t */ offset) __mp_da_grow((a), (offset))
 void __mp_da_grow(void *a, size_t offset);
-
-/// Shrinks a dynamic array by \a offset of the current length.
-/**
- * Decreases \a DynArray::len by \a offset and does other things if necessary.
- *
- * Asserts if \a offset is too large (i.e. length - offset < 0).
- *
- * \param a (DynArray *) The array
- * \param offset (size_t) The amount to shrink
- */
-#define mp_da_shrink(/* DynArray* */ a, /* size_t */ offset) __mp_da_shrink((a), (offset))
-void __mp_da_shrink(void *a, size_t offset);
 
 /// Clones a dynamic array to \a dest to be managed by \a allocator.
 /**
@@ -2943,11 +2931,11 @@ void __mp_da_deinit(void *a) {
 }
 
 void __mp_da_append(void *a, const void *items, size_t items_len) {
-    __mp_DynArray *self     = a;
-    size_t         prev_len = self->len;
+    __mp_DynArray *self = a;
     mp_da_grow(self, items_len);
     if (self->data != NULL) {
-        memcpy((char *) self->data + prev_len * self->size, items, items_len * self->size);
+        memcpy((char *) self->data + self->len * self->size, items, items_len * self->size);
+        self->len += items_len;
     }
 }
 
@@ -2964,15 +2952,6 @@ void __mp_da_grow(void *a, size_t offset) {
         self->data =
             mp_realloc(self->alloc, self->data, old_cap * self->size, self->cap * self->size);
     }
-    if (self->data != NULL) {
-        self->len += offset;
-    }
-}
-
-void __mp_da_shrink(void *a, size_t offset) {
-    __mp_DynArray *self = a;
-    __MP_ASSERT_MSG(offset < self->len, "`offset` is out of bounds");
-    self->len -= offset;
 }
 
 void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc) {
@@ -2996,26 +2975,27 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len) {
         memmove((char *) self->data + (actual_pos + items_len) * self->size,
                 (char *) self->data + actual_pos * self->size, (items_len + 1) * self->size);
         memcpy((char *) self->data + actual_pos * self->size, items, items_len * self->size);
+        self->len += items_len;
     }
 }
 
 void __mp_da_delete(void *a, size_t pos) {
     __mp_DynArray *self = a;
     __MP_BOUNDS_CHECK(pos, self->len);
-    mp_da_shrink(self, 1);
     size_t moved = self->len - pos;
     if (moved >= 1) {
         memmove((char *) self->data + pos * self->size,
                 (char *) self->data + (pos + 1) * self->size, moved * self->size);
+        --self->len;
     }
 }
 
 void __mp_da_quick_delete(void *a, size_t pos) {
     __mp_DynArray *self = a;
     __MP_BOUNDS_CHECK((pos), self->len);
-    mp_da_shrink(self, 1);
-    memcpy((char *) self->data + pos * self->size, (char *) self->data + self->len * self->size,
-           self->size);
+    memcpy((char *) self->data + pos * self->size,
+           (char *) self->data + (self->len - 1) * self->size, self->size);
+    --self->len;
 }
 
 mp_Str mp_str_new(mp_Alloc alloc, const char *str) {
@@ -3100,24 +3080,23 @@ void mp_str_builder_appendf(mp_StrBuilder *sb, const char *fmt, ...) {
     __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
     va_end(args);
 
-    size_t prev_len = sb->len;
     mp_da_grow(sb, (size_t) (len + 1));
 
     if (sb->data != NULL) {
         va_start(args, fmt);
-        int result_len = vsnprintf(sb->data + prev_len, (size_t) (len + 1), fmt, args);
-        mp_da_shrink(sb, 1ul);
-        __MP_ASSERT(result_len == len);
+        int result_len = vsnprintf(sb->data + sb->len, (size_t) (len + 1), fmt, args);
         va_end(args);
+        sb->len += (size_t) result_len;
     }
 }
 
+// TODO: Use mp_Utf8Char
 void mp_str_builder_appendc(mp_StrBuilder *sb, char c[4], char c_len) {
-    size_t prev_len = sb->len;
     mp_da_grow(sb, (size_t) c_len);
 
     if (sb->data != NULL) {
-        memcpy(sb->data + prev_len, c, (size_t) c_len);
+        memcpy(sb->data + sb->len, c, (size_t) c_len);
+        sb->len += (size_t) c_len;
     }
 }
 

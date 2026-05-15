@@ -30,9 +30,10 @@ int main(void) {
     expect_eq(array.len, (size_t) __MP_DARRAY_INIT_CAPACITY, "%zu");
 
     // Grow/Shrink test
-    mp_da_shrink(&array, 50);
+    array.len -= 50;
     expect_eq(array.len, (size_t) __MP_DARRAY_INIT_CAPACITY - 50, "%zu");
     mp_da_grow(&array, __MP_DARRAY_INIT_CAPACITY * 2);
+    array.len += __MP_DARRAY_INIT_CAPACITY * 2;
     expect_eq(array.len, (size_t) __MP_DARRAY_INIT_CAPACITY * 3 - 50, "%zu");
     expect_eq(array.cap, (size_t) __MP_DARRAY_INIT_CAPACITY * 2 * 2, "%zu");
 
