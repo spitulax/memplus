@@ -523,12 +523,10 @@ typedef struct {
 /**
  * Deinit with \ref mp_da_deinit.
  *
- * \a a should not have been already initialized.
- *
  * \a a->data becomes NULL if allocation failed.
  *
  * \param type (Type) The type of the array
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (initialized by this)
  * \param alloc (mp_Alloc) The allocator to manage the array
  */
 #define mp_da_init(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc)                      \
@@ -539,12 +537,10 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 /**
  * Deinit with \ref mp_da_deinit.
  *
- * \a a should not have been already initialized.
- *
  * \a a->data becomes NULL if allocation failed.
  *
  * \param type (Type) The type of the array
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (initialized by this)
  * \param alloc (mp_Alloc) The allocator to manage the array
  * \param ... (DataType...) The values to append
  */
@@ -557,7 +553,7 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 
 /// Frees a dynamic array.
 /**
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (deinitialized by this)
  */
 #define mp_da_deinit(/* Dyn_Array* */ a) __mp_da_deinit(a)
 void __mp_da_deinit(void *a);
@@ -726,11 +722,9 @@ void __mp_da_reserve(void *a, size_t offset);
  * The \a dest array does not inherit the capacity of \a src. Instead it will only
  * allocate for \a src.len + *initial capacity* items.
  *
- * \a dest should not have been already initialized.
- *
  * \a dest->data becomes NULL if allocation failed.
  *
- * \param dest (Dyn_Array *) The destination of the clone
+ * \param dest (Dyn_Array *) The destination of the clone (initialized by this)
  * \param src (const Dyn_Array *) The source array
  * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
@@ -1065,14 +1059,14 @@ typedef struct __mp_Str_Builder mp_Str_Builder;
 /**
  * Deinit with \ref mp_str_builder_deinit.
  *
- * \param sb The string builder
+ * \param sb The string builder (initialized by this)
  * \param alloc The managing allocator
  */
 void mp_str_builder_init(mp_Str_Builder *sb, mp_Alloc alloc);
 
 /// Frees an \ref mp_Str_Builder.
 /**
- * \param sb The string builder
+ * \param sb The string builder (deinitialized by this)
  */
 void mp_str_builder_deinit(mp_Str_Builder *sb);
 
@@ -1113,7 +1107,7 @@ mp_Str mp_str_builder_string(const mp_Str_Builder *sb, mp_Alloc alloc);
  *
  * Returns an invalid \ref mp_Str if allocation failed.
  *
- * \param sb The string builder
+ * \param sb The string builder (deinitialized by this)
  * \param alloc The allocator that allocates the \ref mp_Str
  * \return The **null-terminated** copy of \a sb
  */
@@ -1253,12 +1247,10 @@ typedef struct {
 /**
  * Deinit with \ref mp_ht_deinit.
  *
- * \a a should not have been already initialized.
- *
  * \a ht->data becomes NULL if allocation failed.
  *
  * \param type (identifier) The type of the hash table
- * \param ht (Str_Hash_Table *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table (initialized by this)
  * \param alloc (mp_Alloc) The allocator to manage the hash table
  */
 #define mp_ht_init(/* "Type" */ type, /* Str_Hash_Table* */ ht, /* mp_Alloc */ alloc)              \
@@ -1267,7 +1259,7 @@ void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
 
 /// Frees a string hash table.
 /**
- * \param ht (Str_Hash_Table *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table (deinitialized by this)
  */
 #define mp_ht_deinit(/* Str_Hash_Table* */ ht) __mp_ht_deinit(ht)
 void __mp_ht_deinit(void *ht);
@@ -1398,9 +1390,9 @@ void __mp_ht_delete(void *ht, mp_Str k);
 /// Clones a string hash table to \a dest to be managed by \a allocator.
 /**
  * \a dest inherits all fields of \a src.
- * \a dest.data becomes NULL if allocation failed.
+ * \a dest->data becomes NULL if allocation failed.
  *
- * \param dest (Str_Hash_Table *) Stores the cloned hash table
+ * \param dest (Str_Hash_Table *) Stores the cloned hash table (initialized by this)
  * \param src (const Str_Hash_Table *) The hash table to be cloned
  * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
@@ -1418,6 +1410,9 @@ typedef struct __mp_Ht_Keys mp_Ht_Keys;
 __mp_da_struct(mp_Str, __mp_Ht_Keys);
 
 /// Deinitializes an \ref mp_Ht_Keys.
+/**
+ * \param keys The key array (deinitialized by this)
+ */
 void mp_ht_keys_deinit(mp_Ht_Keys *keys);
 
 /// Extracts the keys from a string hash table to an array.
@@ -1456,7 +1451,7 @@ void __mp_ht_values(const void *ht, void *values);
 /**
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (Str_Hash_Table_Iter *) The iterator to initialize
+ * \param it (Str_Hash_Table_Iter *) The iterator (initialized by this)
  * \param ht (const Str_Hash_Table *) The hash table to iterate
  */
 #define mp_ht_iter_init(/* Str_Hash_Table_Iter* */ it, /* const Str_Hash_Table* */ ht)             \
@@ -1520,11 +1515,9 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
 /**
  * Deinit with \ref mp_hs_deinit.
  *
- * \a a should not have been already initialized.
- *
  * \a hs->data becomes NULL if allocation failed.
  *
- * \param hs (mp_Str_Set *) The hash set
+ * \param hs (mp_Str_Set *) The hash set (initialized by this)
  * \param alloc (mp_Alloc) The allocator to manage the hash set
  */
 #define mp_hs_init(/* mp_Str_Set* */ hs, /* mp_Alloc */ alloc)                                     \
@@ -1532,7 +1525,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
 
 /// Frees a string hash set.
 /**
- * \param hs (mp_Str_Set *) The hash set
+ * \param hs (mp_Str_Set *) The hash set (deinitialized by this)
  */
 #define mp_hs_deinit(/* mp_Str_Set* */ hs) __mp_ht_deinit(hs)
 
@@ -1652,12 +1645,10 @@ typedef struct {
 /**
  * Deinit with \ref mp_hti_deinit.
  *
- * \a a should not have been already initialized.
- *
  * \a ht->data becomes NULL if allocation failed.
  *
  * \param type (identifier) The type of the hash table
- * \param ht (Int_Hash_Table *) The hash table
+ * \param ht (Int_Hash_Table *) The hash table (initialized by this)
  * \param alloc (mp_Alloc) The allocator to manage the hash table
  */
 #define mp_hti_init(/* "Type" */ type, /* Int_Hash_Table* */ ht, /* mp_Alloc */ alloc)             \
@@ -1665,7 +1656,7 @@ typedef struct {
 
 /// Frees an integer hash table.
 /**
- * \param ht (Int_Hash_Table *) The hash table
+ * \param ht (Int_Hash_Table *) The hash table (deinitialized by this)
  */
 #define mp_hti_deinit(/* Int_Hash_Table* */ ht) mp_da_deinit(ht)
 
@@ -1748,9 +1739,9 @@ void __mp_hti_delete(void *ht, size_t k);
 /// Clones an integer hash table to \a dest to be managed by \a allocator.
 /**
  * \a dest inherits all fields of \a src.
- * \a dest.data becomes NULL if allocation failed.
+ * \a dest->data becomes NULL if allocation failed.
  *
- * \param dest (Str_Hash_Table *) Stores the cloned hash table
+ * \param dest (Str_Hash_Table *) Stores the cloned hash table (initialized by this)
  * \param src (const Str_Hash_Table *) The hash table to be cloned
  * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
@@ -1802,7 +1793,7 @@ void __mp_hti_values(const void *ht, void *values);
 /**
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (Int_Hash_Table_Iter *) The iterator to initialize
+ * \param it (Int_Hash_Table_Iter *) The iterator (initialized by this)
  * \param ht (const Int_Hash_Table *) The hash table to iterate
  */
 #define mp_hti_iter_init(/* Int_Hash_Table_Iter* */ it, /* const Int_Hash_Table* */ ht)            \
@@ -1862,11 +1853,9 @@ __mp_ht_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 /**
  * Deinit with \ref mp_hsi_deinit.
  *
- * \a a should not have been already initialized.
- *
  * \a hs->data becomes NULL if allocation failed.
  *
- * \param hs (mp_Int_Set *) The hash set
+ * \param hs (mp_Int_Set *) The hash set (initialized by this)
  * \param alloc (mp_Alloc) The allocator to manage the hash set
  */
 #define mp_hsi_init(/* mp_Int_Set* */ hs, /* mp_Alloc */ alloc)                                    \
@@ -1874,7 +1863,7 @@ __mp_ht_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 
 /// Frees an integer hash set.
 /**
- * \param hs (mp_Int_Set *) The hash set
+ * \param hs (mp_Int_Set *) The hash set (deinitialized by this)
  */
 #define mp_hsi_deinit(/* mp_Int_Set* */ hs) __mp_ht_deinit(hs)
 
@@ -1954,12 +1943,12 @@ struct mp_Region {
  * \param cap How many bytes to allocates
  * \return The pointer to the allocated region
  */
-mp_Region *mp_region_init(mp_Alloc alloc, size_t cap);
+mp_Region *mp_region_new(mp_Alloc alloc, size_t cap);
 
 /// Frees a region.
 /**
+ * \param r The region to free (deinitialized by this)
  * \param alloc The backing allocator that allocated the memory
- * \param r The region to free
  */
 void mp_region_deinit(mp_Region *r, mp_Alloc alloc);
 
@@ -1983,7 +1972,7 @@ typedef struct {
  *
  * Deinit with \ref mp_arena_deinit.
  *
- * \param a (mp_Arena *) The arena
+ * \param a (mp_Arena *) The arena (initialized by this)
  * \param alloc (mp_Alloc) The backing allocator
  */
 #define mp_arena_init(/* mp_Arena* */ a, /* mp_Alloc */ alloc)                                     \
@@ -1995,7 +1984,7 @@ typedef struct {
  *
  * Regions will be allocated with \a def_size size.
  *
- * \param a The arena
+ * \param a The arena (initialized by this)
  * \param alloc The backing allocator
  * \param def_size The size of regions
  */
@@ -2013,7 +2002,7 @@ void mp_arena_reset(mp_Arena *a);
 /**
  * The free will be performed using the arena's backing allocator.
  *
- * \param a The arena
+ * \param a The arena (deinitialized by this)
  */
 void mp_arena_deinit(mp_Arena *a);
 
@@ -2087,7 +2076,7 @@ typedef struct {
  *
  * Deinit with \ref mp_sarena_deinit.
  *
- * \param a The arena
+ * \param a The arena (initialized by this)
  * \param alloc The backing allocator
  * \param cap How many bytes to allocate
  */
@@ -2105,7 +2094,7 @@ void mp_sarena_reset(mp_Sarena *a);
 /**
  * The free will be performed using the arena's backing allocator.
  *
- * \param a The arena
+ * \param a The arena (deinitialized by this)
  */
 void mp_sarena_deinit(mp_Sarena *a);
 
@@ -2195,7 +2184,7 @@ typedef struct {
  * \a cap should be an multiple of `sizeof(uintptr_t)`.
  * If not, the actual \a cap will **round down** to the nearest multiple.
  *
- * \param t The temp arena
+ * \param t The temp arena (initialized by this)
  * \param buf The buffer
  * \param cap The size of \a buf (in bytes)
  */
@@ -3444,7 +3433,7 @@ bool __mp_hti_iter_next(void *it) {
     return false;
 }
 
-mp_Region *mp_region_init(mp_Alloc alloc, size_t cap) {
+mp_Region *mp_region_new(mp_Alloc alloc, size_t cap) {
     size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
     mp_Region *region = mp_alloc(alloc, bytes);
     region->next      = NULL;
@@ -3531,7 +3520,7 @@ static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size,
                 if (capacity < alloc_size) {
                     capacity = alloc_size;
                 }
-                ctx->end = mp_region_init(ctx->alloc, capacity);
+                ctx->end = mp_region_new(ctx->alloc, capacity);
                 if (ctx->end == NULL) {
                     return NULL;
                 }
@@ -3549,7 +3538,7 @@ static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size,
                 if (capacity < alloc_size) {
                     capacity = alloc_size;
                 }
-                ctx->end->next = mp_region_init(ctx->alloc, capacity);
+                ctx->end->next = mp_region_new(ctx->alloc, capacity);
                 if (ctx->end->next == NULL) {
                     return NULL;
                 }
