@@ -30,7 +30,6 @@
  *
  */
 
-// TODO: mp_str_to_lower, mp_str_to_upper
 // TODO: mp_str_eq, mp_str_starts/ends_with, mp_str_concat, mp_str_split, mp_str_trim and other
 // TODO: Alloc location
 
@@ -1004,6 +1003,30 @@ mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_All
  */
 mp_Str mp_str_concat_s(const mp_Str *strs, size_t strs_len, const char *sep, mp_Alloc alloc);
 
+/// Convert the uppercase letters to lowercase of \a str to a new copy.
+/**
+ * Deinit with \ref mp_str_deinit.
+ *
+ * Uses the standard function `tolower`.
+ *
+ * \param str The string
+ * \param alloc The allocator allocating the copy
+ * \return The converted copy
+ */
+mp_Str mp_str_to_lower(const mp_Str *str, mp_Alloc alloc);
+
+/// Convert the lowercase letters to uppercase of \a str to a new copy.
+/**
+ * Deinit with \ref mp_str_deinit.
+ *
+ * Uses the standard function `toupper`.
+ *
+ * \param str The string
+ * \param alloc The allocator allocating the copy
+ * \return The converted copy
+ */
+mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc);
+
 /// \}
 
 /***********
@@ -1066,15 +1089,6 @@ void mp_str_builder_append(mp_Str_Builder *sb, const char *str);
  * \param ... The formatting arguments
  */
 void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
-
-/// Appends a byte to an \ref mp_Str_Builder.
-/**
- * \a sb->data becomes NULL if allocation failed.
- *
- * \param sb The string builder
- * \param byte The byte to append
- */
-void mp_str_builder_append_byte(mp_Str_Builder *sb, unsigned char byte);
 
 /// Copies the buffer of an \ref mp_Str_Builder into a null-terminated \ref mp_Str.
 /**
@@ -3093,6 +3107,7 @@ mp_Io mp_file_io(mp_File *f, mp_Io_Type type);
 
 #ifdef MEMPLUS_IMPLEMENTATION
 
+    #include <ctype.h>
     #include <errno.h>
     #include <stdarg.h>
     #include <stdio.h>
@@ -3331,6 +3346,30 @@ mp_Str mp_str_concat_s(const mp_Str *strs, size_t strs_len, const char *sep, mp_
             mp_str_builder_append(&sb, sep);
         }
         mp_str_builder_append(&sb, strs[i].cstr);
+    }
+
+    return mp_str_builder_string_take(&sb, alloc);
+}
+
+mp_Str mp_str_to_lower(const mp_Str *str, mp_Alloc alloc) {
+    mp_Str_Builder sb;
+    mp_str_builder_init(&sb, alloc);
+    mp_da_reserve(&sb, str->len);
+
+    for (size_t i = 0; i < str->len; ++i) {
+        mp_da_append(&sb, tolower(str->cstr[i]));
+    }
+
+    return mp_str_builder_string_take(&sb, alloc);
+}
+
+mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc) {
+    mp_Str_Builder sb;
+    mp_str_builder_init(&sb, alloc);
+    mp_da_reserve(&sb, str->len);
+
+    for (size_t i = 0; i < str->len; ++i) {
+        mp_da_append(&sb, toupper(str->cstr[i]));
     }
 
     return mp_str_builder_string_take(&sb, alloc);

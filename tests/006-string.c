@@ -40,12 +40,22 @@ int main(void) {
         Da_String strings;
         mp_da_init_with(Da_String, &strings, alloc, "Hello", "World", "69");
 
+        mp_Str string = mp_str("Hello, World!");
+
         {
             mp_talloc();
             mp_Str str = mp_str_concat(mp_da_arg(&strings), NULL, temp_alloc);
             expect_streq(str.cstr, "HelloWorld69");
             str = mp_str_concat(mp_da_arg(&strings), " ", temp_alloc);
             expect_streq(str.cstr, "Hello World 69");
+        }
+
+        {
+            mp_talloc();
+            mp_Str low_str = mp_str_to_lower(&string, temp_alloc);
+            expect_streq(low_str.cstr, "hello, world!");
+            mp_Str up_str = mp_str_to_upper(&string, temp_alloc);
+            expect_streq(up_str.cstr, "HELLO, WORLD!");
         }
 
         mp_da_deinit(&strings);
