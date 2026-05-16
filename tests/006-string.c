@@ -2,6 +2,8 @@
 #include "memplus.h"
 #include "test.h"
 
+mp_da_typedef(const char *, Da_String);
+
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
@@ -35,16 +37,18 @@ int main(void) {
 
     // String misc. funcs
     {
-        const char *strs[]   = { "Hello", "World", "69" };
-        size_t      strs_len = sizeof(strs) / sizeof(*strs);
+        Da_String strings;
+        mp_da_init_with(Da_String, &strings, alloc, "Hello", "World", "69");
 
         {
             mp_talloc();
-            mp_Str str = mp_str_concat(strs, strs_len, NULL, temp_alloc);
+            mp_Str str = mp_str_concat(mp_da_arg(&strings), NULL, temp_alloc);
             expect_streq(str.cstr, "HelloWorld69");
-            str = mp_str_concat(strs, strs_len, " ", temp_alloc);
+            str = mp_str_concat(mp_da_arg(&strings), " ", temp_alloc);
             expect_streq(str.cstr, "Hello World 69");
         }
+
+        mp_da_deinit(&strings);
     }
 
     return 0;

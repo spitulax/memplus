@@ -661,6 +661,17 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /// Alias of \ref mp_da_getp.
 #define mp_getp mp_da_getp
 
+/// Pass a dynamic array into a function that accepts pointer and length.
+/**
+ * Example usage:
+ * \code
+ * mp_str_concat(mp_da_arg(strings), NULL, mp_heap());
+ * \endcode
+ *
+ * \param a (const? Dyn_Array *) The array (NO SIDE EFFECTS)
+ */
+#define mp_da_arg(/* const? Dyn_Array* */ a) (a)->data, (a)->len
+
 /// Gets the last item in a dynamic array.
 /**
  * \param a (const Dyn_Array *) The array (NO SIDE EFFECTS)
@@ -968,8 +979,31 @@ void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
  */
 mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc);
 
-// DOCS: `sep` is nullable
+/// Concatenate strings from an array with an optional separator.
+/**
+ * Deinit with \ref mp_str_deinit.
+ *
+ * Returns an invalid \ref mp_Str if allocation failed.
+ *
+ * \param strs The array of **null-terminated** strings
+ * \param strs_len The length of \a strs
+ * \param sep The separator (**nullable**)
+ * \param alloc The allocator handling the allocation
+ * \return The concatenated string
+ */
 mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc);
+
+/// The same as \ref mp_str_concat but accepts an array of \ref mp_Str.
+/**
+ * See \ref mp_str_concat.
+ *
+ * \param strs The array of strings
+ * \param strs_len The length of \a strs
+ * \param sep The separator (**nullable**)
+ * \param alloc The allocator handling the allocation
+ * \return The concatenated string
+ */
+mp_Str mp_str_concat_s(const mp_Str *strs, size_t strs_len, const char *sep, mp_Alloc alloc);
 
 /// \}
 
@@ -3275,6 +3309,20 @@ mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_All
             mp_str_builder_append(&sb, sep);
         }
         mp_str_builder_append(&sb, strs[i]);
+    }
+
+    return mp_str_builder_string_take(&sb, alloc);
+}
+
+mp_Str mp_str_concat_s(const mp_Str *strs, size_t strs_len, const char *sep, mp_Alloc alloc) {
+    mp_Str_Builder sb;
+    mp_str_builder_init(&sb, alloc);
+
+    for (size_t i = 0; i < strs_len; ++i) {
+        if (sep != NULL && i > 0) {
+            mp_str_builder_append(&sb, sep);
+        }
+        mp_str_builder_append(&sb, strs[i].cstr);
     }
 
     return mp_str_builder_string_take(&sb, alloc);
