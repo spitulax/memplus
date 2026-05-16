@@ -30,8 +30,6 @@
  *
  */
 
-// FIXME: change *::* to *->* in docs
-
 // TODO: mp_str_builder_appendc
 // TODO: mp_str_to_lower, mp_str_to_upper
 // TODO: mp_str_eq, mp_str_starts/ends_with, mp_str_concat, mp_str_split, mp_str_trim and other
@@ -531,7 +529,7 @@ typedef struct {
  *
  * \a a should not have been already initialized.
  *
- * \a Dyn_Array::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param type (Type) The type of the array
  * \param a (Dyn_Array *) The array
@@ -547,7 +545,7 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
  *
  * \a a should not have been already initialized.
  *
- * \a Dyn_Array::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param type (Type) The type of the array
  * \param a (Dyn_Array *) The array
@@ -572,7 +570,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Appends \a item to a dynamic array.
 /**
- * \a Dyn_Array::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param a (Dyn_Array *) The array
  * \param item (Type) The item to append to the array
@@ -585,7 +583,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Appends multiple items to a dynamic array.
 /**
- * \a Dyn_Array::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param a (Dyn_Array *) The array
  * \param ... (Type...) The items to append to the array
@@ -599,7 +597,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Appends items in an array to a dynamic array.
 /**
- * \a Dyn_Array::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param a (Dyn_Array *) The array
  * \param items (Type[]) The array of items to append to the array
@@ -737,11 +735,11 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
 /// Inserts an item at \a pos.
 /**
- * If \a pos > \a Dyn_Array::len, then it just puts the item at \a Dyn_Array::len.
+ * If \a pos > \a a->len, then it just puts the item at \a a->len.
  *
  * \a pos must not be negative.
  *
- * \a Dyn_Array::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of the item
@@ -755,11 +753,11 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
 /// Inserts multiple items at \a pos.
 /**
- * If \a pos > \a Dyn_Array::len, then it just puts the item at \a Dyn_Array::len.
+ * If \a pos > \a a->len, then it just puts the item at \a a->len.
  *
  * \a pos must not be negative.
  *
- * \a Dyn_Array::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of the item
@@ -774,11 +772,11 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
 /// Inserts items in an array at \a pos.
 /**
- * If \a pos > \a Dyn_Array::len, then it just puts the item at \a Dyn_Array::len.
+ * If \a pos > \a a->len, then it just puts the item at \a a->len.
  *
  * \a pos must not be negative.
  *
- * \a Dyn_Array::data becomes NULL if allocation failed.
+ * \a a->data becomes NULL if allocation failed.
  *
  * \param a (Dyn_Array *) The array
  * \param pos (size_t) The position of the item
@@ -1019,7 +1017,7 @@ void mp_str_builder_deinit(mp_Str_Builder *sb);
 
 /// Appends a **null-terminated** string to an \ref mp_Str_Builder.
 /**
- * \a mp_Str_Builder::data becomes NULL if allocation failed.
+ * \a sb->data becomes NULL if allocation failed.
  *
  * \param sb The string builder
  * \param str The **null-terminated** string to be appended
@@ -1028,7 +1026,7 @@ void mp_str_builder_append(mp_Str_Builder *sb, const char *str);
 
 /// Appends a formatted string to an \ref mp_Str_Builder.
 /**
- * \a mp_Str_Builder::data becomes NULL if allocation failed.
+ * \a sb->data becomes NULL if allocation failed.
  *
  * \param sb The string builder
  * \param fmt The formatting string
@@ -1196,7 +1194,7 @@ typedef struct {
  *
  * \a a should not have been already initialized.
  *
- * \a Str_Hash_Table::data becomes NULL if allocation failed.
+ * \a ht->data becomes NULL if allocation failed.
  *
  * \param type (identifier) The type of the hash table
  * \param ht (Str_Hash_Table *) The hash table
@@ -1240,7 +1238,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
 /**
  * When the item at \a k has not been initialized before, the key is cloned.
  *
- * \a Str_Hash_Table::data becomes NULL if allocation failed.
+ * \a ht->data becomes NULL if allocation failed.
  *
  * \param ht (Str_Hash_Table *) The hash table
  * \param k (const char *) The key
@@ -1316,7 +1314,7 @@ void __mp_ht_reset(void *ht);
 
 /// Deletes an item at key \a k.
 /**
- * This decreases \a Str_Hash_Table::len but does not actually shrink the hash table, but it just
+ * This decreases \a ht->len but does not actually shrink the hash table, but it just
  * marks the spot as "deleted", which may be overridden by subsequent set operations.
  *
  * Does nothing if it cannot find \a k.
@@ -1463,7 +1461,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  *
  * \a a should not have been already initialized.
  *
- * \a mp_Str_Set::data becomes NULL if allocation failed.
+ * \a hs->data becomes NULL if allocation failed.
  *
  * \param hs (mp_Str_Set *) The hash set
  * \param alloc (mp_Alloc) The allocator to manage the hash set
@@ -1595,7 +1593,7 @@ typedef struct {
  *
  * \a a should not have been already initialized.
  *
- * \a Int_Hash_Table::data becomes NULL if allocation failed.
+ * \a ht->data becomes NULL if allocation failed.
  *
  * \param type (identifier) The type of the hash table
  * \param ht (Int_Hash_Table *) The hash table
@@ -1624,7 +1622,7 @@ void *__mp_hti_get(const void *ht, size_t k);
 
 /// Sets the value at key \a k to \a v.
 /**
- * \a Int_Hash_Table::data becomes NULL if allocation failed.
+ * \a ht->data becomes NULL if allocation failed.
  *
  * \param ht (Int_Hash_Table *) The hash table
  * \param k (size_t) The key
@@ -1675,7 +1673,7 @@ void __mp_hti_reset(void *ht);
 
 /// Deletes an item at key \a k.
 /**
- * This decreases \a Int_Hash_Table::len but does not actually shrink the hash table, but it just
+ * This decreases \a ht->len but does not actually shrink the hash table, but it just
  * marks the spot as "deleted", which may be overridden by subsequent set operations.
  *
  * Does nothing if it cannot find \a k.
@@ -1805,7 +1803,7 @@ __mp_ht_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  *
  * \a a should not have been already initialized.
  *
- * \a mp_Int_Set::data becomes NULL if allocation failed.
+ * \a hs->data becomes NULL if allocation failed.
  *
  * \param hs (mp_Int_Set *) The hash set
  * \param alloc (mp_Alloc) The allocator to manage the hash set
@@ -2402,7 +2400,7 @@ mp_Utf8_Iter mp_utf8_iter_new_s(const char *str, size_t size);
 /**
  * See \ref mp_Utf8_Iter for usage.
  *
- * This function consumes \a mp_Utf8_Iter::_str.
+ * This function consumes \a it->_str.
  *
  * \param it The iterator
  * \return Whether it is valid to access the data
