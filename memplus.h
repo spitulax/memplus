@@ -30,7 +30,6 @@
  *
  */
 
-// TODO: mp_str_builder_appendc
 // TODO: mp_str_to_lower, mp_str_to_upper
 // TODO: mp_str_eq, mp_str_starts/ends_with, mp_str_concat, mp_str_split, mp_str_trim and other
 // TODO: Alloc location
@@ -1067,6 +1066,15 @@ void mp_str_builder_append(mp_Str_Builder *sb, const char *str);
  * \param ... The formatting arguments
  */
 void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+
+/// Appends a byte to an \ref mp_Str_Builder.
+/**
+ * \a sb->data becomes NULL if allocation failed.
+ *
+ * \param sb The string builder
+ * \param byte The byte to append
+ */
+void mp_str_builder_append_byte(mp_Str_Builder *sb, unsigned char byte);
 
 /// Copies the buffer of an \ref mp_Str_Builder into a null-terminated \ref mp_Str.
 /**
@@ -2251,7 +2259,7 @@ mp_Alloc mp_heap_alloc(void);
 
 /// Stores a pointer to a character and its UTF-8 metadata.
 typedef struct {
-    /// The size of the character (in bytes).
+    /// The size of the character (in bytes, at most 4 bytes).
     unsigned char size;
     /// The Unicode codepoint of the character (\ref MP_UTF8_INVALID_CODEPOINT when invalid).
     unsigned int codepoint;
@@ -2278,7 +2286,7 @@ typedef struct {
         .c         = (ch),                                                                         \
     })
 
-/// Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` formt specifier.
+/// Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` format specifier.
 #define mp_utf8_char_print(ch) (ch).size, (ch).c
 
 /// Tests whether an \ref mp_Utf8_Char is a valid UTF-8 character.
@@ -3358,13 +3366,11 @@ void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) {
     }
 }
 
-// TODO: Use mp_Utf8_Char
-void mp_str_builder_appendc(mp_Str_Builder *sb, char c[4], char c_len) {
-    mp_da_grow(sb, (size_t) c_len);
-
+void mp_str_builder_append_byte(mp_Str_Builder *sb, unsigned char byte) {
+    mp_da_grow(sb, 1);
     if (sb->data != NULL) {
-        memcpy(sb->data + sb->len, c, (size_t) c_len);
-        sb->len += (size_t) c_len;
+        sb->data[sb->len] = (char) byte;
+        ++sb->len;
     }
 }
 

@@ -16,15 +16,19 @@ int main(void) {
     expect_eq(sb.len, (size_t) 16, "%zu");
     expect_memeq(sb.data, "Hello, World! 67", 16);
 
+    mp_str_builder_append_byte(&sb, 10);
+    expect_eq(sb.len, (size_t) 17, "%zu");
+    expect_memeq(sb.data, "Hello, World! 67\n", 16);
+
     // Other functions should work like dynamic arrays, I hope
 
     mp_Str str = mp_str_builder_string(&sb, alloc);
     expect_eq(str.len, (size_t) strlen(str.cstr), "%zu");
-    expect_streq(str.cstr, "Hello, World! 67");
+    expect_streq(str.cstr, "Hello, World! 67\n");
 
     mp_Str str2 = mp_str_builder_string_take(&sb, alloc);
     expect_eq(str2.len, (size_t) strlen(str.cstr), "%zu");
-    expect_streq(str2.cstr, "Hello, World! 67");
+    expect_streq(str2.cstr, "Hello, World! 67\n");
     expect_streq(str.cstr, str2.cstr);
 
     mp_str_deinit(&str2, alloc);
