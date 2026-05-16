@@ -350,8 +350,7 @@ typedef struct {
 /// Calls allocator function with **MP_ALLOC_OP_FREE**.
 /**
  * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param ptr (void *) The pointer to the block to be freed (nullability depends on the allocator
- * implementation)
+ * \param ptr (void *) The pointer to the block to be freed (does nothing if NULL)
  * \param size (size_t) The size of the block (in bytes)
  * \returns (void *) Always NULL
  */
@@ -2606,6 +2605,9 @@ typedef enum {
     MP_ERR_NONE    = 0,
     MP_ERR_UNKNOWN = 1,
 
+    // Errors thrown by memplus instead of from errno
+    MP_ERR_CANNOT_ALLOC,
+
     MP_ERR_INVALID_WIDE_CHAR,    // EILSEQ
     MP_ERR_OUT_OF_DOMAIN,        // EDOM
     MP_ERR_RESULT_TOO_LARGE,     // ERANGE
@@ -2783,7 +2785,6 @@ const char *mp_err_str(mp_Err e);
 // MAYBE: mp_Path?
 
 // TODO: File functions
-// - mp_file_read_file
 // - mp_file_create_file
 // - File iterator (custom separator)
 // - mp_file_delete_file
@@ -2794,6 +2795,16 @@ const char *mp_err_str(mp_Err e);
 // - mp_file_create_dir
 // - mp_file_delete_dir_recursive
 // - Directory iterator
+
+/// Read the contents of a file at \a file_path to \a out_str.
+/**
+ * Deinit with \ref mp_str_deinit.
+ *
+ * \param[out] out_str The contents of the file (initialized by this)
+ * \param file_path The path to the file
+ * \param alloc The allocator allocating \a out_str
+ */
+mp_Err mp_file_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc);
 
 /// \}
 
@@ -4141,6 +4152,8 @@ const char *mp_err_str(mp_Err e) {
         case MP_ERR_NONE:              return "Success";
         case MP_ERR_UNKNOWN:           return "Unknown error";
 
+        case MP_ERR_CANNOT_ALLOC:      return "Cannot allocate memory";
+
         case MP_ERR_INVALID_WIDE_CHAR: return "Invalid or incomplete multibyte or wide character";
         case MP_ERR_OUT_OF_DOMAIN:     return "Mathematics argument out of domain of function";
         case MP_ERR_RESULT_TOO_LARGE:  return "Result too large";
@@ -4298,6 +4311,42 @@ const char *mp_err_str(mp_Err e) {
     }
 
     __MP_UNREACHABLE();
+}
+
+mp_Err mp_file_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
+    FILE *f = fopen(file_path, "r");
+    if (f == NULL) {
+        return mp_err(errno);
+    }
+
+    mp_Err err = MP_ERR_NONE;
+
+    fseek(f, 0, SEEK_END);
+    size_t size = (size_t) ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char *buf = mp_alloc(alloc, size + 1);
+    if (buf == NULL) {
+        err = MP_ERR_CANNOT_ALLOC;
+        goto defer;
+    }
+
+    size_t read_size = fread(buf, 1, size, f);
+    if (read_size != size) {
+        err = mp_err(errno);
+        goto defer;
+    }
+
+    buf[size] = '\0';
+
+    *out_str = (mp_Str) {
+        .cstr = buf,
+        .len  = size,
+    };
+
+defer:
+    fclose(f);
+    return err;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
