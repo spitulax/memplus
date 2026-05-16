@@ -30,7 +30,6 @@
  *
  */
 
-// TODO: mp_str_eq, mp_str_starts/ends_with, mp_str_concat, mp_str_split, mp_str_trim and other
 // TODO: Alloc location
 
 /**
@@ -52,9 +51,8 @@
  * 7.  $ ALLOCATORS
  * 8.  $ UTF-8
  * 9.  $ ERRORS
- * 10. $ IO INTERFACE
- * 11. $ FILE IO
- * 12. $ IMPLEMENTATION
+ * 10. $ FILESYSTEM
+ * 11. $ IMPLEMENTATION
  */
 
 #ifndef __MEMPLUS_H
@@ -1026,6 +1024,13 @@ mp_Str mp_str_to_lower(const mp_Str *str, mp_Alloc alloc);
  * \return The converted copy
  */
 mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc);
+
+// TODO: String functions
+// - mp_str_eq
+// - mp_str_starts/ends_with
+// - mp_str_concat
+// - mp_str_split
+// - mp_str_trim
 
 /// \}
 
@@ -2655,449 +2660,29 @@ const char *mp_err_str(mp_Err e);
 /// \}
 
 /***********
- * $ IO INTERFACE
+ * $ FILESYSTEM
  ***********/
 
 /**
- * \defgroup IoInterface IO Interface
+ * \defgroup Filesystem Filesystem
  *
- * The IO interface wraps many kinds of IO implementations.
- * The IO implementations themselves are located \ref IO "here".
- *
- * # Creating Your Own IO Implementation
- *
- * > MAYBE: Will be done after I'm really sure about things in this interface.
- *
- * > NOTE: This interface may be (or will certainly be) reworked.
+ * Miscellaneous functions that works with the filesystem.
  *
  * \{
  */
 
-/// Possible operations on \ref mp_IoFunc.
-/**
- * See the documentation for each operation \ref mp_IoFunc "here".
- */
-typedef enum {
-    MP_IO_OP_FLUSH,
-    MP_IO_OP_SETBUF,
-    MP_IO_OP_READ,    // When ret < count, if successful, it means EOF
-    MP_IO_OP_WRITE,
-    MP_IO_OP_GETPOS,
-    MP_IO_OP_SETPOS,
-    MP_IO_OP_GETC,
-    MP_IO_OP_PUTC,
-    __MP_IO_OP_COUNT,
-} mp_Io_Op;
+// TODO: File functions
+// - mp_file_read_file
+// - mp_file_create_file
+// - File iterator (custom separator)
+// - mp_file_delete_file
+// - mp_file_write_file
+// - mp_file_stat, mp_file_exists
 
-/// Errors that may occur when using IO functions.
-/**
- * For error messages see \ref mp_ioerr_str.
- */
-typedef enum {
-    MP_IO_ERR_NONE = 0,
-    MP_IO_ERR_UNSUPPORTED,
-    MP_IO_ERR_EOF,
-    MP_IO_ERR_CANNOT_FLUSH,
-    MP_IO_ERR_CANNOT_SET_BUF,
-    MP_IO_ERR_CANNOT_READ,
-    MP_IO_ERR_CANNOT_WRITE,
-    MP_IO_ERR_CANNOT_GET_POS,
-    MP_IO_ERR_CANNOT_SET_POS,
-    __MP_IO_ERR_COUNT,
-} mp_Io_Err;
-
-/// Returns the message of an \ref mp_Io_Err "IO error".
-const char *mp_ioerr_str(mp_Io_Err e);
-
-/// Modes given to MP_IO_OP_SETBUF.
-typedef enum {
-    /// No buffering (_IONBF)
-    MP_SETBUF_MODE_NONE,
-    /// Full buffering (_IOFBF)
-    MP_SETBUF_MODE_FULL,
-    /// Line buffering (_IOLBF)
-    MP_SETBUF_MODE_LINE,
-} mp_Setbuf_Mode;
-
-/// Position from which to apply the offset of the seek.
-typedef enum {
-    /// Beginning of the stream (SEEK_SET)
-    MP_SETPOS_ORIGIN_START,
-    /// The current position in the stream (SEEK_CUR)
-    MP_SETPOS_ORIGIN_CURRENT,
-    /// The end of the stream (SEEK_END)
-    MP_SETPOS_ORIGIN_END,
-} mp_Setpos_Origin;
-
-/// The types of streams.
-/**
- * Stream of a certain type may only call certain functions. A stream may be both read and
- * write.
- *
- * If a stream calls to a function outside of its domain, MP_IO_ERR_UNSUPPORTED will be
- * returned.
- *
- * MP_IO_TYPE_NONE is only used for invalid \ref mp_Io.
- */
-typedef enum {
-    MP_IO_TYPE_NONE  = 0,
-    MP_IO_TYPE_READ  = 1 << 0,
-    MP_IO_TYPE_WRITE = 1 << 1,
-} mp_Io_Type;
-
-/// Forward declaration of \ref mp_Io.
-typedef struct mp_Io mp_Io;
-
-// MAYBE: Move flush, setbuf, getpos and setpos to the implementation
-
-/// Function protoype used for IO implementations.
-/**
- * Functions of this type do different things depending on the \a op given.
- * They also use their parameters differently on each type.
- *
- * Returns \a mp_Io_Err type. MP_IO_ERR_NONE if successful.
- *
- * Not all operations can be done to all streams.
- * If the operation does not allow to be done on the type it will return
- *  MP_IO_ERR_UNSUPPORTED.
- *
- * Operations will ignores parameters that are not listed for them.
- *
- * # Operations
- *
- * - **MP_IO_OP_FLUSH** (MP_IO_TYPE_WRITE)
-
- *     Flushes the stream
- *
- *     For output streams, writes unwritten data from buffer to the output device.
- *
- *     **Parameters**
- *     - **io**: The IO object
- *
- * - **MP_IO_OP_SETBUF** (MP_IO_TYPE_WRITE or MP_IO_TYPE_READ)
- *
- *     Changes the buffering mode or/and the size of the internal buffer.
- *     Can also instruct the stream to use use-provided buffer if \a ptr is not NULL.
- *     The stream must be closed before the lifetime of the buffer ends.
- *
- *     **Parameters**
- *     - **io**: The IO object
- *     - **ptr**: The buffer to use (if NULL, only resizes the existing buffer to \a n1)
- *     - **n1**: The size of the buffer (in bytes)
- *     - **n2**: The buffering mode (see \ref mp_Setbuf_Mode)
- *
- * - **MP_IO_OP_READ** (MP_IO_TYPE_READ)
- *
- *     Reads objects into given buffer from the stream.
- *     If an error or EOF occurs, \a ret may be less than \a n2 and returns MP_IO_ERR_CANNOT_READ
- or
- *     MP_IO_ERR_EOF respsectively. If \a n1 or \a n2 is zero, does nothing and \a ret will be
- set to
- *     zero.
- *
- *     **Parameters**
- *     - **io**: The IO object
- *     - **ptr**: The buffer which the data will be stored
- *     - **n1**: The size of each object (in bytes)
- *     - **n2**: The number of objects (the total size will be \a n1 * \a n2)
- *     - **ret**: Stores the number of objects read successfully
- *
- * - **MP_IO_OP_WRITE** (MP_IO_TYPE_WRITE)
- *
- *     Writes objects from given buffer to the stream.
- *     If an error occurs, \a ret may be less than \a n2 and returns MP_IO_ERR_CANNOT_WRITE. If
- \a n1
- *     or \a n2 is zero, does nothing and \a ret will be set to zero.
- *
- *     **Parameters**
- *     - **io**: The IO object
- *     - **ptr**: The buffer of the data to be written
- *     - **n1**: The size of each object (in bytes)
- *     - **n2**: The number of objects (the total size will be \a n1 * \a n2)
- *     - **ret**: Stores the number of objects written successfully
- *
- * - **MP_IO_OP_GETPOS** (MP_IO_TYPE_WRITE or MP_IO_TYPE_READ)
- *
- *     Gets the file position indicator of a stream.
- *
- *     **Parameters**
- *     - **io**: The IO object
- *     - **ret**: Stores the file position indicator (in bytes)
- *
- * - **MP_IO_OP_SETPOS** (MP_IO_TYPE_WRITE or MP_IO_TYPE_READ)
- *
- *     Sets the file position indicator of a stream.
- *
- *     **Parameters**
- *     - **io**: The IO object
- *     - **n1**: The offset (in bytes)
- *     - **n2**: The origin of the seek (see \ref mp_Setpos_Origin)
- *
- * - **MP_IO_OP_GETC** (MP_IO_TYPE_READ)
- *
- *     Reads the next character from a stream.
- *
- *     **Parameters**
- *     - **io**: The IO object
- *     - **ret**: Stores the retrieved character
- *
- * - **MP_IO_OP_PUTC** (MP_IO_TYPE_WRITE)
- *
- *     Writes a character to a stream .
- *
- *     **Parameters**
- *     - **io**: The IO object
- *     - **n1**: The character to write
- *
- * \return MP_IO_ERR_NONE if successful, MP_IO_ERR_UNSUPPORTED if the operation is not
- * supported by the type, or other errors.
- */
-typedef mp_Io_Err (*mp_IoFunc)(mp_Io_Op op, mp_Io *io, void *ptr, size_t n1, size_t n2,
-                               size_t *ret);
-
-/// Interface to wrap IO functions.
-struct mp_Io {
-    /// Data that is passed to the IO function.
-    /**
-     * This can be specified as NULL if context is not needed.
-     */
-    void *context;
-    /// See \ref mp_Io_Type.
-    mp_Io_Type type;
-
-    /**
-     * \brief Function that handles the operations requested by the user of the interface. See
-     * \ref mp_IoFunc.
-     */
-    mp_IoFunc f;
-};
-
-/**
- * \defgroup GenericIoMacros Generic IO Macros
- *
- * These macros wrap the operations of \ref mp_IoFunc.
- * By passing an \ref mp_Io, these macros will call its function and pass the context
- * and the arguments correctly.
- *
- * \{
- */
-
-/// Calls IO function with **MP_IO_OP_FLUSH**.
-/**
- * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
- */
-#define /* mp_Io_Err */ mp_io_flush(/* mp_Io* */ io)                                               \
-    ((io)->f(MP_IO_OP_FLUSH, (io), NULL, 0, 0, NULL))
-
-/// Calls IO function with **MP_IO_OP_SETBUF**.
-/**
- * The stream must be closed before the lifetime \a buf ends.
- *
- * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \param buf (char *) The buffer to use (if NULL, only resizes the existing buffer to \a bufsize)
- * \param bufsize (size_t) The size of the buffer (in bytes)
- * \param mode (mp_Setbuf_Mode) The buffering mode
- * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
- */
-#define /* mp_Io_Err */ mp_io_setbuf(/* mp_Io* */ io, /* char* */ buf, /* size_t */ bufsize,       \
-                                     /* mp_Setbuf_Mode */ mode)                                    \
-    ((io)->f(MP_IO_OP_SETBUF, (io), (buf), (bufsize), (mode), NULL))
-
-/// Calls IO function with **MP_IO_OP_READ**.
-/**
- * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \param buf (char *) The buffer which the data will be stored
- * \param size (size_t) The size of each object (in bytes)
- * \param count (size_t) The number of objects (the total size will be \a size * \a count)
- * \param ret_n (size_t *) Stores the number of objects read successfully
- * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
- */
-#define /* mp_Io_Err */ mp_io_read(/* mp_Io* */ io, /* char* */ buf, /* size_t */ size,            \
-                                   /* size_t */ count, /* size_t* */ ret_n)                        \
-    ((io)->f(MP_IO_OP_READ, (io), (buf), (size), (count), (ret_n)))
-
-/// Calls IO function with **MP_IO_OP_WRITE**.
-/**
- * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \param buf (char *) The buffer of the data to be written
- * \param size (size_t) The size of each object (in bytes)
- * \param count (size_t) The number of objects (the total size will be \a size * \a count)
- * \param ret_n (size_t *) Stores the number of objects written successfully
- * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
- */
-#define /* mp_Io_Err */ mp_io_write(/* mp_Io* */ io, /* char* */ buf, /* size_t */ size,           \
-                                    /* size_t */ count, /* size_t* */ ret_n)                       \
-    ((io)->f(MP_IO_OP_WRITE, (io), (void *) (buf), (size), (count), (ret_n)))
-
-/// Calls IO function with **MP_IO_OP_GETPOS**.
-/**
- * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \param ret_n (size_t *) Stores the file position indicator (in bytes)
- * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
- */
-#define /* mp_Io_Err */ mp_io_getpos(/* mp_Io* */ io, /* size_t* */ ret_n)                         \
-    ((io)->f(MP_IO_OP_GETPOS, (io), NULL, 0, 0, (ret_n)))
-
-/// Calls IO function with **MP_IO_OP_SETPOS**.
-/**
- * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \param offset (size_t) The offset (in bytes)
- * \param origin (size_t) The origin of the seek
- * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
- */
-#define /* mp_Io_Err */ mp_io_setpos(/* mp_Io* */ io, /* size_t */ offset,                         \
-                                     /* mp_Setpos_Origin */ origin)                                \
-    ((io)->f(MP_IO_OP_SETPOS, (io), NULL, (offset), (origin), NULL))
-
-/// Calls IO function with **MP_IO_OP_GETC**.
-/**
- * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \param ret_c (size_t *) Stores the retrieved character
- * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
- */
-#define /* mp_Io_Err */ mp_io_getc(/* mp_Io* */ io, /* size_t* */ ret_c)                           \
-    ((io)->f(MP_IO_OP_GETC, (io), NULL, 0, 0, (ret_c)))
-
-/// Calls IO function with **MP_IO_OP_PUTC**.
-/**
- * \param io (mp_Io *) The IO object (NO SIDE EFFECTS)
- * \param c (size_t) The character to write
- * \return (mp_Io_Err) The error, returns MP_IO_ERR_NONE if successful
- */
-#define /* mp_Io_Err */ mp_io_putc(/* mp_Io* */ io, /* size_t */ c)                                \
-    ((io)->f(MP_IO_OP_PUTC, (io), NULL, (size_t) (c), 0, NULL))
-
-/// \}
-
-/// Returns an invalid \ref mp_Io.
-/**
- * Invalid \ref mp_Io requires field \a type is MP_IO_TYPE_NONE.
- */
-#define /* mp_Io */ mp_io_invalid()                                                                \
-    ((mp_Io) {                                                                                     \
-        .context = NULL,                                                                           \
-        .type    = MP_IO_TYPE_NONE,                                                                \
-        .f       = NULL,                                                                           \
-    })
-
-/// Tests whether \a io is valid (i.e. field \a type is not MP_IO_TYPE_NONE).
-/**
- * Returns true if \a io is valid.
- *
- * \param io (mp_Io) The IO object
- * \return (bool) Whether \a io is valid
- */
-#define /* bool */ mp_io_is_valid(/* mp_Io */ io) ((io).type != MP_IO_TYPE_NONE)
-
-/// Creates an \ref mp_Io given the context, the type and the function.
-/**
- * \param ctx (any *) The context passed to the function (automatically casted to void *)
- * \param type (mp_Io_Type) The type of the interface
- * \param func (mp_IoFunc) The IO function
- * \return An IO interface that works with the arguments given.
- */
-#define /* mp_Io */ mp_io_new(/* any* */ ctx, /* mp_Io_Type */ type, /* mp_IoFunc */ func)         \
-    ((mp_Io) {                                                                                     \
-        .context = (void *) (ctx),                                                                 \
-        .type    = (type),                                                                         \
-        .f       = (func),                                                                         \
-    })
-
-/// \}
-
-/**
- * \defgroup IO IO Implementations
- *
- * Some IO implementations using the \ref IoInterface "IO interface".
- *
- * \{
- */
-
-/***********
- * $ FILE IO
- ***********/
-
-/**
- * \defgroup FileIO File IO
- *
- * An IO interface that works with files.
- *
- * # Usage
- *
- * \code
- * mp_File f;
- * mp_Err e = mp_file_open(&f, "foo.txt", "r");
- * mp_Io io = mp_file_io(&f, MP_IO_TYPE_READ);
- * const char m[] = "foobar";
- * size_t     n   = 0;
- * mp_Io_Err   ie  = mp_io_write(&io, m, 1, sizeof(m) - 1, &n);
- * \endcode
- *
- * \{
- */
-
-// MAYBE: Put this notice somewhere
-/* Binary streams may not support MP_SETPOS_ORIGIN_END or SEEK_END. For text streams, offset may
- * only be zero or the result of earlier `MP_IO_OP_GETPOS` (for MP_SETPOS_ORIGIN_START or SEEK_SET
- * only). For wide-oriented streams, the restrictions of both binary and text streams apply. */
-
-/// The internal context of file IO.
-typedef struct {
-    /// The handled file object
-    FILE *file;
-    /// The supported IO type for the file object
-    mp_Io_Type supported_type;
-} mp_File;
-
-/// Opens a file at \a filename.
-/**
- * Close with \ref mp_file_deinit.
- *
- * \param f The file
- * \param filename The name of the file to open
- * \param mode The mode of the file. See `fopen` for possible modes
- * \return The error, returns MP_ERR_NONE if successful
- */
-mp_Err mp_file_open(mp_File *f, const char *filename, const char *mode);
-
-/// Opens a file at \a filename and closes the old file.
-/**
- * Close with \ref mp_file_deinit.
- *
- * If \a filename is NULL, changes the mode of the existing file (**not supported for all
- * platforms**).
- *
- * If \a f->file is NULL, returns MP_ERR_BAD_FD.
- *
- * \param f The file
- * \param filename The name of the file to open
- * \param mode The mode of the file. See `fopen` for possible modes
- * \return The error, returns MP_ERR_NONE if successful
- */
-mp_Err mp_file_reopen(mp_File *f, const char *filename, const char *mode);
-
-// MAYBE: mp_file_open_from_fd
-
-/// Closes an open file.
-/**
- * Does nothing if \a f->file is NULL.
- *
- * \param f The file
- */
-void mp_file_deinit(mp_File *f);
-
-/// Returns an IO object that works with a file.
-/**
- * The \a type may not be supported, depends on the mode when opening the file.
- *
- * \param f The file
- * \param type The IO type
- * \return The IO object, returns an invalid \a mp_Io if failed
- */
-mp_Io mp_file_io(mp_File *f, mp_Io_Type type);
-
-/// \}
+// TODO: Directory functions
+// - mp_file_create_dir
+// - mp_file_delete_dir_recursive
+// - Directory iterator
 
 /// \}
 
