@@ -2785,10 +2785,7 @@ const char *mp_err_str(mp_Err e);
 // MAYBE: mp_Path?
 
 // TODO: File functions
-// - mp_file_create_file
 // - File iterator (custom separator)
-// - mp_file_delete_file
-// - mp_file_write_file
 // - mp_file_stat, mp_file_exists
 
 // TODO: Directory functions
@@ -2796,15 +2793,44 @@ const char *mp_err_str(mp_Err e);
 // - mp_file_delete_dir_recursive
 // - Directory iterator
 
-/// Read the contents of a file at \a file_path to \a out_str.
+/// Reads the contents of a file at \a file_path to \a out_str.
 /**
  * Deinit with \ref mp_str_deinit.
  *
  * \param[out] out_str The contents of the file (initialized by this)
  * \param file_path The path to the file
  * \param alloc The allocator allocating \a out_str
+ * \return The error if occurs, MP_ERR_NONE if successful
  */
 mp_Err mp_file_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc);
+
+/// Writes data into a file at \a file_path.
+/**
+ * \param file_path The path to the file
+ * \param data The data
+ * \param data_size The size of \a data (in bytes)
+ * \param append Whether to write from the end (append) or from the beginning (truncate)
+ * \return The error if occurs, MP_ERR_NONE if successful
+ */
+mp_Err mp_file_write_file(const char *file_path, const char *data, size_t data_size, bool append);
+
+/// Creates a file at \a file_path.
+/**
+ * The created file will be readable and writeable if permitted.
+ *
+ * \param file_path The path to the file
+ * \return The error if occurs, MP_ERR_NONE if successful
+ */
+mp_Err mp_file_create_file(const char *file_path);
+
+/// Deletes a file at \a file_path.
+/**
+ * Also works on symbolic links and empty directory.
+ *
+ * \param file_path The path to the file
+ * \return The error if occurs, MP_ERR_NONE if successful
+ */
+mp_Err mp_file_delete_file(const char *file_path);
 
 /// \}
 
@@ -4347,6 +4373,46 @@ mp_Err mp_file_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc)
 defer:
     fclose(f);
     return err;
+}
+
+mp_Err mp_file_write_file(const char *file_path, const char *data, size_t data_size, bool append) {
+    const char *mode = "w";
+    if (append) {
+        mode = "a";
+    }
+    FILE *f = fopen(file_path, mode);
+    if (f == NULL) {
+        return mp_err(errno);
+    }
+
+    mp_Err err = MP_ERR_NONE;
+
+    size_t written_size = fwrite(data, 1, data_size, f);
+    if (written_size != data_size) {
+        err = mp_err(errno);
+        goto defer;
+    }
+
+defer:
+    fclose(f);
+    return err;
+}
+
+mp_Err mp_file_create_file(const char *file_path) {
+    FILE *f = fopen(file_path, "w");
+    if (f == NULL) {
+        return mp_err(errno);
+    }
+
+    fclose(f);
+    return MP_ERR_NONE;
+}
+
+mp_Err mp_file_delete_file(const char *file_path) {
+    if (remove(file_path)) {
+        return mp_err(errno);
+    }
+    return MP_ERR_NONE;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
