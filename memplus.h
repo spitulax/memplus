@@ -691,7 +691,11 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /// Grows a dynamic array to be able to hold \a offset more items from the current length.
 /**
- * Does a calculation to determine the new capacity and then calls \ref mp_da_reserve.
+ * Does a calculation to determine the new capacity and then calls \ref mp_da_reserve if
+ * allocation is needed, which happens when length + offset is greater than the capacity.
+ *
+ * This function may increase \a a->cap if allocation does happen, but it will not increase \a
+ * a->len by itself.
  *
  * If \a a->cap is 0, reserves for a certain number of items.
  *
