@@ -2786,11 +2786,13 @@ const char *mp_err_str(mp_Err e);
 
 // TODO: File functions
 // - File iterator (custom separator)
-// - mp_file_stat, mp_file_exists
+// - mp_fs_copy_file
+// - mp_fs_stat, mp_fs_exists
 
 // TODO: Directory functions
-// - mp_file_create_dir
-// - mp_file_delete_dir_recursive
+// - mp_fs_create_dir
+// - mp_fs_delete_dir_recursive
+// - mp_fs_copy_dir_recursive
 // - Directory iterator
 
 /// Reads the contents of a file at \a file_path to \a out_str.
@@ -2802,7 +2804,7 @@ const char *mp_err_str(mp_Err e);
  * \param alloc The allocator allocating \a out_str
  * \return The error if occurs, MP_ERR_NONE if successful
  */
-mp_Err mp_file_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc);
+mp_Err mp_fs_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc);
 
 /// Writes data into a file at \a file_path.
 /**
@@ -2812,7 +2814,7 @@ mp_Err mp_file_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc)
  * \param append Whether to write from the end (append) or from the beginning (truncate)
  * \return The error if occurs, MP_ERR_NONE if successful
  */
-mp_Err mp_file_write_file(const char *file_path, const char *data, size_t data_size, bool append);
+mp_Err mp_fs_write_file(const char *file_path, const char *data, size_t data_size, bool append);
 
 /// Creates a file at \a file_path.
 /**
@@ -2821,7 +2823,7 @@ mp_Err mp_file_write_file(const char *file_path, const char *data, size_t data_s
  * \param file_path The path to the file
  * \return The error if occurs, MP_ERR_NONE if successful
  */
-mp_Err mp_file_create_file(const char *file_path);
+mp_Err mp_fs_create_file(const char *file_path);
 
 /// Deletes a file at \a file_path.
 /**
@@ -2830,7 +2832,7 @@ mp_Err mp_file_create_file(const char *file_path);
  * \param file_path The path to the file
  * \return The error if occurs, MP_ERR_NONE if successful
  */
-mp_Err mp_file_delete_file(const char *file_path);
+mp_Err mp_fs_delete_file(const char *file_path);
 
 /// \}
 
@@ -4339,7 +4341,7 @@ const char *mp_err_str(mp_Err e) {
     __MP_UNREACHABLE();
 }
 
-mp_Err mp_file_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
+mp_Err mp_fs_read_file(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
     FILE *f = fopen(file_path, "r");
     if (f == NULL) {
         return mp_err(errno);
@@ -4375,7 +4377,7 @@ defer:
     return err;
 }
 
-mp_Err mp_file_write_file(const char *file_path, const char *data, size_t data_size, bool append) {
+mp_Err mp_fs_write_file(const char *file_path, const char *data, size_t data_size, bool append) {
     const char *mode = "w";
     if (append) {
         mode = "a";
@@ -4398,7 +4400,7 @@ defer:
     return err;
 }
 
-mp_Err mp_file_create_file(const char *file_path) {
+mp_Err mp_fs_create_file(const char *file_path) {
     FILE *f = fopen(file_path, "w");
     if (f == NULL) {
         return mp_err(errno);
@@ -4408,7 +4410,7 @@ mp_Err mp_file_create_file(const char *file_path) {
     return MP_ERR_NONE;
 }
 
-mp_Err mp_file_delete_file(const char *file_path) {
+mp_Err mp_fs_delete_file(const char *file_path) {
     if (remove(file_path)) {
         return mp_err(errno);
     }
