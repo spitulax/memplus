@@ -94,14 +94,6 @@
 
 #endif
 
-#if __STDC_VERSION__ >= 202311L
-    #define __MP_STATIC_ASSERT(...) static_assert(__VA_ARGS__)
-#elif __STDC_VERSION__ >= 201112L
-    #define __MP_STATIC_ASSERT(...) _Static_assert(__VA_ARGS__)
-#else
-    #define __MP_STATIC_ASSERT(...) (void) 0
-#endif
-
 /*
  * Compilers
  */
@@ -112,13 +104,33 @@
     #define __MP_COMP_MSVC
 #endif
 
+#if __STDC_VERSION__ >= 202311L
+    #define __MP_STD_C23
+#elif __STDC_VERSION__ >= 201710L
+    #define __MP_STD_C17
+#elif __STDC_VERSION__ >= 201112L
+    #define __MP_STD_C11
+#elif __STDC_VERSION__ >= 199901L
+    #define __MP_STD_C99
+#else
+    #error "You can't compile this"
+#endif
+
+#if defined(__MP_STD_C23)
+    #define __MP_STATIC_ASSERT(...) static_assert(__VA_ARGS__)
+#elif defined(__MP_STD_C11)
+    #define __MP_STATIC_ASSERT(...) _Static_assert(__VA_ARGS__)
+#else
+    #define __MP_STATIC_ASSERT(...) ((void) 0)
+#endif
+
 // Define custom assert by modidying the definition of `__mp_assert_fail()`
 #if !(defined(__MP_ASSERT) && defined(__MP_ASSERT_MSG))
 
-    #if __STDC_VERSION__ >= 201112L
-        #define __MP_NORETURN _Noreturn
-    #elif __STDC_VERSION__ >= 202311L
+    #if defined(__MP_STD_C23)
         #define __MP_NORETURN [[noreturn]]
+    #elif defined(__MP_STD_C11)
+        #define __MP_NORETURN _Noreturn
     #else
         #if defined(__MP_COMP_GCC_CLANG)
             #define __MP_NORETURN __attribute__((noreturn))
