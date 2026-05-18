@@ -1,19 +1,19 @@
 { self
 , mkShell
-, gcc
 , clang-tools
 , meson
 , ninja
 , pkg-config
-, clang
 , doxygen
+, lib
+
+, comp
 }:
 mkShell {
   name = "memplus-shell";
   buildInputs = [
-    gcc
-    # clang
-    clang-tools
+    (lib.hiPrio clang-tools)
+    comp
     meson
     ninja
     pkg-config

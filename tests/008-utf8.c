@@ -80,7 +80,7 @@ int main(void) {
         logfn("%.*s", mp_utf8_char_print(iter.c));
         ++count;
     }
-    logfn("\n");
+    logsn("\n");
     expect_eq(count, mp_utf8_len(all_valid), "%zu");
 
     return 0;

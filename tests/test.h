@@ -11,16 +11,21 @@
     #define logfn(fmt, ...)
 #else
     #define logf(fmt, ...)                                                                         \
-        printf("%s:%s():%d: " fmt "\n", __FILE__, __func__, __LINE__ __VA_OPT__(, ) __VA_ARGS__);
-    #define logfn(fmt, ...) printf(fmt __VA_OPT__(, ) __VA_ARGS__);
+        printf("%s:%s():%d: " fmt "\n", __FILE__, __func__, __LINE__, __VA_ARGS__);
+    #define logs(str)       logf("%s", (str))
+    #define logfn(fmt, ...) printf(fmt, __VA_ARGS__);
+    #define logsn(str)      logfn("%s", (str))
 #endif
 
 #define elogf(fmt, ...)                                                                            \
-    fprintf(stderr, RED "%s:%s():%d: " fmt "\n" RESET, __FILE__, __func__,                         \
-            __LINE__ __VA_OPT__(, ) __VA_ARGS__);
-#define elogfn(fmt, ...) fprintf(stderr, RED fmt RESET __VA_OPT__(, ) __VA_ARGS__);
+    fprintf(stderr, RED "%s:%s():%d: " fmt "\n" RESET, __FILE__, __func__, __LINE__, __VA_ARGS__);
+#define elogs(str)       elogf("%s", (str))
+#define elogfn(fmt, ...) fprintf(stderr, RED fmt RESET, __VA_ARGS__);
+#define elogsn(str)      elogfn("%s", (str))
 
 #define unr() assert(0 && "unreachable");
+
+#define typeof __typeof__
 
 #define expect(expr)                                                                               \
     do {                                                                                           \
@@ -51,21 +56,21 @@
 #define expect_memeq(a, b, len)                                                                    \
     do {                                                                                           \
         if (memcmp((a), (b), (len)) != 0) {                                                        \
-            elogf("Expected `a == b`, got");                                                       \
-            elogfn("\ta = `");                                                                     \
-            for (size_t i = 0; i < (len); ++i) {                                                   \
-                if (i > 0)                                                                         \
-                    elogfn(" ");                                                                   \
-                elogfn("%02hhX", ((char *) (a))[i]);                                               \
+            elogs("Expected `a == b`, got");                                                       \
+            elogsn("\ta = `");                                                                     \
+            for (size_t __i = 0; __i < (len); ++__i) {                                             \
+                if (__i > 0)                                                                       \
+                    elogsn(" ");                                                                   \
+                elogfn("%02hhX", ((char *) (a))[__i]);                                             \
             }                                                                                      \
-            elogfn("`\n");                                                                         \
-            elogfn("\tb = `");                                                                     \
-            for (size_t i = 0; i < (len); ++i) {                                                   \
-                if (i > 0)                                                                         \
-                    elogfn(" ");                                                                   \
-                elogfn("%02hhX", ((char *) (b))[i]);                                               \
+            elogsn("`\n");                                                                         \
+            elogsn("\tb = `");                                                                     \
+            for (size_t __i = 0; __i < (len); ++__i) {                                             \
+                if (__i > 0)                                                                       \
+                    elogsn(" ");                                                                   \
+                elogfn("%02hhX", ((char *) (b))[__i]);                                             \
             }                                                                                      \
-            elogfn("`\n");                                                                         \
+            elogsn("`\n");                                                                         \
             goto fail;                                                                             \
         }                                                                                          \
     } while (0)

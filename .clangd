@@ -5,10 +5,12 @@ CompileFlags:
     [
       -x,
       c,
+      -std=c99,
       -Wconversion,
       -Wsign-conversion,
       -Wpedantic,
       -Wall,
       -Wextra,
+      -Wshadow,
       -DMEMPLUS_IMPLEMENTATION,
     ]

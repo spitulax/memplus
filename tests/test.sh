@@ -5,11 +5,12 @@ set -uo pipefail
 # Env vars
 QUIET=${QUIET:-}
 WINDOWS=${WINDOWS:-}
-COMPILER=${COMPILER:-cc}
+COMPILER=${COMPILER:-clang}
 export WINEDEBUG=-all
 
-CCARGS="-x c -std=c23 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb -Og"
-MSVCARGS="/nologo /std:clatest /I. /I.. /TC"
+CCARGS="-x c -std=c99 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb -Og"
+# MSVC does not have c99 option
+MSVCARGS="/nologo /std:c11 /I. /I.. /TC"
 
 if [[ $QUIET -eq 1 ]]; then
     CCARGS+=" -DQUIET"

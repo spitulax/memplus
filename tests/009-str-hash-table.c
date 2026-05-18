@@ -81,7 +81,7 @@ int main(void) {
 
     for (int i = 0; i < (int) ht.len; ++i) {
         mp_Str key = mp_str_newf(temp_alloc, "key_%d", i);
-        int   *val = mp_ht_get_s(&ht, key);
+        val        = mp_ht_get_s(&ht, key);
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
     }

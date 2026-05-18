@@ -102,6 +102,16 @@
     #define __MP_STATIC_ASSERT(...) (void) 0
 #endif
 
+/*
+ * Compilers
+ */
+
+#if defined(__GNUC__) || defined(__clang__)
+    #define __MP_COMP_GCC_CLANG
+#elif defined(_MSC_VER)
+    #define __MP_COMP_MSVC
+#endif
+
 // Define custom assert by modidying the definition of `__mp_assert_fail()`
 #if !(defined(__MP_ASSERT) && defined(__MP_ASSERT_MSG))
 
@@ -109,6 +119,14 @@
         #define __MP_NORETURN _Noreturn
     #elif __STDC_VERSION__ >= 202311L
         #define __MP_NORETURN [[noreturn]]
+    #else
+        #if defined(__MP_COMP_GCC_CLANG)
+            #define __MP_NORETURN __attribute__((noreturn))
+        #elif defined(__MP_COMP_MSVC)
+            #define __MP_NORETURN __declspec(noreturn)
+        #else
+            #define __MP_NORETURN
+        #endif
     #endif
 
     #include <stdio.h>
@@ -1428,6 +1446,9 @@ void mp_ht_keys_deinit(mp_Ht_Keys *keys);
  *
  * \a keys->data becomes NULL if allocation failed.
  *
+ * # Note
+ * This function allocates a temporary bit of memory using \a ht->alloc.
+ *
  * \param ht (const Str_Hash_Table *) The hash table
  * \param keys (mp_Ht_Keys *) The array to put the keys into
  */
@@ -1443,6 +1464,9 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
  * \a values must be initialized with \ref mp_da_init first.
  *
  * \a values->data becomes NULL if allocation failed.
+ *
+ * # Note
+ * This function allocates a temporary bit of memory using \a ht->alloc.
  *
  * \param ht (const Str_Hash_Table *) The hash table
  * \param values (Dyn_Array *) The array to put the values into
@@ -1770,6 +1794,9 @@ __mp_da_struct(size_t, __mp_Hti_Keys);
  *
  * \a keys->data becomes NULL if allocation failed.
  *
+ * # Note
+ * This function allocates a temporary bit of memory using \a ht->alloc.
+ *
  * \param ht (const Int_Hash_Table *) The hash table
  * \param keys (mp_Hti_Keys *) The array to put the keys into
  */
@@ -1785,6 +1812,9 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
  * \a values must be initialized with \ref mp_da_init first.
  *
  * \a values->data becomes NULL if allocation failed.
+ *
+ * # Note
+ * This function allocates a temporary bit of memory using \a ht->alloc.
  *
  * \param ht (const Int_Hash_Table *) The hash table
  * \param values (Dyn_Array *) The array to put the values into
@@ -3074,8 +3104,8 @@ bool __mp_ht_exists(const void *ht, mp_Str k) {
 
 void __mp_ht_grow(void *ht, size_t offset) {
     __mp_Hash_Table *self = ht;
-    if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
-        offset > 0) {
+    if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD)
+        && offset > 0) {
         size_t old_cap = self->cap;
         if (self->cap == 0) {
             self->cap = __MP_HASH_TABLE_INIT_CAPACITY;
@@ -3189,11 +3219,13 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
     const __mp_Hash_Table *self = ht;
     mp_da_reserve(keys, self->len);
     if (keys->data != NULL) {
-        __mp_Str_Ht_Iter it;
-        mp_ht_iter_init(&it, self);
-        while (mp_ht_iter_next(&it)) {
-            mp_da_append(keys, mp_str_clone(&it.key, keys->alloc));
+        size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
+        __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
+        mp_ht_iter_init(it, self);
+        while (mp_ht_iter_next(it)) {
+            mp_da_append(keys, mp_str_clone(&it->key, keys->alloc));
         }
+        mp_free(self->alloc, it, iter_size);
     }
 }
 
@@ -3203,12 +3235,14 @@ void __mp_ht_values(const void *ht, void *values) {
     __MP_ASSERT(self->val_size == vals->size);
     mp_da_reserve(vals, self->len);
     if (vals->data != NULL) {
-        __mp_Str_Ht_Iter it;
-        mp_ht_iter_init(&it, self);
-        while (mp_ht_iter_next(&it)) {
-            memcpy((char *) vals->data + vals->len * vals->size, it.val, vals->size);
+        size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
+        __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
+        mp_ht_iter_init(it, self);
+        while (mp_ht_iter_next(it)) {
+            memcpy((char *) vals->data + vals->len * vals->size, it->val, vals->size);
             ++vals->len;
         }
+        mp_free(self->alloc, it, iter_size);
     }
 }
 
@@ -3304,8 +3338,8 @@ void __mp_hti_set(void *ht, size_t k, void *v) {
 
 void __mp_hti_grow(void *ht, size_t offset) {
     __mp_Hash_Table *self = ht;
-    if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD) &&
-        offset > 0) {
+    if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD)
+        && offset > 0) {
         size_t old_cap = self->cap;
         if (self->cap == 0) {
             self->cap = __MP_HASH_TABLE_INIT_CAPACITY;
@@ -3390,11 +3424,13 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys) {
     const __mp_Hash_Table *self = ht;
     mp_da_reserve(keys, self->len);
     if (keys->data != NULL) {
-        __mp_Int_Ht_Iter it;
-        mp_hti_iter_init(&it, self);
-        while (mp_hti_iter_next(&it)) {
-            mp_da_append(keys, it.key.key);
+        size_t            iter_size = sizeof(__mp_Int_Ht_Iter) + self->val_size;
+        __mp_Int_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
+        mp_hti_iter_init(it, self);
+        while (mp_hti_iter_next(it)) {
+            mp_da_append(keys, it->key.key);
         }
+        mp_free(self->alloc, it, iter_size);
     }
 }
 
@@ -3404,12 +3440,14 @@ void __mp_hti_values(const void *ht, void *values) {
     __MP_ASSERT(self->val_size == vals->size);
     mp_da_reserve(vals, self->len);
     if (vals->data != NULL) {
-        __mp_Int_Ht_Iter it;
-        mp_hti_iter_init(&it, self);
-        while (mp_hti_iter_next(&it)) {
-            memcpy((char *) vals->data + vals->len * vals->size, it.val, vals->size);
+        size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
+        __mp_Int_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
+        mp_hti_iter_init(it, self);
+        while (mp_hti_iter_next(it)) {
+            memcpy((char *) vals->data + vals->len * vals->size, it->val, vals->size);
             ++vals->len;
         }
+        mp_free(self->alloc, it, iter_size);
     }
 }
 
@@ -3531,8 +3569,8 @@ static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size,
                 ctx->begin = ctx->end;
             }
 
-            while (__MP_ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap &&
-                   ctx->end->next != NULL) {
+            while (__MP_ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap
+                   && ctx->end->next != NULL) {
                 ctx->end = ctx->end->next;
             }
 
@@ -3756,9 +3794,9 @@ mp_Utf8_Char mp_utf8_take(const char **str, size_t *size) {
     __MP_ASSERT(char_size == actual_decoded_size);
 
     // checking for overlong encoding
-    if ((actual_decoded_size == 2 && !(codepoint >= 0x0080 && codepoint <= 0x07FF)) ||
-        (actual_decoded_size == 3 && !(codepoint >= 0x0800 && codepoint <= 0xFFFF)) ||
-        (actual_decoded_size == 4 && !(codepoint >= 0x010000))) {
+    if ((actual_decoded_size == 2 && !(codepoint >= 0x0080 && codepoint <= 0x07FF))
+        || (actual_decoded_size == 3 && !(codepoint >= 0x0800 && codepoint <= 0xFFFF))
+        || (actual_decoded_size == 4 && !(codepoint >= 0x010000))) {
         goto fail;
     }
 

@@ -73,7 +73,7 @@ int main(void) {
     // printf("\n");
 
     for (int i = 0; i < (int) ht.len; ++i) {
-        int *val = mp_hti_get(&ht, (size_t) i * 2);
+        val = mp_hti_get(&ht, (size_t) i * 2);
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
     }

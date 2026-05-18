@@ -18,8 +18,10 @@
         let
           pkgs = pkgsFor.${system};
         in
-        {
-          default = pkgs.callPackage ./nix/shell.nix { inherit self; };
+        rec {
+          default = gcc;
+          gcc = pkgs.callPackage ./nix/shell.nix { inherit self; comp = pkgs.gcc; };
+          clang = pkgs.callPackage ./nix/shell.nix { inherit self; comp = pkgs.clang; };
         }
       );
     };

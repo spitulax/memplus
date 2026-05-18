@@ -1,4 +1,17 @@
 If:
   PathMatch: [.*\.c, .*\.h]
 CompileFlags:
-    Add: [-x, c, -std=c23, -Wconversion, -Wsign-conversion, -Wpedantic, -Wall, -Wextra, -I., -I..]
+  Add:
+    [
+      -x,
+      c,
+      -std=c99,
+      -Wconversion,
+      -Wsign-conversion,
+      -Wpedantic,
+      -Wall,
+      -Wextra,
+      -Wshadow,
+      -I.,
+      -I..,
+    ]
