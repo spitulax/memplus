@@ -493,10 +493,6 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *
  * # Layout
  *
- * Dynamic arrays are structs that have this layout.
- * Any struct which has these fields is a valid dynamic array.
- * Any additional fields after these fields are tolerated.
- *
  * \code
  * struct {
  *     mp_Alloc alloc;
@@ -1283,6 +1279,59 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
  *
  * It is best to not modify the hash table in the middle of iteration.
  *
+ * # Layout
+ *
+ * ## Hash Table
+ *
+ * \code
+ * struct {
+ *     mp_Alloc    alloc;
+ *     size_t      len;
+ *     size_t      cap;
+ *     size_t      size;
+ *     Entry_Type *data;
+ *     size_t      val_size;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **alloc**: The allocator that manages the allocation of the hash table
+ * - **len**: The amount of items in the hash table
+ * - **cap**: The size of the allocated block holding the data
+ * - **size**: The size of an entry
+ * - **data**: The pointer to the first entry (the data are continuous in memory)
+ * - **val_size**: The size of individual value (0 for hash sets)
+ *
+ * ## Entry
+ *
+ * \code
+ * struct {
+ *     mp_Str     key;
+ *     Value_Type val;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **key**: The key indicating the entry
+ * - **val**: The value at the entry
+ *
+ * ## Iterator
+ *
+ * \code
+ * struct {
+ *     const Str_Hash_Table *_h;
+ *     size_t                _i;
+ *     mp_Str                key;
+ *     Value_Type           *val;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **_h**: The hash table being iterated on
+ * - **_i**: The index of iteration
+ * - **key**: The retrieved key
+ * - **val** The pointer to the retrieved value at \a key
+ *
  * # Marker
  *
  * String hash tables contain a zero-sized field `__mp_str_ht_marker`. This field is used as a type
@@ -1803,6 +1852,72 @@ struct __mp_Str_Set_Iter {
  * \endcode
  *
  * It is best to not modify the hash table in the middle of iteration.
+ *
+ * # Layout
+ *
+ * ## Hash Table
+ *
+ * \code
+ * struct {
+ *     mp_Alloc    alloc;
+ *     size_t      len;
+ *     size_t      cap;
+ *     size_t      size;
+ *     Entry_Type *data;
+ *     size_t      val_size;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **alloc**: The allocator that manages the allocation of the hash table
+ * - **len**: The amount of items in the hash table
+ * - **cap**: The size of the allocated block holding the data
+ * - **size**: The size of an entry
+ * - **data**: The pointer to the first entry (the data are continuous in memory)
+ * - **val_size**: The size of individual value (0 for hash sets)
+ *
+ * ## Entry
+ *
+ * \code
+ * struct {
+ *     Int_Key    key;
+ *     Value_Type val;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **key**: The key indicating the entry
+ * - **val**: The value at the entry
+ *
+ * ## Key
+ *
+ * \code
+ * struct {
+ *     size_t key;
+ *     bool   valid;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **key**: The actual key
+ * - **valid**: Whether the key is valid
+ *
+ * ## Iterator
+ *
+ * \code
+ * struct {
+ *     const Int_Hash_Table *_h;
+ *     size_t                _i;
+ *     Int_Key               key;
+ *     Value_Type           *val;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **_h**: The hash table being iterated on
+ * - **_i**: The index of iteration
+ * - **key**: The retrieved key
+ * - **val** The pointer to the retrieved value at \a key
  *
  * # Marker
  *
