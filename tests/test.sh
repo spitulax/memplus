@@ -80,7 +80,7 @@ mkdir -p .build &>/dev/null
 if [[ $# -gt 0 ]]; then
     TESTS=("$@")
 else
-    TESTS=($(find -maxdepth 1 -mindepth 1 '(' -type d -or -type f -name '*.c' ')' -and ! -name ".*"))
+    TESTS=($(find -maxdepth 1 -mindepth 1 '(' -type d -or -type f -name '*.c' ')' -and ! -name ".*" | sort -r))
 fi
 
 run "${TESTS[@]}"
