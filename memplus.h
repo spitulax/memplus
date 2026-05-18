@@ -124,23 +124,28 @@
     #define __MP_STATIC_ASSERT(...) ((void) 0)
 #endif
 
+#if defined(__MP_STD_C23)
+    #define __MP_NORETURN [[noreturn]]
+#elif defined(__MP_STD_C11)
+    #define __MP_NORETURN _Noreturn
+#else
+    #if defined(__MP_COMP_GCC_CLANG)
+        #define __MP_NORETURN __attribute__((noreturn))
+    #elif defined(__MP_COMP_MSVC)
+        #define __MP_NORETURN __declspec(noreturn)
+    #else
+        #define __MP_NORETURN
+    #endif
+#endif
+
+#if defined(__MP_STD_C23)
+    #define __MP_TYPEOF typeof
+#else
+    #define __MP_TYPEOF __typeof__
+#endif
+
 // Define custom assert by modidying the definition of `__mp_assert_fail()`
 #if !(defined(__MP_ASSERT) && defined(__MP_ASSERT_MSG))
-
-    #if defined(__MP_STD_C23)
-        #define __MP_NORETURN [[noreturn]]
-    #elif defined(__MP_STD_C11)
-        #define __MP_NORETURN _Noreturn
-    #else
-        #if defined(__MP_COMP_GCC_CLANG)
-            #define __MP_NORETURN __attribute__((noreturn))
-        #elif defined(__MP_COMP_MSVC)
-            #define __MP_NORETURN __declspec(noreturn)
-        #else
-            #define __MP_NORETURN
-        #endif
-    #endif
-
     #include <stdio.h>
     #include <stdlib.h>
 
@@ -610,7 +615,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 #define mp_da_append(/* Dyn_Array* */ a, /* Type */ item)                                          \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
-        __typeof__(item) __it = (item);                                                            \
+        __MP_TYPEOF(item) __it = (item);                                                           \
         __mp_da_append((a), &__it, 1);                                                             \
     } while (0)
 
@@ -624,8 +629,8 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 #define mp_da_append_many(/* Dyn_Array* */ a, /* Type... */...)                                    \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
-        __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
-        size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
+        __MP_TYPEOF(*(a)->data) __items[] = { __VA_ARGS__ };                                       \
+        size_t __len                      = sizeof(__items) / sizeof(*__items);                    \
         __mp_da_append((a), __items, __len);                                                       \
     } while (0)
 
@@ -803,7 +808,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 #define mp_da_insert(/* Dyn_Array* */ a, /* size_t */ pos, /* Type */ item)                        \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
-        __typeof__(item) __it = (item);                                                            \
+        __MP_TYPEOF(item) __it = (item);                                                           \
         __mp_da_insert((a), (pos), &__it, 1);                                                      \
     } while (0)
 
@@ -822,8 +827,8 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 #define mp_da_insert_many(/* Dyn_Array* */ a, /* size_t */ pos, /* Type... */...)                  \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
-        __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
-        size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
+        __MP_TYPEOF(*(a)->data) __items[] = { __VA_ARGS__ };                                       \
+        size_t __len                      = sizeof(__items) / sizeof(*__items);                    \
         __mp_da_insert((a), (pos), __items, __len);                                                \
     } while (0)
 
@@ -1379,7 +1384,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
 #define mp_ht_set_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                        \
     do {                                                                                           \
         (void) (ht)->__mp_str_ht_marker;                                                           \
-        __typeof__(v) __it = (v);                                                                  \
+        __MP_TYPEOF(v) __it = (v);                                                                 \
         __mp_ht_set((ht), (k), &__it);                                                             \
     } while (0)
 void __mp_ht_set(void *ht, mp_Str k, void *v);
@@ -1795,7 +1800,7 @@ void *__mp_hti_get(const void *ht, size_t k);
 #define mp_hti_set(/* Int_Hash_Table* */ ht, /* size_t */ k, /* Type */ v)                         \
     do {                                                                                           \
         (void) (ht)->__mp_int_ht_marker;                                                           \
-        __typeof__(v) __it = (v);                                                                  \
+        __MP_TYPEOF(v) __it = (v);                                                                 \
         __mp_hti_set((ht), (k), &__it);                                                            \
     } while (0)
 void __mp_hti_set(void *ht, size_t k, void *v);
