@@ -16,7 +16,7 @@ int main(void) {
     expect_eq(sb.len, (size_t) 16, "%zu");
     expect_memeq(sb.data, "Hello, World! 67", 16);
 
-    mp_da_append(&sb, 10);
+    mp_da_append(&sb, (char) 10);
     expect_eq(sb.len, (size_t) 17, "%zu");
     expect_memeq(sb.data, "Hello, World! 67\n", 16);
 

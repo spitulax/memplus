@@ -19,7 +19,7 @@ int main(void) {
             } else {
                 expect(mp_ht_exists_s(&str_set, key));
             }
-            mp_ht_set_s(&str_set, key, NULL);
+            mp_hs_set_s(&str_set, key);
         }
         expect_eq(str_set.len, nums / 2, "%zu");
 
@@ -47,7 +47,7 @@ int main(void) {
             } else {
                 expect(mp_hti_exists(&int_set, key));
             }
-            mp_hti_set(&int_set, key, NULL);
+            mp_hsi_set(&int_set, key);
         }
         expect_eq(int_set.len, nums / 2, "%zu");
 

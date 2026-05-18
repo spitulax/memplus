@@ -609,13 +609,15 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /**
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
  * \param item (Type) The item to append to the array
  */
 #define mp_da_append(/* Dyn_Array* */ a, /* Type */ item)                                          \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
         __MP_TYPEOF(item) __it = (item);                                                           \
+        __MP_ASSERT_MSG(sizeof(__it) == (a)->size,                                                 \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_append((a), &__it, 1);                                                             \
     } while (0)
 
@@ -623,7 +625,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /**
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
  * \param ... (Type...) The items to append to the array
  */
 #define mp_da_append_many(/* Dyn_Array* */ a, /* Type... */...)                                    \
@@ -631,6 +633,8 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
         (void) (a)->__mp_dyn_array_marker;                                                         \
         __MP_TYPEOF(*(a)->data) __items[] = { __VA_ARGS__ };                                       \
         size_t __len                      = sizeof(__items) / sizeof(*__items);                    \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_append((a), __items, __len);                                                       \
     } while (0)
 
@@ -643,7 +647,13 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param items_len (size_t) The amount of items in the array
  */
 #define mp_da_append_array(/* Dyn_Array* */ a, /* Type[] */ items, /* size_t */ items_len)         \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_append((a), (items), (items_len)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __MP_TYPEOF(*items) *__items = (items);                                                    \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+                        "The size of each item(s) provided does not match the array's item size"); \
+        __mp_da_append((a), __items, (items_len));                                                 \
+    } while (0)
 
 /// Gets an item at index \a i.
 /**
@@ -801,7 +811,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
  * \param pos (size_t) The position of the item
  * \param item (Type) The item to insert
  */
@@ -809,6 +819,8 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
         __MP_TYPEOF(item) __it = (item);                                                           \
+        __MP_ASSERT_MSG(sizeof(__it) == (a)->size,                                                 \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_insert((a), (pos), &__it, 1);                                                      \
     } while (0)
 
@@ -820,7 +832,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
  * \param pos (size_t) The position of the item
  * \param ... (Type...) The items to insert
  */
@@ -829,6 +841,8 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
         (void) (a)->__mp_dyn_array_marker;                                                         \
         __MP_TYPEOF(*(a)->data) __items[] = { __VA_ARGS__ };                                       \
         size_t __len                      = sizeof(__items) / sizeof(*__items);                    \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_insert((a), (pos), __items, __len);                                                \
     } while (0)
 
@@ -840,14 +854,20 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
  * \param pos (size_t) The position of the item
  * \param items (Type[]) The array of items to inserts to the array
  * \param items_len (size_t) The amount of items in the array
  */
 #define mp_da_insert_array(/* Dyn_Array* */ a, /* size_t */ pos, /* Type[] */ items,               \
                            /* size_t */ items_len)                                                 \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_insert((a), (pos), (items), (items_len)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __MP_TYPEOF(*items) *__items = (items);                                                    \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+                        "The size of each item(s) provided does not match the array's item size"); \
+        __mp_da_insert((a), (pos), (items), (items_len));                                          \
+    } while (0)
 
 /// Deletes \a len of items at \a pos.
 /**
@@ -862,7 +882,10 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  * \param len (size_t) The amount of items to delete
  */
 #define mp_da_delete(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len)                       \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_move((a), (pos), NULL, (len)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __mp_da_move((a), (pos), NULL, (len));                                                     \
+    } while (0)
 
 /// Deletes a single item at \a pos if you do not care about the order of items.
 /**
@@ -876,7 +899,10 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  * \param pos (size_t) The position of the item to delete
  */
 #define mp_da_quick_delete(/* Dyn_Array* */ a, /* size_t */ pos)                                   \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_quick_move((a), (pos), NULL))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __mp_da_quick_move((a), (pos), NULL);                                                      \
+    } while (0)
 
 /// Moves \a len of items at \a pos to \a dest.
 /**
@@ -888,13 +914,19 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a dest must not alias \a a->data.
  *
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
  * \param pos (size_t) The position of items to delete
  * \param len (size_t) The amount of items to delete
  * \param dest (Type *) Where to copy the deleted items (must be at least `len * sizeof(Type)`)
  */
 #define mp_da_move(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)       \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_move((a), (pos), (dest), (len)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __MP_TYPEOF(*dest) *__dest = (dest);                                                       \
+        __MP_ASSERT_MSG(sizeof(*__dest) == (a)->size,                                              \
+                        "The size of each item(s) provided does not match the array's item size"); \
+        __mp_da_move((a), (pos), __dest, (len));                                                   \
+    } while (0)
 void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
 
 /// Moves a single item at \a pos to \a dest if you do not care about the order of items.
@@ -912,7 +944,13 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
  * \param dest (Type *) Where to copy the deleted item (must be at least `sizeof(Type)`)
  */
 #define mp_da_quick_move(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ dest)                   \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_quick_move((a), (pos), (dest)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __MP_TYPEOF(*dest) *__dest = (dest);                                                       \
+        __MP_ASSERT_MSG(sizeof(*__dest) == (a)->size,                                              \
+                        "The size of each item(s) provided does not match the array's item size"); \
+        __mp_da_quick_move((a), (pos), __dest);                                                    \
+    } while (0)
 void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 
 /// \}
@@ -1377,7 +1415,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
 /**
  * See \ref mp_ht_set.
  *
- * \param ht (Str_Hash_Table *) The hash table
+ * \param ht (Str_Hash_Table *) The hash table (NO SIDE EFFECTS)
  * \param k (mp_Str) The key
  * \param v (Type) The value to be stored
  */
@@ -1385,6 +1423,10 @@ void *__mp_ht_get(const void *ht, mp_Str k);
     do {                                                                                           \
         (void) (ht)->__mp_str_ht_marker;                                                           \
         __MP_TYPEOF(v) __it = (v);                                                                 \
+        __MP_ASSERT_MSG((ht)->val_size > 0, "Did you mean to use `mp_hs_set` instead?");           \
+        __MP_ASSERT_MSG(                                                                           \
+            sizeof(__it) == (ht)->val_size,                                                        \
+            "The size of the value provided does not match the hash table's value size");          \
         __mp_ht_set((ht), (k), &__it);                                                             \
     } while (0)
 void __mp_ht_set(void *ht, mp_Str k, void *v);
@@ -1573,10 +1615,10 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * mp_hs_deinit(&set);
  * \endcode
  *
- * The primary usage of this is for setting keys. The value can be whatever but using NULL is
- * preferred.
+ * The primary usage of this is for setting keys. Use \ref mp_hs_set to set an element, do not use
+ * \ref mp_ht_set.
  * \code
- * mp_ht_set(&set, "foo", NULL);
+ * mp_hs_set(&set, "foo");
  * \endcode
  *
  * Getting the pointer to the value is a valid way to assess if the key spot is already occupied.
@@ -1614,6 +1656,30 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  * \param hs (mp_Str_Set *) The hash set (deinitialized by this)
  */
 #define mp_hs_deinit(/* mp_Str_Set* */ hs) ((void) (hs)->__mp_str_ht_marker, __mp_ht_deinit(hs))
+
+/// Sets the key \a k.
+/**
+ * When the key has not been set, \a k is cloned.
+ *
+ * \a hs->data becomes NULL if allocation failed.
+ *
+ * \param hs (mp_Str_Set *) The hash set
+ * \param k (const char *) The key
+ */
+#define mp_hs_set(/* mp_Str_Set* */ hs, /* const char* */ k) mp_hs_set_s((hs), mp_str(k))
+
+/// The same as \ref mp_hs_set but accepts \ref mp_Str.
+/**
+ * See \ref mp_hs_set.
+ *
+ * \param hs (mp_Str_Set *) The hash set
+ * \param k (mp_Str) The key
+ */
+#define mp_hs_set_s(/* mp_Str_Set* */ hs, /* mp_Str */ k)                                          \
+    do {                                                                                           \
+        (void) (hs)->__mp_str_ht_marker;                                                           \
+        __mp_ht_set((hs), (k), NULL);                                                              \
+    } while (0)
 
 /// Iterator for \ref HashSetString "string hash sets".
 typedef struct __mp_Str_Set_Iter mp_Str_Set_Iter;
@@ -1793,7 +1859,7 @@ void *__mp_hti_get(const void *ht, size_t k);
 /**
  * \a ht->data becomes NULL if allocation failed.
  *
- * \param ht (Int_Hash_Table *) The hash table
+ * \param ht (Int_Hash_Table *) The hash table (NO SIDE EFFECTS)
  * \param k (size_t) The key
  * \param v (Type) The value to be stored
  */
@@ -1801,6 +1867,9 @@ void *__mp_hti_get(const void *ht, size_t k);
     do {                                                                                           \
         (void) (ht)->__mp_int_ht_marker;                                                           \
         __MP_TYPEOF(v) __it = (v);                                                                 \
+        __MP_ASSERT_MSG((ht)->val_size > 0, "Did you mean to use `mp_hsi_set` instead?");          \
+        __MP_ASSERT_MSG(sizeof(__it) == (ht)->val_size,                                            \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_hti_set((ht), (k), &__it);                                                            \
     } while (0)
 void __mp_hti_set(void *ht, size_t k, void *v);
@@ -1954,10 +2023,10 @@ bool __mp_hti_iter_next(void *it);
  * mp_hsi_deinit(&set);
  * \endcode
  *
- * The primary usage of this is for setting keys. The value can be whatever but using NULL is
- * preferred.
+ * The primary usage of this is for setting keys. Use \ref mp_hsi_set to set an element, do not use
+ * \ref mp_hti_set.
  * \code
- * mp_hti_set(&set, 0, NULL);
+ * mp_hsi_set(&set, 0);
  * \endcode
  *
  * Getting the pointer to the value is a valid way to assess if the key spot is already occupied.
@@ -1995,6 +2064,19 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  * \param hs (mp_Int_Set *) The hash set (deinitialized by this)
  */
 #define mp_hsi_deinit(/* mp_Int_Set* */ hs) ((void) (hs)->__mp_int_ht_marker, __mp_ht_deinit(hs))
+
+/// Sets the key \a k.
+/**
+ * \a hs->data becomes NULL if allocation failed.
+ *
+ * \param hs (mp_Int_Set *) The hash set
+ * \param k (size_t) The key
+ */
+#define mp_hsi_set(/* mp_Int_Set* */ hs, /* size_t */ k)                                           \
+    do {                                                                                           \
+        (void) (hs)->__mp_int_ht_marker;                                                           \
+        __mp_hti_set((hs), (k), NULL);                                                             \
+    } while (0)
 
 /// Iterator for \ref HashSetInt "integer hash sets".
 typedef struct __mp_Int_Set_Iter mp_Int_Set_Iter;
@@ -3067,7 +3149,7 @@ mp_Str mp_str_to_lower(const mp_Str *str, mp_Alloc alloc) {
     mp_da_reserve(&sb, str->len);
 
     for (size_t i = 0; i < str->len; ++i) {
-        mp_da_append(&sb, tolower(str->cstr[i]));
+        mp_da_append(&sb, (char) tolower(str->cstr[i]));
     }
 
     return mp_str_builder_string_take(&sb, alloc);
@@ -3079,7 +3161,7 @@ mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc) {
     mp_da_reserve(&sb, str->len);
 
     for (size_t i = 0; i < str->len; ++i) {
-        mp_da_append(&sb, toupper(str->cstr[i]));
+        mp_da_append(&sb, (char) toupper(str->cstr[i]));
     }
 
     return mp_str_builder_string_take(&sb, alloc);
