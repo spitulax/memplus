@@ -8,7 +8,7 @@ int main(void) {
         mp_talloc();
 
         mp_Str text;
-        mp_Err err = mp_fs_read_file(&text, ".hello.txt", temp_alloc);
+        mp_Err err = mp_file_read(&text, ".hello.txt", temp_alloc);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
         expect_eq(text.len, (size_t) 14, "%zu");
         expect_streq(text.cstr, "Hello, World!\n");
@@ -24,25 +24,25 @@ int main(void) {
 
         // TODO: check if file exists
 
-        err = mp_fs_create_file(path);
+        err = mp_file_create(path);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
 
-        err = mp_fs_write_file(path, data.cstr, data.len, false);
+        err = mp_file_write(path, data.cstr, data.len, false);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
 
         mp_Str text;
-        err = mp_fs_read_file(&text, path, temp_alloc);
+        err = mp_file_read(&text, path, temp_alloc);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
         expect_streq(text.cstr, "Foobarbazquux");
 
-        err = mp_fs_write_file(path, data.cstr, data.len, true);
+        err = mp_file_write(path, data.cstr, data.len, true);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
 
-        err = mp_fs_read_file(&text, path, temp_alloc);
+        err = mp_file_read(&text, path, temp_alloc);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
         expect_streq(text.cstr, "FoobarbazquuxFoobarbazquux");
 
-        err = mp_fs_delete_file(path);
+        err = mp_file_delete(path);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
     }
 
