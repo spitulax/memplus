@@ -497,6 +497,13 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * - **size**: The size of an individual datum
  * - **data**: The pointer to the first element of the array (the data are continuous in memory)
  *
+ * # Marker
+ *
+ * Dynamic arrays contain a zero-sized field `__mp_dyn_array_marker`. This field is used as a type
+ * checking for function-like macros used for dynamic arrays. These macros will check if this field
+ * exists and if it does then the data should be a valid dynamic array and thus can be passed to the
+ * implementation function safely.
+ *
  * \{
  */
 
@@ -517,6 +524,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
         size_t   cap;                                                                              \
         size_t   size;                                                                             \
         type    *data;                                                                             \
+        char     __mp_dyn_array_marker[];                                                          \
     } name
 
 #define __mp_da_struct(type, name)                                                                 \
@@ -526,6 +534,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
         size_t   cap;                                                                              \
         size_t   size;                                                                             \
         type    *data;                                                                             \
+        char     __mp_dyn_array_marker[];                                                          \
     }
 
 // Generic dynamic array type.
@@ -548,7 +557,7 @@ typedef struct {
  * \param alloc (mp_Alloc) The allocator to manage the array
  */
 #define mp_da_init(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc)                      \
-    __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data))
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data)))
 void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 
 /// Initializes a new dynamic array managed by \a alloc and appends items to it.
@@ -558,13 +567,14 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
  * \a a->data becomes NULL if allocation failed.
  *
  * \param type (Type) The type of the array
- * \param a (Dyn_Array *) The array (initialized by this)
+ * \param a (Dyn_Array *) The array (initialized by this) (NO SIDE EFFECTS)
  * \param alloc (mp_Alloc) The allocator to manage the array
  * \param ... (DataType...) The values to append
  */
 #define mp_da_init_with(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc,                 \
                         /* DataType... */...)                                                      \
     do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
         mp_da_init(type, (a), (alloc));                                                            \
         mp_da_append_many((a), __VA_ARGS__);                                                       \
     } while (0)
@@ -573,7 +583,7 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 /**
  * \param a (Dyn_Array *) The array (deinitialized by this)
  */
-#define mp_da_deinit(/* Dyn_Array* */ a) __mp_da_deinit(a)
+#define mp_da_deinit(/* Dyn_Array* */ a) ((void) (a)->__mp_dyn_array_marker, __mp_da_deinit(a))
 void __mp_da_deinit(void *a);
 
 void __mp_da_append(void *a, const void *items, size_t items_len);
@@ -587,6 +597,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_append(/* Dyn_Array* */ a, /* Type */ item)                                          \
     do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
         __typeof__(item) __it = (item);                                                            \
         __mp_da_append((a), &__it, 1);                                                             \
     } while (0)
@@ -600,6 +611,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_append_many(/* Dyn_Array* */ a, /* Type... */...)                                    \
     do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
         __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
         size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
         __mp_da_append((a), __items, __len);                                                       \
@@ -614,7 +626,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param items_len (size_t) The amount of items in the array
  */
 #define mp_da_append_array(/* Dyn_Array* */ a, /* Type[] */ items, /* size_t */ items_len)         \
-    __mp_da_append((a), (items), (items_len))
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_append((a), (items), (items_len)))
 
 /// Gets an item at index \a i.
 /**
@@ -624,7 +636,8 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param i (size_t) The index to the item
  * \return (Type) The item at index \a i
  */
-#define /* Type */ mp_da_get(/* const Dyn_Array* */ a, /* size_t */ i) (a)->data[i]
+#define /* Type */ mp_da_get(/* const Dyn_Array* */ a, /* size_t */ i)                             \
+    ((void) (a)->__mp_dyn_array_marker, (a)->data[i])
 
 /// Gets a pointer to an item at index \a i.
 /**
@@ -634,7 +647,8 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param i (size_t) The index to the item
  * \return (Type *) The pointer to the item at index \a i
  */
-#define /* Type* */ mp_da_getp(/* const Dyn_Array* */ a, /* size_t */ i) ((a)->data + i)
+#define /* Type* */ mp_da_getp(/* const Dyn_Array* */ a, /* size_t */ i)                           \
+    ((void) (a)->__mp_dyn_array_marker, (a)->data + i)
 
 /// Gets an item at index \a i with bounds-checking.
 /**
@@ -647,7 +661,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type) The item at index \a i
  */
 #define /* Type */ mp_da_get_s(/* const Dyn_Array */ a, /* size_t */ i)                            \
-    (__MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
+    ((void) (a)->__mp_dyn_array_marker, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 
 /// Gets an a pointer to an item at index \a i with bounds-checking.
 /**
@@ -660,7 +674,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type *) The pointer to the item at index \a i
  */
 #define /* Type* */ mp_da_getp_s(/* const Dyn_Array */ a, /* size_t */ i)                          \
-    (__MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
+    ((void) (a)->__mp_dyn_array_marker, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
 
 // Generic dynamic array get function
 #define __mp_da_get(type, a, i) (type *) ((char *) (a)->data + (i) * (a)->size)
@@ -687,14 +701,16 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param a (const Dyn_Array *) The array (NO SIDE EFFECTS)
  * \return (Type) The the last item
  */
-#define /* Type */ mp_da_last(/* const Dyn_Array* */ a) (a)->data[(a)->len - 1]
+#define /* Type */ mp_da_last(/* const Dyn_Array* */ a)                                            \
+    ((void) (a)->__mp_dyn_array_marker, (a)->data[(a)->len - 1])
 
 /// Deletes the last item in a dynamic array and returns it.
 /**
  * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
  * \return (Type) The last item
  */
-#define /* Type */ mp_da_pop(/* Dyn_Array* */ a) (--(a)->len, (a)->data[(a)->len])
+#define /* Type */ mp_da_pop(/* Dyn_Array* */ a)                                                   \
+    ((void) (a)->__mp_dyn_array_marker, --(a)->len, (a)->data[(a)->len])
 
 /// Sets the length of a dynamic array to 0.
 /**
@@ -704,6 +720,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_reset(/* Dyn_Array* */ a)                                                            \
     do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
         (a)->len = 0;                                                                              \
     } while (0)
 
@@ -724,7 +741,8 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param a (Dyn_Array *) The array
  * \param offset (size_t) The amount to grow
  */
-#define mp_da_grow(/* Dyn_Array* */ a, /* size_t */ offset) __mp_da_grow((a), (offset))
+#define mp_da_grow(/* Dyn_Array* */ a, /* size_t */ offset)                                        \
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_grow((a), (offset)))
 void __mp_da_grow(void *a, size_t offset);
 
 /// Reserve a dynamic array to hold \a offset more items from the current capacity.
@@ -736,7 +754,8 @@ void __mp_da_grow(void *a, size_t offset);
  * \param a (Dyn_Array *) The array
  * \param offset (size_t) The amount to grow
  */
-#define mp_da_reserve(/* Dyn_Array* */ a, /* size_t */ offset) __mp_da_reserve((a), (offset))
+#define mp_da_reserve(/* Dyn_Array* */ a, /* size_t */ offset)                                     \
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_reserve((a), (offset)))
 void __mp_da_reserve(void *a, size_t offset);
 
 /// Clones a dynamic array to \a dest to be managed by \a allocator.
@@ -751,7 +770,8 @@ void __mp_da_reserve(void *a, size_t offset);
  * \param alloc (mp_Alloc) The allocator to manage \a dest
  */
 #define mp_da_clone(/* Dyn_Array* */ dest, /* const Dyn_Array* */ src, /* mp_Alloc */ alloc)       \
-    __mp_da_clone((dest), (src), (alloc))
+    ((void) (dest)->__mp_dyn_array_marker, (void) (src)->__mp_dyn_array_marker,                    \
+     __mp_da_clone((dest), (src), (alloc)))
 void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc);
 
 void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
@@ -770,6 +790,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  */
 #define mp_da_insert(/* Dyn_Array* */ a, /* size_t */ pos, /* Type */ item)                        \
     do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
         __typeof__(item) __it = (item);                                                            \
         __mp_da_insert((a), (pos), &__it, 1);                                                      \
     } while (0)
@@ -788,6 +809,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  */
 #define mp_da_insert_many(/* Dyn_Array* */ a, /* size_t */ pos, /* Type... */...)                  \
     do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
         __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
         size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
         __mp_da_insert((a), (pos), __items, __len);                                                \
@@ -808,7 +830,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  */
 #define mp_da_insert_array(/* Dyn_Array* */ a, /* size_t */ pos, /* Type[] */ items,               \
                            /* size_t */ items_len)                                                 \
-    __mp_da_insert((a), (pos), (items), (items_len))
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_insert((a), (pos), (items), (items_len)))
 
 /// Deletes \a len of items at \a pos.
 /**
@@ -823,7 +845,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  * \param len (size_t) The amount of items to delete
  */
 #define mp_da_delete(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len)                       \
-    __mp_da_move((a), (pos), NULL, (len))
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_move((a), (pos), NULL, (len)))
 
 /// Deletes a single item at \a pos if you do not care about the order of items.
 /**
@@ -837,7 +859,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  * \param pos (size_t) The position of the item to delete
  */
 #define mp_da_quick_delete(/* Dyn_Array* */ a, /* size_t */ pos)                                   \
-    __mp_da_quick_move((a), (pos), NULL)
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_quick_move((a), (pos), NULL))
 
 /// Moves \a len of items at \a pos to \a dest.
 /**
@@ -855,7 +877,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  * \param dest (Type *) Where to copy the deleted items (must be at least `len * sizeof(Type)`)
  */
 #define mp_da_move(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)       \
-    __mp_da_move((a), (pos), (dest), (len))
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_move((a), (pos), (dest), (len)))
 void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
 
 /// Moves a single item at \a pos to \a dest if you do not care about the order of items.
@@ -873,7 +895,7 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
  * \param dest (Type *) Where to copy the deleted item (must be at least `sizeof(Type)`)
  */
 #define mp_da_quick_move(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ dest)                   \
-    __mp_da_quick_move((a), (pos), (dest))
+    ((void) (a)->__mp_dyn_array_marker, __mp_da_quick_move((a), (pos), (dest)))
 void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 
 /// \}
@@ -1190,6 +1212,14 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
  *
  * It is best to not modify the hash table in the middle of iteration.
  *
+ * # Marker
+ *
+ * String hash tables contain a zero-sized field `__mp_str_ht_marker`. This field is used as a type
+ * checking for function-like macros used for string hash tables. These macros will check if this
+ * field exists and if it does then the data should be a valid string hash tables and thus can be
+ * passed to the implementation function safely.
+ * String hash table iterators also contain similar field `__mp_str_ht_iter_marker`.
+ *
  * \{
  */
 
@@ -1223,12 +1253,14 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
         size_t            size;                                                                    \
         __##name##_Entry *data;                                                                    \
         size_t            val_size;                                                                \
+        char              __mp_str_ht_marker[];                                                    \
     } name;                                                                                        \
     typedef struct {                                                                               \
         const name *_h;                                                                            \
         size_t      _i;                                                                            \
         mp_Str      key;                                                                           \
         value_type  val;                                                                           \
+        char        __mp_str_ht_iter_marker[];                                                     \
     } name##_Iter
 
 #define __mp_ht_struct(entry_type, name)                                                           \
@@ -1239,6 +1271,7 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
         size_t      size;                                                                          \
         entry_type *data;                                                                          \
         size_t      val_size;                                                                      \
+        char        __mp_str_ht_marker[];                                                          \
     }
 
 // Generic hash table type.
@@ -1276,14 +1309,15 @@ typedef struct {
  * \param alloc (mp_Alloc) The allocator to manage the hash table
  */
 #define mp_ht_init(/* "Type" */ type, /* Str_Hash_Table* */ ht, /* mp_Alloc */ alloc)              \
-    __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val))
+    ((void) (ht)->__mp_str_ht_marker,                                                              \
+     __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val)))
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
 
 /// Frees a string hash table.
 /**
  * \param ht (Str_Hash_Table *) The hash table (deinitialized by this)
  */
-#define mp_ht_deinit(/* Str_Hash_Table* */ ht) __mp_ht_deinit(ht)
+#define mp_ht_deinit(/* Str_Hash_Table* */ ht) ((void) (ht)->__mp_str_ht_marker, __mp_ht_deinit(ht))
 void __mp_ht_deinit(void *ht);
 
 /// Gets a pointer to an item at key \a k.
@@ -1295,7 +1329,7 @@ void __mp_ht_deinit(void *ht);
  * \return (void *) The retrieved value
  */
 #define /* void* */ mp_ht_get(/* const Str_Hash_Table* */ ht, /* const char* */ k)                 \
-    mp_ht_get_s((ht), mp_str(k))
+    ((void) (ht)->__mp_str_ht_marker, mp_ht_get_s((ht), mp_str(k)))
 
 /// The same as \ref mp_ht_get but accepts \ref mp_Str.
 /**
@@ -1306,7 +1340,7 @@ void __mp_ht_deinit(void *ht);
  * \return (void *) The retrieved value
  */
 #define /* void* */ mp_ht_get_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                    \
-    __mp_ht_get((ht), (k))
+    ((void) (ht)->__mp_str_ht_marker, __mp_ht_get((ht), (k)))
 void *__mp_ht_get(const void *ht, mp_Str k);
 
 /// Sets the value at key \a k to \a v.
@@ -1332,6 +1366,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
  */
 #define mp_ht_set_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                        \
     do {                                                                                           \
+        (void) (ht)->__mp_str_ht_marker;                                                           \
         __typeof__(v) __it = (v);                                                                  \
         __mp_ht_set((ht), (k), &__it);                                                             \
     } while (0)
@@ -1344,7 +1379,7 @@ void __mp_ht_set(void *ht, mp_Str k, void *v);
  * \return (bool) Whether an item at key \a k exists
  */
 #define /* bool */ mp_ht_exists(/* const Str_Hash_Table* */ ht, /* const char * */ k)              \
-    __mp_ht_exists((ht), mp_str(k))
+    ((void) (ht)->__mp_str_ht_marker, __mp_ht_exists((ht), mp_str(k)))
 
 /// The same as \ref mp_ht_exists but accepts \ref mp_Str.
 /**
@@ -1355,7 +1390,7 @@ void __mp_ht_set(void *ht, mp_Str k, void *v);
  * \return (bool) Whether an item at key \a k exists
  */
 #define /* bool */ mp_ht_exists_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                  \
-    __mp_ht_exists((ht), (k))
+    ((void) (ht)->__mp_str_ht_marker, __mp_ht_exists((ht), (k)))
 bool __mp_ht_exists(const void *ht, mp_Str k);
 
 /// Grows a string hash table to be able to hold \a offset more items from the current length.
@@ -1372,7 +1407,8 @@ bool __mp_ht_exists(const void *ht, mp_Str k);
  * \param ht (Str_Hash_Table *) The hash table
  * \param offset (size_t) The amount to grow
  */
-#define mp_ht_grow(/* Str_Hash_Table* */ ht, /* size_t */ offset) __mp_ht_grow((ht), (offset))
+#define mp_ht_grow(/* Str_Hash_Table* */ ht, /* size_t */ offset)                                  \
+    ((void) (ht)->__mp_str_ht_marker, __mp_ht_grow((ht), (offset)))
 void __mp_ht_grow(void *ht, size_t offset);
 
 // Invalidates and frees the string keys
@@ -1384,7 +1420,7 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
  *
  * \param ht (Str_Hash_Table *) The hash table
  */
-#define mp_ht_reset(/* Str_Hash_Table* */ ht) __mp_ht_reset(ht)
+#define mp_ht_reset(/* Str_Hash_Table* */ ht) ((void) (ht)->__mp_str_ht_marker, __mp_ht_reset(ht))
 void __mp_ht_reset(void *ht);
 
 /// Deletes an item at key \a k.
@@ -1397,7 +1433,8 @@ void __mp_ht_reset(void *ht);
  * \param ht (Str_Hash_Table *) The hash table
  * \param k (const char *) The key
  */
-#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
+#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k)                                \
+    ((void) (ht)->__mp_str_ht_marker, mp_ht_delete_s((ht), mp_str(k)))
 
 /// The same as \ref mp_ht_delete but accepts to \ref mp_Str.
 /**
@@ -1406,7 +1443,8 @@ void __mp_ht_reset(void *ht);
  * \param ht (Str_Hash_Table *) The hash table
  * \param k (mp_Str) The key
  */
-#define mp_ht_delete_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k) __mp_ht_delete((ht), (k))
+#define mp_ht_delete_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k)                                   \
+    ((void) (ht)->__mp_str_ht_marker, __mp_ht_delete((ht), (k)))
 void __mp_ht_delete(void *ht, mp_Str k);
 
 /// Clones a string hash table to \a dest to be managed by \a allocator.
@@ -1420,7 +1458,8 @@ void __mp_ht_delete(void *ht, mp_Str k);
  */
 #define mp_ht_clone(/* Str_Hash_Table* */ dest, /* const Str_Hash_Table* */ src,                   \
                     /* mp_Alloc */ alloc)                                                          \
-    __mp_ht_clone((dest), (src), (alloc))
+    ((void) (dest)->__mp_str_ht_marker, (void) (src)->__mp_str_ht_marker,                          \
+     __mp_ht_clone((dest), (src), (alloc)))
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
 
 /**
@@ -1453,7 +1492,7 @@ void mp_ht_keys_deinit(mp_Ht_Keys *keys);
  * \param keys (mp_Ht_Keys *) The array to put the keys into
  */
 #define mp_ht_keys(/* const Str_Hash_Table* */ ht, /* mp_Ht_Keys* */ keys)                         \
-    __mp_ht_keys((ht), (keys))
+    ((void) (ht)->__mp_str_ht_marker, __mp_ht_keys((ht), (keys)))
 void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
 
 /// Extracts the keys from a string hash table to an array.
@@ -1472,7 +1511,7 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
  * \param values (Dyn_Array *) The array to put the values into
  */
 #define mp_ht_values(/* const Str_Hash_Table* */ ht, /* Dyn_Array* */ values)                      \
-    __mp_ht_values((ht), (values))
+    ((void) (ht)->__mp_str_ht_marker, __mp_ht_values((ht), (values)))
 void __mp_ht_values(const void *ht, void *values);
 
 /// Initializes an iterator on a string hash table.
@@ -1483,7 +1522,7 @@ void __mp_ht_values(const void *ht, void *values);
  * \param ht (const Str_Hash_Table *) The hash table to iterate
  */
 #define mp_ht_iter_init(/* Str_Hash_Table_Iter* */ it, /* const Str_Hash_Table* */ ht)             \
-    __mp_ht_iter_init((it), (ht))
+    ((void) (it)->__mp_str_ht_iter_marker, __mp_ht_iter_init((it), (ht)))
 void __mp_ht_iter_init(void *it, const void *ht);
 
 /// Get the next element in the iterator.
@@ -1493,7 +1532,8 @@ void __mp_ht_iter_init(void *it, const void *ht);
  * \param it (Str_Hash_Table_Iter *) The iterator
  * \return (bool) Whether it is valid to access the data
  */
-#define /* bool */ mp_ht_iter_next(/* Str_Hash_Table_Iter* */ it) __mp_ht_iter_next(it)
+#define /* bool */ mp_ht_iter_next(/* Str_Hash_Table_Iter* */ it)                                  \
+    ((void) (it)->__mp_str_ht_iter_marker, __mp_ht_iter_next(it))
 bool __mp_ht_iter_next(void *it);
 
 // Hashes a string with FNV-1a hash algorithm.
@@ -1549,16 +1589,25 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  * \param alloc (mp_Alloc) The allocator to manage the hash set
  */
 #define mp_hs_init(/* mp_Str_Set* */ hs, /* mp_Alloc */ alloc)                                     \
-    __mp_ht_init((hs), (alloc), sizeof(*((mp_Str_Set *) 0)->data), 0)
+    ((void) (hs)->__mp_str_ht_marker,                                                              \
+     __mp_ht_init((hs), (alloc), sizeof(*((mp_Str_Set *) 0)->data), 0))
 
 /// Frees a string hash set.
 /**
  * \param hs (mp_Str_Set *) The hash set (deinitialized by this)
  */
-#define mp_hs_deinit(/* mp_Str_Set* */ hs) __mp_ht_deinit(hs)
+#define mp_hs_deinit(/* mp_Str_Set* */ hs) ((void) (hs)->__mp_str_ht_marker, __mp_ht_deinit(hs))
 
 /// Iterator for \ref HashSetString "string hash sets".
-typedef __mp_Str_Ht_Iter mp_Str_Set_Iter;
+typedef struct __mp_Str_Set_Iter mp_Str_Set_Iter;
+
+struct __mp_Str_Set_Iter {
+    const __mp_Hash_Table *_h;
+    size_t                 _i;
+    mp_Str                 key;
+    char                   val;
+    char                   __mp_str_ht_iter_marker[];
+};
 
 /// \}
 
@@ -1618,6 +1667,14 @@ typedef __mp_Str_Ht_Iter mp_Str_Set_Iter;
  *
  * It is best to not modify the hash table in the middle of iteration.
  *
+ * # Marker
+ *
+ * Integer hash tables contain a zero-sized field `__mp_int_ht_marker`. This field is used as a type
+ * checking for function-like macros used for integer hash tables. These macros will check if this
+ * field exists and if it does then the data should be a valid integer hash tables and thus can be
+ * passed to the implementation function safely.
+ * Integer hash table iterators also contain similar field `__mp_int_ht_iter_marker`.
+ *
  * \{
  */
 
@@ -1641,13 +1698,26 @@ typedef __mp_Str_Ht_Iter mp_Str_Set_Iter;
         size_t            size;                                                                    \
         __##name##_Entry *data;                                                                    \
         size_t            val_size;                                                                \
+        char              __mp_int_ht_marker[];                                                    \
     } name;                                                                                        \
     typedef struct {                                                                               \
         const name     *_h;                                                                        \
         size_t          _i;                                                                        \
         __mp_Int_Ht_Key key;                                                                       \
         value_type      val;                                                                       \
+        char            __mp_int_ht_iter_marker[];                                                 \
     } name##_Iter
+
+#define __mp_hti_struct(entry_type, name)                                                          \
+    struct name {                                                                                  \
+        mp_Alloc    alloc;                                                                         \
+        size_t      len;                                                                           \
+        size_t      cap;                                                                           \
+        size_t      size;                                                                          \
+        entry_type *data;                                                                          \
+        size_t      val_size;                                                                      \
+        char        __mp_int_ht_marker[];                                                          \
+    }
 
 // The key type is wrapped by this struct so it can have 0 as a key.
 typedef struct {
@@ -1680,24 +1750,26 @@ typedef struct {
  * \param alloc (mp_Alloc) The allocator to manage the hash table
  */
 #define mp_hti_init(/* "Type" */ type, /* Int_Hash_Table* */ ht, /* mp_Alloc */ alloc)             \
-    __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val))
+    ((void) (ht)->__mp_int_ht_marker,                                                              \
+     __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val)))
 
 /// Frees an integer hash table.
 /**
  * \param ht (Int_Hash_Table *) The hash table (deinitialized by this)
  */
-#define mp_hti_deinit(/* Int_Hash_Table* */ ht) mp_da_deinit(ht)
+#define mp_hti_deinit(/* Int_Hash_Table* */ ht)                                                    \
+    ((void) (ht)->__mp_int_ht_marker, __mp_da_deinit(ht))
 
 /// Gets a pointer to an item at key \a k.
 /**
  * \a ret becomes NULL if it could not retrieve the item.
  *
- * \param ht (const Int_Hash_Table *) The hash table (NO SIDE EFFECTS)
+ * \param ht (const Int_Hash_Table *) The hash table
  * \param k (size_t) The key
  * \return (void *) The retrieved value
  */
 #define /* void* */ mp_hti_get(/* const Int_Hash_Table* */ ht, /* size_t */ k)                     \
-    __mp_hti_get((ht), (k))
+    ((void) (ht)->__mp_int_ht_marker, __mp_hti_get((ht), (k)))
 void *__mp_hti_get(const void *ht, size_t k);
 
 /// Sets the value at key \a k to \a v.
@@ -1710,6 +1782,7 @@ void *__mp_hti_get(const void *ht, size_t k);
  */
 #define mp_hti_set(/* Int_Hash_Table* */ ht, /* size_t */ k, /* Type */ v)                         \
     do {                                                                                           \
+        (void) (ht)->__mp_int_ht_marker;                                                           \
         __typeof__(v) __it = (v);                                                                  \
         __mp_hti_set((ht), (k), &__it);                                                            \
     } while (0)
@@ -1722,7 +1795,7 @@ void __mp_hti_set(void *ht, size_t k, void *v);
  * \return (bool) Whether an item at key \a k exists
  */
 #define /* bool */ mp_hti_exists(/* const Int_Hash_Table* */ ht, /* size_t */ k)                   \
-    __mp_hti_exists((ht), (k))
+    ((void) (ht)->__mp_int_ht_marker, __mp_hti_exists((ht), (k)))
 bool __mp_hti_exists(const void *ht, size_t k);
 
 /// Grows an integer hash table to be able to hold \a offset more items from the current length.
@@ -1739,7 +1812,8 @@ bool __mp_hti_exists(const void *ht, size_t k);
  * \param ht (Str_Hash_Table *) The hash table
  * \param offset (size_t) The amount to grow
  */
-#define mp_hti_grow(/* Int_Hash_Table* */ ht, /* size_t */ offset) __mp_hti_grow((ht), (offset))
+#define mp_hti_grow(/* Int_Hash_Table* */ ht, /* size_t */ offset)                                 \
+    ((void) (ht)->__mp_int_ht_marker, __mp_hti_grow((ht), (offset)))
 void __mp_hti_grow(void *ht, size_t offset);
 
 /// Sets the length of an integer hash table to 0 and invalidate its keys.
@@ -1748,7 +1822,7 @@ void __mp_hti_grow(void *ht, size_t offset);
  *
  * \param ht (Int_Hash_Table *) The hash table
  */
-#define mp_hti_reset(/* Int_Hash_Table* */ ht) __mp_hti_reset(ht)
+#define mp_hti_reset(/* Int_Hash_Table* */ ht) ((void) (ht)->__mp_int_ht_marker, __mp_hti_reset(ht))
 void __mp_hti_reset(void *ht);
 
 /// Deletes an item at key \a k.
@@ -1761,7 +1835,8 @@ void __mp_hti_reset(void *ht);
  * \param ht (Int_Hash_Table *) The hash table
  * \param k (size_t) The key
  */
-#define mp_hti_delete(/* Int_Hash_Table* */ ht, /* size_t */ k) __mp_hti_delete((ht), (k))
+#define mp_hti_delete(/* Int_Hash_Table* */ ht, /* size_t */ k)                                    \
+    ((void) (ht)->__mp_int_ht_marker, __mp_hti_delete((ht), (k)))
 void __mp_hti_delete(void *ht, size_t k);
 
 /// Clones an integer hash table to \a dest to be managed by \a allocator.
@@ -1775,7 +1850,8 @@ void __mp_hti_delete(void *ht, size_t k);
  */
 #define mp_hti_clone(/* Int_Hash_Table* */ dest, /* const Int_Hash_Table* */ src,                  \
                      /* mp_Alloc */ alloc)                                                         \
-    __mp_hti_clone((dest), (src), (alloc))
+    ((void) (dest)->__mp_int_ht_marker, (void) (src)->__mp_int_ht_marker,                          \
+     __mp_hti_clone((dest), (src), (alloc)))
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
 
 /**
@@ -1801,7 +1877,7 @@ __mp_da_struct(size_t, __mp_Hti_Keys);
  * \param keys (mp_Hti_Keys *) The array to put the keys into
  */
 #define mp_hti_keys(/* const IntHashTable* */ ht, /* mp_Hti_Keys* */ keys)                         \
-    __mp_hti_keys((ht), (keys))
+    ((void) (ht)->__mp_int_ht_marker, __mp_hti_keys((ht), (keys)))
 void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
 
 /// Extracts the keys from an integer hash table to an array.
@@ -1820,7 +1896,7 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
  * \param values (Dyn_Array *) The array to put the values into
  */
 #define mp_hti_values(/* const Int_Hash_Table* */ ht, /* Dyn_Array* */ values)                     \
-    __mp_hti_values((ht), (values))
+    ((void) (ht)->__mp_int_ht_marker, __mp_hti_values((ht), (values)))
 void __mp_hti_values(const void *ht, void *values);
 
 /// Initializes an iterator on an integer hash table.
@@ -1831,7 +1907,7 @@ void __mp_hti_values(const void *ht, void *values);
  * \param ht (const Int_Hash_Table *) The hash table to iterate
  */
 #define mp_hti_iter_init(/* Int_Hash_Table_Iter* */ it, /* const Int_Hash_Table* */ ht)            \
-    __mp_hti_iter_init((it), (ht))
+    ((void) (it)->__mp_int_ht_iter_marker, __mp_hti_iter_init((it), (ht)))
 void __mp_hti_iter_init(void *it, const void *ht);
 
 /// Get the next element in the iterator.
@@ -1841,7 +1917,8 @@ void __mp_hti_iter_init(void *it, const void *ht);
  * \param it (Int_Hash_Table_Iter *) The iterator
  * \return (bool) Whether it is valid to access the data
  */
-#define /* bool */ mp_hti_iter_next(/* Int_Hash_Table_Iter* */ it) __mp_hti_iter_next(it)
+#define /* bool */ mp_hti_iter_next(/* Int_Hash_Table_Iter* */ it)                                 \
+    ((void) (it)->__mp_int_ht_iter_marker, __mp_hti_iter_next(it))
 bool __mp_hti_iter_next(void *it);
 
 /** \defgroup HashSetInt Hash Set (Integer)
@@ -1881,7 +1958,7 @@ bool __mp_hti_iter_next(void *it);
 /// Integer hash set, essentially just \ref HashTableInt "integer hash table" with dummy value.
 typedef struct __mp_Int_Set mp_Int_Set;
 
-__mp_ht_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
+__mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 
 /// Initializes a new integer hash set managed by \a allocator.
 /**
@@ -1893,16 +1970,25 @@ __mp_ht_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  * \param alloc (mp_Alloc) The allocator to manage the hash set
  */
 #define mp_hsi_init(/* mp_Int_Set* */ hs, /* mp_Alloc */ alloc)                                    \
-    __mp_ht_init((hs), (alloc), sizeof(*((mp_Int_Set *) 0)->data), 0)
+    ((void) (hs)->__mp_int_ht_marker,                                                              \
+     __mp_ht_init((hs), (alloc), sizeof(*((mp_Int_Set *) 0)->data), 0))
 
 /// Frees an integer hash set.
 /**
  * \param hs (mp_Int_Set *) The hash set (deinitialized by this)
  */
-#define mp_hsi_deinit(/* mp_Int_Set* */ hs) __mp_ht_deinit(hs)
+#define mp_hsi_deinit(/* mp_Int_Set* */ hs) ((void) (hs)->__mp_int_ht_marker, __mp_ht_deinit(hs))
 
 /// Iterator for \ref HashSetInt "integer hash sets".
-typedef __mp_Int_Ht_Iter mp_Int_Set_Iter;
+typedef struct __mp_Int_Set_Iter mp_Int_Set_Iter;
+
+struct __mp_Int_Set_Iter {
+    const __mp_Hash_Table *_h;
+    size_t                 _i;
+    __mp_Int_Ht_Key        key;
+    char                   val;
+    char                   __mp_int_ht_iter_marker[];
+};
 
 /// \}
 
@@ -2797,7 +2883,7 @@ void __mp_da_deinit(void *a) {
 
 void __mp_da_append(void *a, const void *items, size_t items_len) {
     __mp_Dyn_Array *self = a;
-    mp_da_grow(self, items_len);
+    __mp_da_grow(self, items_len);
     if (self->data != NULL) {
         memcpy((char *) self->data + self->len * self->size, items, items_len * self->size);
         self->len += items_len;
@@ -2814,7 +2900,7 @@ void __mp_da_grow(void *a, size_t offset) {
         while (self->len + offset > new_cap) {
             new_cap *= 2;
         }
-        mp_da_reserve(self, new_cap - self->cap);
+        __mp_da_reserve(self, new_cap - self->cap);
     }
 }
 
@@ -2846,7 +2932,7 @@ void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc) {
 void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len) {
     __mp_Dyn_Array *self       = a;
     size_t          actual_pos = (pos > self->len) ? self->len : pos;
-    mp_da_grow(self, items_len);
+    __mp_da_grow(self, items_len);
     if (self->data != NULL) {
         memmove((char *) self->data + (actual_pos + items_len) * self->size,
                 (char *) self->data + actual_pos * self->size, (items_len + 1) * self->size);
@@ -3044,7 +3130,7 @@ void __mp_ht_deinit(void *ht) {
             mp_str_deinit(&e->key, self->alloc);
         }
     }
-    mp_da_deinit(self);
+    __mp_da_deinit(self);
 }
 
 void *__mp_ht_get(const void *ht, mp_Str k) {
@@ -3074,7 +3160,7 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
 
 void __mp_ht_set(void *ht, mp_Str k, void *v) {
     __mp_Hash_Table *self = ht;
-    mp_ht_grow(self, 1);
+    __mp_ht_grow(self, 1);
     if (self->data != NULL) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
@@ -3159,7 +3245,7 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
 void __mp_ht_reset(void *ht) {
     __mp_Hash_Table *self = ht;
     __mp_ht_free_entries(self->data, self->alloc, self->cap, self->size);
-    mp_da_reset(self);
+    self->len = 0;
 }
 
 // TODO: mp_ht(i)_move
@@ -3210,7 +3296,7 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
 
 void mp_ht_keys_deinit(mp_Ht_Keys *keys) {
     for (size_t i = 0; i < keys->len; ++i) {
-        mp_str_deinit(&mp_get(keys, i), keys->alloc);
+        mp_str_deinit(mp_getp(keys, i), keys->alloc);
     }
     mp_da_deinit(keys);
 }
@@ -3221,8 +3307,8 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
     if (keys->data != NULL) {
         size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
-        mp_ht_iter_init(it, self);
-        while (mp_ht_iter_next(it)) {
+        __mp_ht_iter_init(it, self);
+        while (__mp_ht_iter_next(it)) {
             mp_da_append(keys, mp_str_clone(&it->key, keys->alloc));
         }
         mp_free(self->alloc, it, iter_size);
@@ -3233,12 +3319,12 @@ void __mp_ht_values(const void *ht, void *values) {
     const __mp_Hash_Table *self = ht;
     __mp_Hash_Table       *vals = values;
     __MP_ASSERT(self->val_size == vals->size);
-    mp_da_reserve(vals, self->len);
+    __mp_da_reserve(vals, self->len);
     if (vals->data != NULL) {
         size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
-        mp_ht_iter_init(it, self);
-        while (mp_ht_iter_next(it)) {
+        __mp_ht_iter_init(it, self);
+        while (__mp_ht_iter_next(it)) {
             memcpy((char *) vals->data + vals->len * vals->size, it->val, vals->size);
             ++vals->len;
         }
@@ -3310,7 +3396,7 @@ bool __mp_hti_exists(const void *ht, size_t k) {
 
 void __mp_hti_set(void *ht, size_t k, void *v) {
     __mp_Hash_Table *self = ht;
-    mp_hti_grow(self, 1);
+    __mp_hti_grow(self, 1);
     if (self->data != NULL) {
         size_t i = (size_t) (k % (uint64_t) (self->cap - 1));
         for (;;) {
@@ -3386,7 +3472,7 @@ void __mp_hti_reset(void *ht) {
             __MP_ZERO(&e->key);
         }
     }
-    mp_da_reset(self);
+    self->len = 0;
 }
 
 void __mp_hti_delete(void *ht, size_t k) {
@@ -3426,8 +3512,8 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys) {
     if (keys->data != NULL) {
         size_t            iter_size = sizeof(__mp_Int_Ht_Iter) + self->val_size;
         __mp_Int_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
-        mp_hti_iter_init(it, self);
-        while (mp_hti_iter_next(it)) {
+        __mp_hti_iter_init(it, self);
+        while (__mp_hti_iter_next(it)) {
             mp_da_append(keys, it->key.key);
         }
         mp_free(self->alloc, it, iter_size);
@@ -3438,12 +3524,12 @@ void __mp_hti_values(const void *ht, void *values) {
     const __mp_Hash_Table *self = ht;
     __mp_Hash_Table       *vals = values;
     __MP_ASSERT(self->val_size == vals->size);
-    mp_da_reserve(vals, self->len);
+    __mp_da_reserve(vals, self->len);
     if (vals->data != NULL) {
         size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
         __mp_Int_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
-        mp_hti_iter_init(it, self);
-        while (mp_hti_iter_next(it)) {
+        __mp_hti_iter_init(it, self);
+        while (__mp_hti_iter_next(it)) {
             memcpy((char *) vals->data + vals->len * vals->size, it->val, vals->size);
             ++vals->len;
         }

@@ -9,6 +9,7 @@ mp_da_typedef(int32_t, Da_Int32);
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
+
     Da_Int32 array;
     mp_da_init(Da_Int32, &array, alloc);
     expect_eq(array.size, sizeof(int32_t), "%zu");
