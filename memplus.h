@@ -1330,7 +1330,7 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
         const name *_h;                                                                            \
         size_t      _i;                                                                            \
         mp_Str      key;                                                                           \
-        value_type  val;                                                                           \
+        value_type *val;                                                                           \
         char        __mp_str_ht_iter_marker[];                                                     \
     } name##_Iter
 
@@ -1366,7 +1366,7 @@ typedef struct {
     const __mp_Hash_Table *_h;
     size_t                 _i;
     mp_Str                 key;
-    char                   val[];
+    void                  *val;
 } __mp_Str_Ht_Iter;
 
 /// Initializes a new string hash table managed by \a allocator.
@@ -1742,7 +1742,7 @@ struct __mp_Str_Set_Iter {
     const __mp_Hash_Table *_h;
     size_t                 _i;
     mp_Str                 key;
-    char                   val;
+    void                  *val;
     char                   __mp_str_ht_iter_marker[];
 };
 
@@ -1841,7 +1841,7 @@ struct __mp_Str_Set_Iter {
         const name     *_h;                                                                        \
         size_t          _i;                                                                        \
         __mp_Int_Ht_Key key;                                                                       \
-        value_type      val;                                                                       \
+        value_type     *val;                                                                       \
         char            __mp_int_ht_iter_marker[];                                                 \
     } name##_Iter
 
@@ -1873,7 +1873,7 @@ typedef struct {
     const __mp_Hash_Table *_h;
     size_t                 _i;
     __mp_Int_Ht_Key        key;
-    char                   val[];
+    void                  *val;
 } __mp_Int_Ht_Iter;
 
 /// Initializes a new integer hash table managed by \a allocator.
@@ -2173,7 +2173,7 @@ struct __mp_Int_Set_Iter {
     const __mp_Hash_Table *_h;
     size_t                 _i;
     __mp_Int_Ht_Key        key;
-    char                   val;
+    void                  *val;
     char                   __mp_int_ht_iter_marker[];
 };
 
@@ -3533,7 +3533,7 @@ bool __mp_ht_iter_next(void *it) {
         if (mp_str_is_valid(entry->key)) {
             self->key = entry->key;
             if (self->_h->val_size > 0) {
-                memcpy(&self->val, &entry->val, self->_h->val_size);
+                self->val = &entry->val;
             }
             ++self->_i;
             return true;
@@ -3738,7 +3738,7 @@ bool __mp_hti_iter_next(void *it) {
         if (entry->key.valid) {
             self->key = entry->key;
             if (self->_h->val_size > 0) {
-                memcpy(&self->val, &entry->val, self->_h->val_size);
+                self->val = &entry->val;
             }
             ++self->_i;
             return true;

@@ -118,7 +118,7 @@ int main(void) {
     while (mp_hti_iter_next(&it)) {
         __Ht_Int_Entry *o = ht.data + (it._i - 1);
         expect_eq(it.key.key, o->key.key, "%zu");
-        expect_eq(it.val, o->val, "%d");
+        expect_eq(*it.val, o->val, "%d");
         mp_hti_iter_next(&it);
     }
 
