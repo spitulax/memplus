@@ -179,8 +179,9 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
     #define __MP_FREE free
 #endif
 
-/// The version of the library.
 /**
+ * \brief The version of the library.
+ *
  * Semver encoded in hexadecimal where two digits represent each element.
  * Example: 0.1.0 -> (0x) 00 01 00
  */
@@ -196,7 +197,9 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
     #define __MP_PRINTF_FORMAT(fmt_index)
 #endif
 
-/// Indicates error return for `size_t`.
+/**
+ * \brief Indicates error return for `size_t`.
+ */
 #define MP_ERROR ((size_t) -1)
 
 /***********
@@ -251,8 +254,9 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
  * \{
  */
 
-/// Possible operations on \ref mp_Alloc_Func.
 /**
+ * \brief Possible operations on \ref mp_Alloc_Func.
+ *
  * See the documentation for each operation \ref mp_Alloc_Func "here".
  */
 typedef enum {
@@ -262,8 +266,9 @@ typedef enum {
     __MP_ALLOC_OP_COUNT,
 } mp_Alloc_Op;
 
-/// Function prototype used for allocators.
 /**
+ * \brief Function prototype used for allocators.
+ *
  * Functions of this type do different things depending on the \a op given.
  * They also use their parameters differently on each type.
  *
@@ -279,8 +284,8 @@ typedef enum {
  *     - If \a new_size == 0, does nothing and returns NULL
  *
  *     **Parameters**
- *     - **context**: The allocator context
- *     - **new_size**: The size of the block (in bytes)
+ *     - **context**: allocator context
+ *     - **new_size**: size to allocate in bytes
  *
  * - **MP_ALLOC_OP_REALLOC**
  *
@@ -291,14 +296,14 @@ typedef enum {
  *     - If \a old_size <= \a new_size, reallocation does not happen and the function just returns
  * \a ptr.
  *     - If \a new_size == 0, does nothing and returns NULL
- *     - If \a old_size == 0 or \a ptr == NULL., skips copying data and freeing the
- * old block, behaving like **MP_ALLOC_OP_ALLOC**
+ *     - If \a old_size == 0 or \a ptr == NULL, skips copying data and freeing the old block,
+ * behaving like **MP_ALLOC_OP_ALLOC**
  *
  *     **Parameters**
- *     - **context**: The allocator context
- *     - **ptr**: The pointer to the old block
- *     - **old_size**: The size of the old block
- *     - **new_size**: The new size the new block
+ *     - **context**: allocator context
+ *     - **ptr**: pointer to the old block
+ *     - **old_size**: size of old block in bytes
+ *     - **new_size**: size of new block in bytes
  *
  * - **MP_ALLOC_OP_FREE**
  *
@@ -308,27 +313,30 @@ typedef enum {
  *     - If \a ptr == NULL, does nothing
  *
  *     **Parameters**
- *     - **context**: The allocator context
- *     - **ptr**: The block to be freed
- *     - **new_size**: The size of the block
+ *     - **context**: allocator context
+ *     - **ptr**: block to be freed
+ *     - **new_size**: size of block in bytes
  *
- * \return The pointer to the newly allocated memory. May return NULL if allocation failed. Always
- * returns NULL on **MP_ALLOC_OP_FREE**
+ * \return pointer to newly allocated memory, NULL if allocation failed or with **MP_ALLOC_OP_FREE**
  */
 typedef void *(*mp_Alloc_Func)(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                void *ptr);
 
-/// Inteface to wrap functions to allocate memory.
+/**
+ * \brief Inteface to wrap functions to allocate memory.
+ */
 typedef struct {
-    /// Data that is passed to the allocator function.
     /**
+     * \brief Data that is passed to the allocator function.
+     *
      * In case of allocator that works with global memory, this can be specified as NULL.
      */
     void *context;
 
     /**
-     * \brief Function that handles the operations requested by the user of the allocator. See \ref
-     * mp_Alloc_Func.
+     * \brief Function that handles the operations requested by the user of the allocator.
+     *
+     * See \ref mp_Alloc_Func.
      */
     mp_Alloc_Func f;
 } mp_Alloc;
@@ -343,76 +351,90 @@ typedef struct {
  * \{
  */
 
-/// Calls allocator function with **MP_ALLOC_OP_ALLOC**.
 /**
- * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param size (size_t) The number of bytes that will be allocated
- * \return (void *) The pointer to the allocated block of memory, NULL if allocation failed
+ * \brief Allocates a block of memory.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_ALLOC**.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (NO SIDE EFFECTS)
+ * \param size (size_t) number of bytes to be allocated
+ * \return (void *) pointer to allocated block of memory, NULL if allocation failed
  */
 #define /* void* */ mp_alloc(/* mp_Alloc */ alloc, /* size_t */ size)                              \
     ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, (size), 0, NULL))
 
-/// Calls allocator function with **MP_ALLOC_OP_REALLOC**.
 /**
- * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param old_ptr (void *) The pointer to the block to be reallocated
- * \param old_size (size_t) The size of the block (in bytes)
- * \param new_size (size_t) The size of the new allocated block (in bytes)
- * \return (void *) The pointer to the newly allocated block of memory, NULL if allocation failed
+ * \brief Reallocates a block of memory.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_REALLOC**.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (NO SIDE EFFECTS)
+ * \param old_ptr (void *) pointer to the block to be reallocated
+ * \param old_size (size_t) size of block in bytes
+ * \param new_size (size_t) size of new allocated block in bytes
+ * \return (void *) pointer to newly allocated block of memory, NULL if allocation failed
  */
 #define /* void* */ mp_realloc(/* mp_Alloc */ alloc, /* void* */ old_ptr, /* size_t */ old_size,   \
                                /* size_t */ new_size)                                              \
     ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, (new_size), (old_size), (old_ptr)))
 
-/// Calls allocator function with **MP_ALLOC_OP_FREE**.
 /**
- * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param ptr (void *) The pointer to the block to be freed (nullability depends on the allocator
- * implementation)
- * \param size (size_t) The size of the block (in bytes)
- * \returns (void *) Always NULL
+ * \brief Frees a block of memory that has been allocated.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_FREE**.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (NO SIDE EFFECTS)
+ * \param ptr (void *) pointer to block to be freed (nullable)
+ * \param size (size_t) size of block in bytes
+ * \returns (void *) always NULL
  */
 #define /* void* */ mp_free(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size)              \
     ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, (size), 0, (ptr)))
 
-/// Calls allocator function with **MP_ALLOC_OP_ALLOC** with the size of \a type.
 /**
- * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param type (identifier) The type of the allocated data
- * \returns (\a Type *) The pointer to the newly allocated block that has the size of \a type
+ * \brief Allocate a block of memory that can hold a value of \a type.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (NO SIDE EFFECTS)
+ * \param type ("Type") type of data
+ * \returns (Type *) pointer to newly allocated block, NULL if allocation failed
  */
 #define /* Type* */ mp_create(/* mp_Alloc */ alloc, /* "Type" */ type)                             \
     (mp_alloc((alloc), sizeof(type)))
 
-/// Allocates a duplicate of \a data.
 /**
+ * \brief Allocates a duplicate of \a data.
+ *
  * The function allocates a new block of memory with the same size as \a data (i.e. \a size) and
  * copies the data from \a data to the newly allocated block.
  *
- * \param alloc The allocator
- * \param data The pointer to the block to be cloned
- * \param size The size of the block
- * \return The allocated clone of \a data
+ * \param alloc allocator
+ * \param data pointer to the block to be cloned
+ * \param size size of block
+ * \return pointer to allocated clone of \a data
  */
 void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
 
 /// \}
 
-/// Create an \ref mp_Alloc from \a ctx and \a func.
 /**
- * \param ctx (any *) The context passed to the function (automatically casted to void *)
- * \param func (mp_Alloc_Func) The allocator function
- * \return An allocator interface that works with the arguments given.
+ * \brief Create an \ref mp_Alloc from \a ctx and \a func.
+ *
+ * \param ctx (Any *) allocator context (automatically casted to void *)
+ * \param func (\ref mp_Alloc_Func) allocator function
+ * \return allocator interface instance working with arguments given
  */
-#define /* mp_Alloc */ mp_alloc_new(/* any* */ ctx, /* mp_Alloc_Func */ func)                      \
+#define /* mp_Alloc */ mp_alloc_new(/* Any* */ ctx, /* mp_Alloc_Func */ func)                      \
     ((mp_Alloc) {                                                                                  \
         .context = (void *) (ctx),                                                                 \
         .f       = (func),                                                                         \
     })
 
-/// Returns an invalid \ref mp_Alloc.
 /**
- * An invalid \ref mp_Alloc requires that field \a f is NULL.
+ * \brief Returns an invalid \ref mp_Alloc.
+ *
+ * An invalid \ref mp_Alloc requires that field \a f == NULL.
+ *
+ * \return invalid \ref mp_Alloc
  */
 #define /* mp_Alloc */ mp_alloc_invalid()                                                          \
     ((mp_Alloc) {                                                                                  \
@@ -420,15 +442,14 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
         .f       = NULL,                                                                           \
     })
 
-/// Handles reallocation for custom allocators.
 /**
+ * \breif Handles reallocation for custom allocators.
+ *
  * You can call this function in your allocator function as long as alloc and free
  * functionalities are defined.
  *
  * This function already implements realloc operation for an allocator by using its alloc and free
  * operation.
- *
- * If \a new_size == 0, does nothing and returns NULL.
  *
  * # Example
  * \code
@@ -439,11 +460,11 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
  * // ...
  * \endcode
  *
- * \param alloc The allocator
- * \param old_ptr The pointer to the old block
- * \param old_size The size of the old block
- * \param new_size The size of the new block
- * \return The pointer to the new block
+ * \param alloc allocator
+ * \param old_ptr pointer to the old block
+ * \param old_size size of old block in bytes
+ * \param new_size size of new block in bytes
+ * \return pointer to the new block. If \a new_size == 0, does nothing and returns NULL.
  */
 void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size);
 
