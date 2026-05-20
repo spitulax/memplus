@@ -1131,7 +1131,7 @@ typedef struct {
 #define /* bool */ mp_str_is_valid(/* mp_Str */ str) ((str).data != NULL)
 
 /**
- * \ref Creates a view to a null-terminated string.
+ * \brief Creates a view to a null-terminated string.
  *
  * Calculates string length with strlen.
  *
@@ -1246,84 +1246,101 @@ bool mp_str_eq(mp_Str a, mp_Str b);
  * mp_str_null_terminated_from which is going to allocate a clone of the string data and use
  * \ref mp_str_null_terminated_deinit to free it.
  *
+ * # Initialization
+ *
+ * Initializing an \ref mp_Sb with \ref mp_sb_init_with or \ref mp_sb_init_withf will allocate for
+ * exactly the amount of bytes required. Meanwhile, initializing then appending manually may
+ * allocate for more than required to minimize the amount of future reallocations.
+ *
+ * If you do not plan to append more data to an \ref mp_Sb, initialize with \ref mp_sb_init_with or
+ * \ref mp_sb_init_withf instead to be more memory efficient.
+ *
  * \{
  */
 
 __mp_da_struct(char, __mp_Sb);
 
-/// Holds a string that is resizable.
 /**
+ * \brief Holds a string that is resizable.
+ *
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
  */
 typedef struct __mp_Sb mp_Sb;
 
-/// Initializes an \ref mp_Sb to be managed by \a alloc.
 /**
+ * \brief Initializes \a sb managed by \a alloc.
+ *
  * Deinit with \ref mp_sb_deinit.
  *
- * \param sb The string builder (initialized by this)
- * \param alloc The managing allocator
+ * \param sb string builder (initialized by this)
+ * \param alloc managing allocator
  */
 void mp_sb_init(mp_Sb *sb, mp_Alloc alloc);
 
-/// Initializes an \ref mp_Sb to be managed by \a alloc and append \a str.
 /**
+ * \brief Initializes \a sb managed by \a alloc and append \a str.
+ *
  * Deinit with \ref mp_sb_deinit.
  *
- * Will only reserve for the length of \a str.
+ * Will only reserve for exactly the length of \a str.
  *
  * \a sb->data == NULL if allocation failed.
  *
- * \param sb The string builder (initialized by this)
- * \param str The initial string
- * \param alloc The managing allocator
+ * \param sb string builder (initialized by this)
+ * \param str initial string
+ * \param alloc managing allocator
  */
 void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc);
 
-/// Initializes an \ref mp_Sb to be managed by \a alloc and append a formatted string.
 /**
+ * \brief Initializes \a sb managed by \a alloc and append a formatted string.
+ *
  * Deinit with \ref mp_sb_deinit.
  *
- * Will only reserve for the length of the resulting formatted string.
+ * Will only reserve for exactly the length of the resulting formatted string.
  *
  * \a sb->data == NULL if allocation failed.
  *
- * \param sb The string builder (initialized by this)
- * \param alloc The managing allocator
- * \param fmt The formatting string
- * \param ... The formatting arguments
+ * \param sb string builder (initialized by this)
+ * \param alloc managing allocator
+ * \param fmt formatting string
+ * \param ... formatting arguments
  */
 void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(3);
 
-/// Frees an \ref mp_Sb.
 /**
- * \param sb The string builder (deinitialized by this)
+ * \brief Deinitializes \a sb.
+ *
+ * \param sb string builder (deinitialized by this)
  */
 void mp_sb_deinit(mp_Sb *sb);
 
-/// Appends a string to an \ref mp_Sb.
 /**
- * \a sb->data becomes NULL if allocation failed.
+ * \brief Appends \a str to \a sb.
  *
- * \param sb The string builder
- * \param str The string to be appended
+ * \a sb->data == NULL if allocation failed.
+ *
+ * \param sb string builder
+ * \param str string to be appended
  */
 void mp_sb_append(mp_Sb *sb, mp_Str str);
 
-/// Appends a formatted string to an \ref mp_Sb.
 /**
- * \a sb->data becomes NULL if allocation failed.
+ * \brief Appends a formatted string to \a sb.
  *
- * \param sb The string builder
- * \param fmt The formatting string
- * \param ... The formatting arguments
+ * \a sb->data == NULL if allocation failed.
+ *
+ * \param sb string builder
+ * \param fmt formatting string
+ * \param ... formatting arguments
  */
 void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
 
-/// Gets a view to \a sb.
 /**
- * \param sb The string builder
- * \return The view to \a sb
+ * \brief Gets a view to \a sb.
+ *
+ * \param sb string builder
+ * \return view to \a sb
  */
 mp_Str mp_sb_str(const mp_Sb *sb);
 
