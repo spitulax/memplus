@@ -356,7 +356,7 @@ typedef struct {
  *
  * Calls allocator function with **MP_ALLOC_OP_ALLOC**.
  *
- * \param alloc (\ref mp_Alloc) allocator (NO SIDE EFFECTS)
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param size (size_t) number of bytes to be allocated
  * \return (void *) pointer to allocated block of memory, NULL if allocation failed
  */
@@ -368,7 +368,7 @@ typedef struct {
  *
  * Calls allocator function with **MP_ALLOC_OP_REALLOC**.
  *
- * \param alloc (\ref mp_Alloc) allocator (NO SIDE EFFECTS)
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param old_ptr (void *) pointer to the block to be reallocated
  * \param old_size (size_t) size of block in bytes
  * \param new_size (size_t) size of new allocated block in bytes
@@ -383,7 +383,7 @@ typedef struct {
  *
  * Calls allocator function with **MP_ALLOC_OP_FREE**.
  *
- * \param alloc (\ref mp_Alloc) allocator (NO SIDE EFFECTS)
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param ptr (void *) pointer to block to be freed (nullable)
  * \param size (size_t) size of block in bytes
  * \returns (void *) always NULL
@@ -394,7 +394,7 @@ typedef struct {
 /**
  * \brief Allocate a block of memory that can hold a value of \a type.
  *
- * \param alloc (\ref mp_Alloc) allocator (NO SIDE EFFECTS)
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param type ("Type") type of data
  * \returns (Type *) pointer to newly allocated block, NULL if allocation failed
  */
@@ -443,7 +443,7 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
     })
 
 /**
- * \breif Handles reallocation for custom allocators.
+ * \brief Handles reallocation for custom allocators.
  *
  * You can call this function in your allocator function as long as alloc and free
  * functionalities are defined.
@@ -546,10 +546,11 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
     #define __MP_DARRAY_INIT_CAPACITY 64
 #endif
 
-/// Defines a \ref DynamicArray "dynamic array" struct that holds data of type \a type.
 /**
- * \param type (identifier) The type of the data
- * \param name (identifier) The name of the array struct
+ * \brief Defines a \ref DynamicArray "dynamic array" struct holding data of type \a type.
+ *
+ * \param type ("Type") array data type name
+ * \param name (identifier) name of array struct
  */
 #define mp_da_typedef(/* "Type" */ type, /* identifier */ name)                                    \
     typedef struct {                                                                               \
@@ -580,33 +581,35 @@ typedef struct {
     void    *data;
 } __mp_Dyn_Array;
 
-/// Initializes a new dynamic array managed by \a alloc.
 /**
+ * \brief Initializes \a a managed by \a alloc.
+ *
  * Deinit with \ref mp_da_deinit.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param type (Type) The type of the array
- * \param a (Dyn_Array *) The array (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the array
+ * \param type ("Type") array type name
+ * \param a (Dyn_Array *) array (initialized by this)
+ * \param alloc (\ref mp_Alloc) allocator to manage \a a
  */
-#define mp_da_init(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc)                      \
+#define mp_da_init(/* "Type" */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc)                    \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
         __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data));                                   \
     } while (0)
 void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 
-/// Initializes a new dynamic array managed by \a alloc and appends items to it.
 /**
+ * \brief Initializes \a a managed by \a alloc and appends items to it.
+ *
  * Deinit with \ref mp_da_deinit.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param type (Type) The type of the array
- * \param a (Dyn_Array *) The array (initialized by this) (NO SIDE EFFECTS)
- * \param alloc (mp_Alloc) The allocator to manage the array
- * \param ... (DataType...) The values to append
+ * \param type ("Type") array type name
+ * \param a (Dyn_Array *) array (initialized by this) (no side effects)
+ * \param alloc (\ref mp_Alloc) allocator to manage \a a
+ * \param ... (DataType...) values to append
  */
 #define mp_da_init_with(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc,                 \
                         /* DataType... */...)                                                      \
@@ -616,9 +619,10 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
         mp_da_append_many((a), __VA_ARGS__);                                                       \
     } while (0)
 
-/// Frees a dynamic array.
 /**
- * \param a (Dyn_Array *) The array (deinitialized by this)
+ * \brief Deinitializes \a a.
+ *
+ * \param a (Dyn_Array *) array (deinitialized by this)
  */
 #define mp_da_deinit(/* Dyn_Array* */ a)                                                           \
     do {                                                                                           \
@@ -629,12 +633,13 @@ void __mp_da_deinit(void *a);
 
 void __mp_da_append(void *a, const void *items, size_t items_len);
 
-/// Appends \a item to a dynamic array.
 /**
- * \a a->data becomes NULL if allocation failed.
+ * \brief Appends \a item to \a a.
  *
- * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
- * \param item (Type) The item to append to the array
+ * \a a->data == NULL if allocation failed.
+ *
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param item (Type) item to append to \a a
  */
 #define mp_da_append(/* Dyn_Array* */ a, /* Type */ item)                                          \
     do {                                                                                           \
@@ -645,12 +650,13 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
         __mp_da_append((a), &__it, 1);                                                             \
     } while (0)
 
-/// Appends multiple items to a dynamic array.
 /**
- * \a a->data becomes NULL if allocation failed.
+ * \brief Appends multiple items to \a a.
  *
- * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
- * \param ... (Type...) The items to append to the array
+ * \a a->data == NULL if allocation failed.
+ *
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param ... (Type...) items to append to \a a
  */
 #define mp_da_append_many(/* Dyn_Array* */ a, /* Type... */...)                                    \
     do {                                                                                           \
@@ -662,15 +668,16 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
         __mp_da_append((a), __items, __len);                                                       \
     } while (0)
 
-/// Appends items in an array to a dynamic array.
 /**
- * \a a->data becomes NULL if allocation failed.
+ * \brief Appends items from \a items to \a a.
  *
- * \param a (Dyn_Array *) The array
- * \param items (Type[]) The array of items to append to the array
- * \param items_len (size_t) The amount of items in the array
+ * \a a->data == NULL if allocation failed.
+ *
+ * \param a (Dyn_Array *) array
+ * \param items (Type *) array of items to append to \a a
+ * \param items_len (size_t) amount of items in \a items
  */
-#define mp_da_append_array(/* Dyn_Array* */ a, /* Type[] */ items, /* size_t */ items_len)         \
+#define mp_da_append_array(/* Dyn_Array* */ a, /* Type* */ items, /* size_t */ items_len)          \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
         __MP_TYPEOF(*items) *__items = (items);                                                    \
@@ -679,50 +686,54 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
         __mp_da_append((a), __items, (items_len));                                                 \
     } while (0)
 
-/// Gets an item at index \a i.
 /**
+ * \brief Gets item at \a i.
+ *
  * No bounds checking, use \ref mp_da_get_s for that.
  *
- * \param a (const Dyn_Array*) The array
- * \param i (size_t) The index to the item
- * \return (Type) The item at index \a i
+ * \param a (const Dyn_Array*) array
+ * \param i (size_t) index to item
+ * \return (Type) item at \a i
  */
 #define /* Type */ mp_da_get(/* const Dyn_Array* */ a, /* size_t */ i)                             \
     ((void) (a)->__mp_dyn_array_marker, (a)->data[i])
 
-/// Gets a pointer to an item at index \a i.
 /**
+ * \brief Gets pointer to item at \a i.
+ *
  * No bounds checking, use \ref mp_da_get_s for that.
  *
- * \param a (const Dyn_Array*) The array
- * \param i (size_t) The index to the item
- * \return (Type *) The pointer to the item at index \a i
+ * \param a (const Dyn_Array*) array
+ * \param i (size_t) index to item
+ * \return (Type *) pointer to item at \a i
  */
 #define /* Type* */ mp_da_getp(/* const Dyn_Array* */ a, /* size_t */ i)                           \
     ((void) (a)->__mp_dyn_array_marker, (a)->data + i)
 
-/// Gets an item at index \a i with bounds-checking.
 /**
+ * \brief Gets item at \a i with bounds-checking.
+ *
  * Asserts that \a i is not out of bounds.
  *
- * The assert won't trigger if `NDEBUG` is defined.
+ * The assert will not trigger if `NDEBUG` is defined.
  *
- * \param a (const Dyn_Array*) The array
- * \param i (size_t) The index to the item
- * \return (Type) The item at index \a i
+ * \param a (const Dyn_Array*) array
+ * \param i (size_t) index to item
+ * \return (Type) item at \a i
  */
 #define /* Type */ mp_da_get_s(/* const Dyn_Array */ a, /* size_t */ i)                            \
     ((void) (a)->__mp_dyn_array_marker, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 
-/// Gets an a pointer to an item at index \a i with bounds-checking.
 /**
+ * \brief Gets pointer to item at \a i with bounds-checking.
+ *
  * Asserts that \a i is not out of bounds.
  *
  * The assert won't trigger if `NDEBUG` is defined.
  *
- * \param a (const Dyn_Array*) The array
- * \param i (size_t) The index to the item
- * \return (Type *) The pointer to the item at index \a i
+ * \param a (const Dyn_Array*) array
+ * \param i (size_t) index to item
+ * \return (Type *) pointer to item at \a i
  */
 #define /* Type* */ mp_da_getp_s(/* const Dyn_Array */ a, /* size_t */ i)                          \
     ((void) (a)->__mp_dyn_array_marker, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
@@ -730,44 +741,52 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 // Generic dynamic array get function
 #define __mp_da_get(type, a, i) (type *) ((char *) (a)->data + (i) * (a)->size)
 
-/// Alias of \ref mp_da_get.
+/**
+ * \brief Alias of \ref mp_da_get.
+ */
 #define mp_get mp_da_get
 
-/// Alias of \ref mp_da_getp.
+/**
+ * \brief Alias of \ref mp_da_getp.
+ */
 #define mp_getp mp_da_getp
 
-/// Pass a dynamic array into a function that accepts pointer and length.
 /**
+ * \brief Pass \a a to a function that accepts array as pointer and length.
+ *
  * Example usage:
  * \code
  * mp_str_concat(mp_da_arg(strings), NULL, mp_heap());
  * \endcode
  *
- * \param a (const? Dyn_Array *) The array (NO SIDE EFFECTS)
+ * \param a (const? Dyn_Array *) array (no side effects)
  */
 #define mp_da_arg(/* const? Dyn_Array* */ a) (a)->data, (a)->len
 
-/// Gets the last item in a dynamic array.
 /**
- * \param a (const Dyn_Array *) The array (NO SIDE EFFECTS)
- * \return (Type) The the last item
+ * \brief Gets the last item in \a a.
+ *
+ * \param a (const Dyn_Array *) array (no side effects)
+ * \return (Type) the last item in \a a
  */
 #define /* Type */ mp_da_last(/* const Dyn_Array* */ a)                                            \
     ((void) (a)->__mp_dyn_array_marker, (a)->data[(a)->len - 1])
 
-/// Deletes the last item in a dynamic array and returns it.
 /**
- * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
- * \return (Type) The last item
+ * \brief Removes the last item in \a a and returns it.
+ *
+ * \param a (Dyn_Array *) array (no side effects)
+ * \return (Type) the last item in \a a
  */
 #define /* Type */ mp_da_pop(/* Dyn_Array* */ a)                                                   \
     ((void) (a)->__mp_dyn_array_marker, --(a)->len, (a)->data[(a)->len])
 
-/// Sets the length of a dynamic array to 0.
 /**
+ * \brief Sets length of \a a to 0.
+ *
  * This resets the dynamic array to "initial condition" but without actually freeing the data.
  *
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) array
  */
 #define mp_da_reset(/* Dyn_Array* */ a)                                                            \
     do {                                                                                           \
@@ -775,8 +794,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
         (a)->len = 0;                                                                              \
     } while (0)
 
-/// Grows a dynamic array to be able to hold \a offset more items from the current length.
 /**
+ * \brief Grows \a a to be able to hold \a offset more items from the current length.
+ *
  * Does a calculation to determine the new capacity and then calls \ref mp_da_reserve if
  * allocation is needed, which happens when length + offset is greater than the capacity.
  *
@@ -787,10 +807,10 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * If \a a->cap is not large enough, reserves for double of \a a->cap.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
- * \param offset (size_t) The amount to grow
+ * \param a (Dyn_Array *) array
+ * \param offset (size_t) amount to grow
  */
 #define mp_da_grow(/* Dyn_Array* */ a, /* size_t */ offset)                                        \
     do {                                                                                           \
@@ -799,14 +819,15 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
     } while (0)
 void __mp_da_grow(void *a, size_t offset);
 
-/// Reserve a dynamic array to hold \a offset more items from the current capacity.
 /**
- * Increases \a a->cap by \a offset and reallocates if \a offset is bigger than 0.
+ * \brief Reserve \a a to hold exactly \a offset more items from the current capacity.
  *
- * \a a->data becomes NULL if allocation failed.
+ * Increases \a a->cap by \a offset and reallocates \a a->data if \a offset is greater than 0.
  *
- * \param a (Dyn_Array *) The array
- * \param offset (size_t) The amount to grow
+ * \a a->data == NULL if allocation failed.
+ *
+ * \param a (Dyn_Array *) array
+ * \param offset (size_t) amount to grow
  */
 #define mp_da_reserve(/* Dyn_Array* */ a, /* size_t */ offset)                                     \
     do {                                                                                           \
@@ -815,16 +836,17 @@ void __mp_da_grow(void *a, size_t offset);
     } while (0)
 void __mp_da_reserve(void *a, size_t offset);
 
-/// Clones a dynamic array to \a dest to be managed by \a allocator.
 /**
+ * \brief Clones \a src to \a dest managed by \a alloc.
+ *
  * The \a dest array does not inherit the capacity of \a src. Instead it will only
  * allocate for \a src.len + *initial capacity* items.
  *
- * \a dest->data becomes NULL if allocation failed.
+ * \a dest->data == NULL if allocation failed.
  *
- * \param dest (Dyn_Array *) The destination of the clone (initialized by this)
- * \param src (const Dyn_Array *) The source array
- * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \param dest (Dyn_Array *) destination of the clone (initialized by this)
+ * \param src (const Dyn_Array *) source array
+ * \param alloc (\ref mp_Alloc) allocator to manage \a dest
  */
 #define mp_da_clone(/* Dyn_Array* */ dest, /* const Dyn_Array* */ src, /* mp_Alloc */ alloc)       \
     do {                                                                                           \
@@ -836,17 +858,20 @@ void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc);
 
 void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
-/// Inserts an item at \a pos.
 /**
- * If \a pos > \a a->len, then it just puts the item at \a a->len.
+ * \brief Inserts item to \a a at \a pos.
+ *
+ * The item will be exactly at \a pos after insertion. Items after it gets moved.
+ *
+ * If \a pos > \a a->len, then just puts the item at \a a->len.
  *
  * \a pos must not be negative.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
- * \param pos (size_t) The position of the item
- * \param item (Type) The item to insert
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param pos (size_t) insertion position
+ * \param item (Type) item to insert
  */
 #define mp_da_insert(/* Dyn_Array* */ a, /* size_t */ pos, /* Type */ item)                        \
     do {                                                                                           \
@@ -857,17 +882,21 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
         __mp_da_insert((a), (pos), &__it, 1);                                                      \
     } while (0)
 
-/// Inserts multiple items at \a pos.
 /**
- * If \a pos > \a a->len, then it just puts the item at \a a->len.
+ * \brief Inserts multiple items to \a a at \a pos.
+ *
+ * The first item will be exactly at \a pos after insertion and the succeding items follow. Items
+ * after them gets moved.
+ *
+ * If \a pos > \a a->len, then just puts the items at \a a->len.
  *
  * \a pos must not be negative.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
- * \param pos (size_t) The position of the item
- * \param ... (Type...) The items to insert
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param pos (size_t) insertion position
+ * \param ... (Type...) items to insert
  */
 #define mp_da_insert_many(/* Dyn_Array* */ a, /* size_t */ pos, /* Type... */...)                  \
     do {                                                                                           \
@@ -879,20 +908,21 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
         __mp_da_insert((a), (pos), __items, __len);                                                \
     } while (0)
 
-/// Inserts items in an array at \a pos.
 /**
+ * \brief Inserts items from \a items to \a a at \a pos.
+ *
  * If \a pos > \a a->len, then it just puts the item at \a a->len.
  *
  * \a pos must not be negative.
  *
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
- * \param pos (size_t) The position of the item
- * \param items (Type[]) The array of items to inserts to the array
- * \param items_len (size_t) The amount of items in the array
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param pos (size_t) insertion position
+ * \param items (Type *) array of items to insert to \a a
+ * \param items_len (size_t) amount of items in \a items
  */
-#define mp_da_insert_array(/* Dyn_Array* */ a, /* size_t */ pos, /* Type[] */ items,               \
+#define mp_da_insert_array(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ items,                \
                            /* size_t */ items_len)                                                 \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
@@ -902,17 +932,18 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
         __mp_da_insert((a), (pos), (items), (items_len));                                          \
     } while (0)
 
-/// Deletes \a len of items at \a pos.
 /**
+ * \brief Removes \a len of items from \a a at \a pos.
+ *
  * This operation is O(n) in the worst case. This may move items to the deleted slots with items
  * from the slots after it.
  *
  * If you only want to delete one item and do not care about the order of the elements after the
  * delete, use \ref mp_da_quick_delete instead.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of items to delete
- * \param len (size_t) The amount of items to delete
+ * \param a (Dyn_Array *) array
+ * \param pos (size_t) position of the first item to delete
+ * \param len (size_t) amount of items to delete
  */
 #define mp_da_delete(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len)                       \
     do {                                                                                           \
@@ -920,16 +951,17 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
         __mp_da_move((a), (pos), NULL, (len));                                                     \
     } while (0)
 
-/// Deletes a single item at \a pos if you do not care about the order of items.
 /**
+ * \brief Removes a single item from \a a at \a pos if you do not care about the order of items.
+ *
  * This operation is O(1) and a much faster alternative to \ref mp_da_delete if you do not care
  * about the order of items.
  *
  * This works by swapping the item to be deleted with the last item and shrinking the array,
  * effectively making it ignore the last item.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of the item to delete
+ * \param a (Dyn_Array *) array
+ * \param pos (size_t) position of item to delete
  */
 #define mp_da_quick_delete(/* Dyn_Array* */ a, /* size_t */ pos)                                   \
     do {                                                                                           \
@@ -937,8 +969,9 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
         __mp_da_quick_move((a), (pos), NULL);                                                      \
     } while (0)
 
-/// Moves \a len of items at \a pos to \a dest.
 /**
+ * \brief Moves \a len of items from \a a at \a pos to \a dest.
+ *
  * This operation is O(n) in the worst case. This may move items to the deleted slots with items
  * from the slots after it.
  *
@@ -947,10 +980,10 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a dest must not alias \a a->data.
  *
- * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
- * \param pos (size_t) The position of items to delete
- * \param len (size_t) The amount of items to delete
- * \param dest (Type *) Where to copy the deleted items (must be at least `len * sizeof(Type)`)
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param pos (size_t) position of the first item to delete
+ * \param len (size_t) amount of items to delete
+ * \param dest (Type *) where to copy deleted items (must be at least \a len * sizeof(Type))
  */
 #define mp_da_move(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)       \
     do {                                                                                           \
@@ -962,8 +995,10 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
     } while (0)
 void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
 
-/// Moves a single item at \a pos to \a dest if you do not care about the order of items.
 /**
+ * \brief Moves a single item from \a a at \a pos to \a dest if you do not care about the order of
+ * items.
+ *
  * This operation is O(1) and a much faster alternative to \ref mp_da_move if you do not care
  * about the order of items.
  *
@@ -972,9 +1007,9 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
  *
  * \a dest must not alias \a a->data.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of the item to delete
- * \param dest (Type *) Where to copy the deleted item (must be at least `sizeof(Type)`)
+ * \param a (Dyn_Array *) array
+ * \param pos (size_t) position of item to delete
+ * \param dest (Type *) where to copy the deleted item (must be at least sizeof(Type))
  */
 #define mp_da_quick_move(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ dest)                   \
     do {                                                                                           \
@@ -1508,7 +1543,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
 /**
  * See \ref mp_ht_set.
  *
- * \param ht (Str_Hash_Table *) The hash table (NO SIDE EFFECTS)
+ * \param ht (Str_Hash_Table *) The hash table (no side effects)
  * \param k (mp_Str) The key
  * \param v (Type) The value to be stored
  */
@@ -2055,7 +2090,7 @@ void *__mp_hti_get(const void *ht, size_t k);
 /**
  * \a ht->data becomes NULL if allocation failed.
  *
- * \param ht (Int_Hash_Table *) The hash table (NO SIDE EFFECTS)
+ * \param ht (Int_Hash_Table *) The hash table (no side effects)
  * \param k (size_t) The key
  * \param v (Type) The value to be stored
  */
