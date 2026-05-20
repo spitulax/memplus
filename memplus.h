@@ -1097,7 +1097,9 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
  * \{
  */
 
-/// Holds a pointer to a string and its size (excluding the null-terminator if any).
+/**
+ * \brief Holds a pointer to a string and its size (excluding the null-terminator if any).
+ */
 typedef struct {
     /// The length/size of the string (in bytes, excluding the null-terminator).
     size_t len;
@@ -1105,11 +1107,12 @@ typedef struct {
     const char *data;
 } mp_Str;
 
-/// Returns an invalid \ref mp_Str.
 /**
- * An invalid \ref mp_Str requires that field \a data is NULL.
+ * \brief Returns invalid \ref mp_Str.
  *
- * \return (mp_Str) An invalid string
+ * An invalid \ref mp_Str requires that field \a data == NULL.
+ *
+ * \return (\ref mp_Str) invalid string
  */
 #define /* mp_Str */ mp_str_invalid()                                                              \
     ((mp_Str) {                                                                                    \
@@ -1117,27 +1120,32 @@ typedef struct {
         .data = NULL,                                                                              \
     })
 
-/// Tests whether an \ref mp_Str is valid (i.e. field \a data is not NULL).
 /**
- * Returns true if \a s is valid.
+ * \brief Tests whether \a str is valid.
  *
- * \param s (mp_Str) The string
- * \return (bool) Whether \a s is valid
+ * See \ref mp_str_invalid.
+ *
+ * \param str (\ref mp_Str) string
+ * \return (bool) whether \a s is valid
  */
-#define /* bool */ mp_str_is_valid(/* mp_Str */ s) ((s).data != NULL)
+#define /* bool */ mp_str_is_valid(/* mp_Str */ str) ((str).data != NULL)
 
-/// Creates a `mp_Str` from a **null-terminated** string.
 /**
- * \param str (const char *) The null-terminated string (no side effects)
- * \return (mp_Str) Contains the string and its length
+ * \ref Creates a view to a null-terminated string.
+ *
+ * Calculates string length with strlen.
+ *
+ * \param str (const char *) null-terminated string (no side effects)
+ * \return (\ref mp_Str) view to \a str
  */
 #define /* mp_Str */ mp_str(/* const char* */ str) mp_str_s((str), strlen(str))
 
-/// Creates a `mp_Str` from a string.
 /**
- * \param str (const char *) The string
- * \param length (size_t) The length of \a str
- * \return (mp_Str) Contains the string and its length
+ * \brief Creates a view to a string.
+ *
+ * \param str (const char *) string
+ * \param length (size_t) length of \a str
+ * \return (\ref mp_Str) view to \a str
  */
 #define /* mp_Str */ mp_str_s(/* const char* */ str, /* size_t */ length)                          \
     ((mp_Str) {                                                                                    \
@@ -1145,7 +1153,11 @@ typedef struct {
         .data = (str),                                                                             \
     })
 
-/// Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` format specifier.
+/**
+ * \brief Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` format specifier.
+ *
+ * \param str (\ref mp_Str) string (no side effects)
+ */
 #define mp_str_print(/* mp_Str */ str) (int) (str).len, (str).data
 
 /**
@@ -1156,10 +1168,10 @@ typedef struct {
 #define mp_str_arg(/* mp_Str */ str) (str).data, (str).len
 
 /**
- * \brief Allocates copy null-terminated \a str with \a alloc and returns a view to it.
+ * \brief Allocates copy of null-terminated \a str with \a alloc and returns a view to it.
  *
  * \param str null-terminated string
- * \param alloc allocator allocating the copy
+ * \param alloc allocator for the copy
  * \return allocated copy of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
  * allocation failed
  */
@@ -1169,7 +1181,7 @@ mp_Str mp_str_alloc(const char *str, mp_Alloc alloc);
  * \brief Allocates clone of \a str with \a alloc.
  *
  * \param str string (may or may not be allocated on heap)
- * \param alloc allocator allocating the clone
+ * \param alloc allocator for the clone
  * \return allocated clone of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
  * allocation failed
  */
@@ -1187,7 +1199,7 @@ void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
  * \brief Creates a clone of \a str that is null-terminated with \a alloc.
  *
  * \param str string to clone
- * \param alloc allocator allocating the clone
+ * \param alloc allocator for the clone
  * \return null-terminated clone of \a str, NULL if allocation failed
  */
 char *mp_str_null_terminated_from(mp_Str str, mp_Alloc alloc);
