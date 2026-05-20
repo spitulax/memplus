@@ -13,13 +13,14 @@ int main(void) {
         expect_eq(str_set.val_size, (size_t) 0, "%zu");
 
         for (size_t i = 0; i < nums; ++i) {
-            mp_Str key = mp_str_newf(temp_alloc, "key_%zu", i / 2);
+            mp_Sb key;
+            mp_sb_init_withf(&key, temp_alloc, "key_%zu", i / 2);
             if (i % 2 == 0) {
-                expect(!mp_ht_exists_s(&str_set, key));
+                expect(!mp_ht_exists_s(&str_set, mp_sb_str(&key)));
             } else {
-                expect(mp_ht_exists_s(&str_set, key));
+                expect(mp_ht_exists_s(&str_set, mp_sb_str(&key)));
             }
-            mp_hs_set_s(&str_set, key);
+            mp_hs_set_s(&str_set, mp_sb_str(&key));
         }
         expect_eq(str_set.len, nums / 2, "%zu");
 

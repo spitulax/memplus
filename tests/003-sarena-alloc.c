@@ -70,14 +70,16 @@ int main(void) {
     {
         mp_talloc();
 
-        int *i = mp_create(temp_alloc, int);
+        int *i = mp_make(temp_alloc, int);
         *i     = 67;
         expect_ne((void *) i, NULL, "%p");
         expect_eq(*i, 67, "%d");
 
-        const char *str = mp_str_newf(temp_alloc, "%d!!!", *i).cstr;
-        expect_ne((void *) str, NULL, "%p");
-        expect_streq(str, "67!!!");
+        mp_Sb sb;
+        mp_sb_init_withf(&sb, temp_alloc, "%d!!!", *i);
+        mp_Str str = mp_sb_str(&sb);
+        expect_ne((void *) str.data, NULL, "%p");
+        expect_streq_mp(str, mp_str("67!!!"));
     }
 
     return 0;

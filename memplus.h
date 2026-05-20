@@ -386,20 +386,80 @@ typedef struct {
  * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param ptr (void *) pointer to block to be freed (nullable)
  * \param size (size_t) size of block in bytes
- * \returns (void *) always NULL
  */
-#define /* void* */ mp_free(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size)              \
-    ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, (size), 0, (ptr)))
+#define mp_free(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size)                          \
+    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, (size), 0, (ptr)))
 
 /**
- * \brief Allocate a block of memory that can hold a value of \a type.
+ * \brief Allocates a block of memory that can hold a value of \a type.
+ *
+ * Free with \ref mp_deinit.
  *
  * \param alloc (\ref mp_Alloc) allocator (no side effects)
- * \param type ("Type") type of data
+ * \param type ("Type") type name of data
  * \returns (Type *) pointer to newly allocated block, NULL if allocation failed
  */
-#define /* Type* */ mp_create(/* mp_Alloc */ alloc, /* "Type" */ type)                             \
-    (mp_alloc((alloc), sizeof(type)))
+#define /* Type* */ mp_make(/* mp_Alloc */ alloc, /* "Type" */ type) mp_alloc((alloc), sizeof(type))
+
+/**
+ * \brief Allocates clone of a block of memory that holds a value of \a type.
+ *
+ * Free with \ref mp_deinit.
+ *
+ * \param alloc (\ref mp_Alloc) allocator
+ * \param type ("Type") type name of data
+ * \param src (Type *) source of data
+ * \return (Type *) pointer to cloned data, NULL if allocation failed
+ */
+#define /* Type* */ mp_clone(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ src)             \
+    mp_dup((alloc), (src), sizeof(type))
+
+/**
+ * \brief Frees a block of memory that holds a value of \a type.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param type ("Type") type name of data
+ * \param ptr (Type *) pointer to block to be freed (nullable)
+ */
+#define mp_deinit(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ ptr)                        \
+    mp_free((alloc), (ptr), sizeof(type))
+
+/**
+ * \brief Allocates a block of memory that can hold an array of \a type.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param type ("Type") type name of data
+ * \param len (size_t) length of allocated array
+ * \returns (Type *) pointer to newly allocated block, NULL if allocation failed
+ */
+#define /* Type* */ mp_make_array(/* mp_Alloc */ alloc, /* "Type" */ type, /* size_t */ len)       \
+    mp_alloc((alloc), sizeof(type) * (len))
+
+/**
+ * \brief Allocates clone of a block of memory that holds an array of \a type.
+ *
+ * Free with \ref mp_deinit_array.
+ *
+ * \param alloc (\ref mp_Alloc) allocator
+ * \param type ("Type") type name of data
+ * \param src (Type *) source of data
+ * \param len (size_t) length of array
+ * \return (Type *) pointer to cloned data, NULL if allocation failed
+ */
+#define mp_clone_array(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ src, /* size_t */ len) \
+    mp_dup((alloc), (src), sizeof(type) * (len))
+
+/**
+ * \brief Frees a block of memory that holds an array of \a type.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param type ("Type") type name of data
+ * \param ptr (Type *) pointer to block to be freed (nullable)
+ * \param len (size_t) length of allocated array
+ */
+#define mp_deinit_array(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ ptr,                  \
+                        /* size_t */ len)                                                          \
+    mp_free((alloc), (ptr), sizeof(type) * (len))
 
 /**
  * \brief Allocates a duplicate of \a data.
@@ -752,7 +812,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 #define mp_getp mp_da_getp
 
 /**
- * \brief Pass \a a to a function that accepts array as pointer and length.
+ * \brief Passes \a a to a function that accepts array as pointer and length.
  *
  * Example usage:
  * \code
@@ -1030,166 +1090,128 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 /**
  * \defgroup String String
  *
- * Holds a pointer to a **null-terminated** string and its size (excluding the
- * null-terminator).
+ * Holds a pointer to a string and its size (excluding the null-terminator if any).
+ *
+ * This object is a "view" to a string data and does not manage or allocate the data itself.
  *
  * \{
  */
 
-/// Holds a pointer to a **null-terminated** string and its size (excluding the null-terminator).
+/// Holds a pointer to a string and its size (excluding the null-terminator if any).
 typedef struct {
     /// The length/size of the string (in bytes, excluding the null-terminator).
     size_t len;
     /// The pointer to the first character.
-    char *cstr;
+    const char *data;
 } mp_Str;
 
 /// Returns an invalid \ref mp_Str.
 /**
- * An invalid \ref mp_Str requires that field \a cstr is NULL.
+ * An invalid \ref mp_Str requires that field \a data is NULL.
  *
  * \return (mp_Str) An invalid string
  */
 #define /* mp_Str */ mp_str_invalid()                                                              \
     ((mp_Str) {                                                                                    \
         .len  = 0,                                                                                 \
-        .cstr = NULL,                                                                              \
+        .data = NULL,                                                                              \
     })
 
-/// Tests whether an \ref mp_Str is valid (i.e. field \a cstr is not NULL).
+/// Tests whether an \ref mp_Str is valid (i.e. field \a data is not NULL).
 /**
  * Returns true if \a s is valid.
  *
  * \param s (mp_Str) The string
  * \return (bool) Whether \a s is valid
  */
-#define /* bool */ mp_str_is_valid(/* mp_Str */ s) ((s).cstr != NULL)
+#define /* bool */ mp_str_is_valid(/* mp_Str */ s) ((s).data != NULL)
 
 /// Creates a `mp_Str` from a **null-terminated** string.
 /**
- * \param str (const char *) The null-terminated string
+ * \param str (const char *) The null-terminated string (no side effects)
  * \return (mp_Str) Contains the string and its length
  */
-#define /* mp_Str */ mp_str(/* const char* */ str)                                                 \
+#define /* mp_Str */ mp_str(/* const char* */ str) mp_str_s((str), strlen(str))
+
+/// Creates a `mp_Str` from a string.
+/**
+ * \param str (const char *) The string
+ * \param length (size_t) The length of \a str
+ * \return (mp_Str) Contains the string and its length
+ */
+#define /* mp_Str */ mp_str_s(/* const char* */ str, /* size_t */ length)                          \
     ((mp_Str) {                                                                                    \
-        .len  = strlen(str),                                                                       \
-        .cstr = (str),                                                                             \
+        .len  = (length),                                                                          \
+        .data = (str),                                                                             \
     })
 
-/// Allocates and returns a new \ref mp_Str from a **null-terminated** string.
-/**
- * Deinit with \ref mp_str_deinit.
- * \ref mp_str is the non-allocating variant of this function.
- *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param alloc The allocator handling the allocation
- * \param str The null-terminated string
- * \return The new \ref mp_Str
- */
-mp_Str mp_str_new(mp_Alloc alloc, const char *str);
+/// Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` format specifier.
+#define mp_str_print(/* mp_Str */ str) (int) (str).len, (str).data
 
-/// Allocates and returns a new \ref mp_Str from a string.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Passes \a str to a function that accepts string as pointer and length.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param alloc The allocator handling the allocation
- * \param str The string
- * \param len The length of the new string
- * \return The new \ref mp_Str
+ * \param str (mp_Str) string (no side effects)
  */
-mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len);
+#define mp_str_arg(/* mp_Str */ str) (str).data, (str).len
 
-/// Allocates and returns a new \ref mp_Str from formatted input.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Allocates copy null-terminated \a str with \a alloc and returns a view to it.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param alloc The allocator handling the allocation
- * \param fmt The formatting string
- * \param ... The formatting arguments
- * \return The new \ref mp_Str
+ * \param str null-terminated string
+ * \param alloc allocator allocating the copy
+ * \return allocated copy of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
+ * allocation failed
  */
-mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+mp_Str mp_str_alloc(const char *str, mp_Alloc alloc);
 
-/// Frees an allocated \ref mp_Str.
 /**
- * Be careful to not use this function on an unallocated \ref mp_Str.
+ * \brief Allocates clone of \a str with \a alloc.
  *
- * \param str The string
- * \param alloc The allocator that allocated the string
+ * \param str string (may or may not be allocated on heap)
+ * \param alloc allocator allocating the clone
+ * \return allocated clone of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
+ * allocation failed
+ */
+mp_Str mp_str_clone(mp_Str str, mp_Alloc alloc);
+
+/**
+ * \brief Deinitializes \a str, given it was allocated on the heap with \a alloc.
+ *
+ * \param str pointer to string (allocated on heap)
+ * \param alloc allocator that allocated \a str
  */
 void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
 
-/// Allocates and returns a clone of an \ref mp_Str.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Creates a clone of \a str that is null-terminated with \a alloc.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param str The string to be cloned
- * \param alloc The allocator handling the allocation
- * \return The cloned \ref mp_Str
+ * \param str string to clone
+ * \param alloc allocator allocating the clone
+ * \return null-terminated clone of \a str, NULL if allocation failed
  */
-mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc);
+char *mp_str_null_terminated_from(mp_Str str, mp_Alloc alloc);
 
-/// Concatenate strings from an array with an optional separator.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Deinitializes null-terminated \a str allocated with \a alloc.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param strs The array of **null-terminated** strings
- * \param strs_len The length of \a strs
- * \param sep The separator (**nullable**)
- * \param alloc The allocator handling the allocation
- * \return The concatenated string
+ * \param str pointer null-terminated string to deinitialize
+ * \param alloc allocator that allocated \a str
  */
-mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc);
+void mp_str_null_terminated_deinit(char **str, mp_Alloc alloc);
 
-/// The same as \ref mp_str_concat but accepts an array of \ref mp_Str.
 /**
- * See \ref mp_str_concat.
+ * \brief Tests whether \a a and \a b are equal.
  *
- * \param strs The array of strings
- * \param strs_len The length of \a strs
- * \param sep The separator (**nullable**)
- * \param alloc The allocator handling the allocation
- * \return The concatenated string
+ * \param a string
+ * \param b string
+ * \return whether \a a and \a b are equal
  */
-mp_Str mp_str_concat_s(const mp_Str *strs, size_t strs_len, const char *sep, mp_Alloc alloc);
+bool mp_str_eq(mp_Str a, mp_Str b);
 
-/// Convert the uppercase letters to lowercase of \a str to a new copy.
-/**
- * Deinit with \ref mp_str_deinit.
- *
- * Uses the standard function `tolower`.
- *
- * \param str The string
- * \param alloc The allocator allocating the copy
- * \return The converted copy
- */
-mp_Str mp_str_to_lower(const mp_Str *str, mp_Alloc alloc);
-
-/// Convert the lowercase letters to uppercase of \a str to a new copy.
-/**
- * Deinit with \ref mp_str_deinit.
- *
- * Uses the standard function `toupper`.
- *
- * \param str The string
- * \param alloc The allocator allocating the copy
- * \return The converted copy
- */
-mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc);
-
-// TODO: String functions
-// - mp_str_eq
+// TODO: String functions:
+// - mp_str_substr
 // - mp_str_starts/ends_with
-// - mp_str_concat
 // - mp_str_split
 // - mp_str_trim
 
@@ -1202,51 +1224,81 @@ mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc);
 /**
  * \defgroup StringBuilder String Builder
  *
- * Holds a **non null-terminated** string that is resizable.
+ * Holds and manage a **non null-terminated** string that is resizable.
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
-
- * To convert \ref mp_Str_Builder to C string, use \ref mp_str_builder_string which
- * returns a **null-terminated** \ref mp_Str.
+ *
+ * Pass references to \ref mp_Sb with \ref mp_Str type, use \ref mp_sb_str to
+ * convert the string.
+ *
+ * To convert to a C-compatible string which is null-terminated, use \ref
+ * mp_str_null_terminated_from which is going to allocate a clone of the string data and use
+ * \ref mp_str_null_terminated_deinit to free it.
  *
  * \{
  */
 
-__mp_da_struct(char, __mp_Str_Builder);
+__mp_da_struct(char, __mp_Sb);
 
-/// Holds a **non null-terminated** string that is resizable.
+/// Holds a string that is resizable.
 /**
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
- *
- * To convert \ref mp_Str_Builder to C string, use \ref mp_str_builder_string which
- * returns a **null-terminated** \ref mp_Str.
  */
-typedef struct __mp_Str_Builder mp_Str_Builder;
+typedef struct __mp_Sb mp_Sb;
 
-/// Initializes an \ref mp_Str_Builder to be managed by \a alloc.
+/// Initializes an \ref mp_Sb to be managed by \a alloc.
 /**
- * Deinit with \ref mp_str_builder_deinit.
+ * Deinit with \ref mp_sb_deinit.
  *
  * \param sb The string builder (initialized by this)
  * \param alloc The managing allocator
  */
-void mp_str_builder_init(mp_Str_Builder *sb, mp_Alloc alloc);
+void mp_sb_init(mp_Sb *sb, mp_Alloc alloc);
 
-/// Frees an \ref mp_Str_Builder.
+/// Initializes an \ref mp_Sb to be managed by \a alloc and append \a str.
+/**
+ * Deinit with \ref mp_sb_deinit.
+ *
+ * Will only reserve for the length of \a str.
+ *
+ * \a sb->data == NULL if allocation failed.
+ *
+ * \param sb The string builder (initialized by this)
+ * \param str The initial string
+ * \param alloc The managing allocator
+ */
+void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc);
+
+/// Initializes an \ref mp_Sb to be managed by \a alloc and append a formatted string.
+/**
+ * Deinit with \ref mp_sb_deinit.
+ *
+ * Will only reserve for the length of the resulting formatted string.
+ *
+ * \a sb->data == NULL if allocation failed.
+ *
+ * \param sb The string builder (initialized by this)
+ * \param alloc The managing allocator
+ * \param fmt The formatting string
+ * \param ... The formatting arguments
+ */
+void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(3);
+
+/// Frees an \ref mp_Sb.
 /**
  * \param sb The string builder (deinitialized by this)
  */
-void mp_str_builder_deinit(mp_Str_Builder *sb);
+void mp_sb_deinit(mp_Sb *sb);
 
-/// Appends a **null-terminated** string to an \ref mp_Str_Builder.
+/// Appends a string to an \ref mp_Sb.
 /**
  * \a sb->data becomes NULL if allocation failed.
  *
  * \param sb The string builder
- * \param str The **null-terminated** string to be appended
+ * \param str The string to be appended
  */
-void mp_str_builder_append(mp_Str_Builder *sb, const char *str);
+void mp_sb_append(mp_Sb *sb, mp_Str str);
 
-/// Appends a formatted string to an \ref mp_Str_Builder.
+/// Appends a formatted string to an \ref mp_Sb.
 /**
  * \a sb->data becomes NULL if allocation failed.
  *
@@ -1254,31 +1306,17 @@ void mp_str_builder_append(mp_Str_Builder *sb, const char *str);
  * \param fmt The formatting string
  * \param ... The formatting arguments
  */
-void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
 
-/// Copies the buffer of an \ref mp_Str_Builder into a null-terminated \ref mp_Str.
+/// Gets a view to \a sb.
 /**
- * Deinit with \ref mp_str_deinit.
- *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
  * \param sb The string builder
- * \param alloc The allocator that allocates the \ref mp_Str
- * \return The **null-terminated** copy of \a sb
+ * \return The view to \a sb
  */
-mp_Str mp_str_builder_string(const mp_Str_Builder *sb, mp_Alloc alloc);
+mp_Str mp_sb_str(const mp_Sb *sb);
 
-/// Same as \ref mp_str_builder_string but also deinitializes \a sb.
-/**
- * Deinit with \ref mp_str_deinit.
- *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param sb The string builder (deinitialized by this)
- * \param alloc The allocator that allocates the \ref mp_Str
- * \return The **null-terminated** copy of \a sb
- */
-mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
+// TODO: Sb functions:
+// - mp_sb_concat
 
 /// \}
 
@@ -3161,7 +3199,6 @@ const char *mp_err_str(mp_Err e);
 
 #ifdef MEMPLUS_IMPLEMENTATION
 
-    #include <ctype.h>
     #include <errno.h>
     #include <stdarg.h>
     #include <stdio.h>
@@ -3326,119 +3363,63 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item) {
     --self->len;
 }
 
-mp_Str mp_str_new(mp_Alloc alloc, const char *str) {
-    return mp_str_new_len(alloc, str, strlen(str));
-}
-
-mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len) {
-    char *result = mp_alloc(alloc, (size_t) (len + 1));
-    if (result == NULL) {
+mp_Str mp_str_alloc(const char *str, mp_Alloc alloc) {
+    size_t      len  = strlen(str);
+    const char *data = mp_dup(alloc, str, len);
+    if (data == NULL) {
         return mp_str_invalid();
     }
-    int result_len = snprintf(result, (size_t) (len + 1), "%.*s", (int) len, str);
-    __MP_ASSERT((size_t) result_len == len);
-    return (mp_Str) { .len = (size_t) result_len, .cstr = result };
+    return mp_str_s(data, len);
 }
 
-mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) {
-    va_list args;
-
-    va_start(args, fmt);
-    int len = vsnprintf(NULL, 0, fmt, args);
-    __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
-    va_end(args);
-
-    char *result = mp_alloc(alloc, (size_t) (len + 1));
-    if (result == NULL) {
+mp_Str mp_str_clone(mp_Str str, mp_Alloc alloc) {
+    const char *data = mp_dup(alloc, str.data, str.len);
+    if (data == NULL) {
         return mp_str_invalid();
     }
-
-    va_start(args, fmt);
-    int result_len = vsnprintf(result, (size_t) (len + 1), fmt, args);
-    __MP_ASSERT(result_len == len);
-    va_end(args);
-
-    return (mp_Str) { .len = (size_t) result_len, .cstr = result };
+    return mp_str_s(data, str.len);
 }
 
 void mp_str_deinit(mp_Str *str, mp_Alloc alloc) {
-    mp_free(alloc, str->cstr, str->len + 1);
+    mp_free(alloc, (void *) str->data, str->len);
     __MP_ZERO(str);
 }
 
-mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc) {
-    char *ptr = mp_dup(alloc, str->cstr, str->len + 1);
-    if (ptr == NULL) {
-        return mp_str_invalid();
+char *mp_str_null_terminated_from(mp_Str str, mp_Alloc alloc) {
+    char *cstr = mp_alloc(alloc, str.len + 1);
+    if (cstr == NULL) {
+        return NULL;
     }
-    return (mp_Str) { .len = str->len, .cstr = ptr };
+    memcpy(cstr, str.data, str.len);
+    cstr[str.len] = '\0';
+    return cstr;
 }
 
-mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc) {
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
+void mp_str_null_terminated_deinit(char **str, mp_Alloc alloc) {
+    mp_free(alloc, *str, strlen(*str));
+    __MP_ZERO(str);
+}
 
-    for (size_t i = 0; i < strs_len; ++i) {
-        if (sep != NULL && i > 0) {
-            mp_str_builder_append(&sb, sep);
-        }
-        mp_str_builder_append(&sb, strs[i]);
+bool mp_str_eq(mp_Str a, mp_Str b) {
+    if (a.len != b.len) {
+        return false;
     }
-
-    return mp_str_builder_string_take(&sb, alloc);
+    return memcmp(a.data, b.data, a.len) == 0;
 }
 
-mp_Str mp_str_concat_s(const mp_Str *strs, size_t strs_len, const char *sep, mp_Alloc alloc) {
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
+void mp_sb_init(mp_Sb *sb, mp_Alloc alloc) {
+    mp_da_init(mp_Sb, sb, alloc);
+}
 
-    for (size_t i = 0; i < strs_len; ++i) {
-        if (sep != NULL && i > 0) {
-            mp_str_builder_append(&sb, sep);
-        }
-        mp_str_builder_append(&sb, strs[i].cstr);
+void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc) {
+    mp_sb_init(sb, alloc);
+    mp_da_reserve(sb, str.len);
+    if (sb->data != NULL) {
+        mp_sb_append(sb, str);
     }
-
-    return mp_str_builder_string_take(&sb, alloc);
 }
 
-mp_Str mp_str_to_lower(const mp_Str *str, mp_Alloc alloc) {
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
-    mp_da_reserve(&sb, str->len);
-
-    for (size_t i = 0; i < str->len; ++i) {
-        mp_da_append(&sb, (char) tolower(str->cstr[i]));
-    }
-
-    return mp_str_builder_string_take(&sb, alloc);
-}
-
-mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc) {
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
-    mp_da_reserve(&sb, str->len);
-
-    for (size_t i = 0; i < str->len; ++i) {
-        mp_da_append(&sb, (char) toupper(str->cstr[i]));
-    }
-
-    return mp_str_builder_string_take(&sb, alloc);
-}
-
-void mp_str_builder_init(mp_Str_Builder *sb, mp_Alloc alloc) {
-    mp_da_init(mp_Str_Builder, sb, alloc);
-}
-
-void mp_str_builder_deinit(mp_Str_Builder *sb) {
-    mp_da_deinit(sb);
-}
-
-void mp_str_builder_append(mp_Str_Builder *sb, const char *str) {
-    mp_da_append_array(sb, str, strlen(str));
-}
-
-void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) {
+void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
@@ -3446,32 +3427,45 @@ void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) {
     __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
     va_end(args);
 
-    mp_da_grow(sb, (size_t) (len + 1));
+    mp_sb_init(sb, alloc);
+    mp_da_reserve(sb, (size_t) len + 1);
 
     if (sb->data != NULL) {
         va_start(args, fmt);
-        int result_len = vsnprintf(sb->data + sb->len, (size_t) (len + 1), fmt, args);
+        int result_len = vsnprintf(sb->data, (size_t) len + 1, fmt, args);
         va_end(args);
         sb->len += (size_t) result_len;
     }
 }
 
-void mp_str_builder_append_byte(mp_Str_Builder *sb, unsigned char byte) {
-    mp_da_grow(sb, 1);
+void mp_sb_deinit(mp_Sb *sb) {
+    mp_da_deinit(sb);
+}
+
+void mp_sb_append(mp_Sb *sb, mp_Str str) {
+    mp_da_append_array(sb, str.data, str.len);
+}
+
+void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) {
+    va_list args;
+
+    va_start(args, fmt);
+    int len = vsnprintf(NULL, 0, fmt, args);
+    __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
+    va_end(args);
+
+    mp_da_grow(sb, (size_t) len + 1);
+
     if (sb->data != NULL) {
-        sb->data[sb->len] = (char) byte;
-        ++sb->len;
+        va_start(args, fmt);
+        int result_len = vsnprintf(sb->data + sb->len, (size_t) len + 1, fmt, args);
+        va_end(args);
+        sb->len += (size_t) result_len;
     }
 }
 
-mp_Str mp_str_builder_string(const mp_Str_Builder *sb, mp_Alloc alloc) {
-    return mp_str_new_len(alloc, sb->data, sb->len);
-}
-
-mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc) {
-    mp_Str res = mp_str_new_len(alloc, sb->data, sb->len);
-    mp_str_builder_deinit(sb);
-    return res;
+mp_Str mp_sb_str(const mp_Sb *sb) {
+    return mp_str_s(sb->data, sb->len);
 }
 
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
@@ -3501,7 +3495,7 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
+            if (mp_str_is_valid(e->key) && mp_str_eq(k, e->key)) {
                 return &e->val;
             }
             ++i;
@@ -3525,10 +3519,10 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (!mp_str_is_valid(e->key)) {
-                e->key = mp_str_clone(&k, self->alloc);
+                e->key = mp_str_clone(k, self->alloc);
                 memcpy(&e->val, v, self->val_size);
                 break;
-            } else if (strcmp(e->key.cstr, k.cstr) == 0) {
+            } else if (mp_str_eq(e->key, k)) {
                 memcpy(&e->val, v, self->val_size);
                 --self->len;
                 break;
@@ -3571,7 +3565,7 @@ void __mp_ht_grow(void *ht, size_t offset) {
                     __mp_Str_Ht_Entry *new_e =
                         (__mp_Str_Ht_Entry *) ((char *) new_data + new_i * self->size);
                     if (!mp_str_is_valid(new_e->key)) {
-                        new_e->key = mp_str_clone(&e->key, self->alloc);
+                        new_e->key = mp_str_clone(e->key, self->alloc);
                         memcpy(&new_e->val, &e->val, self->val_size);
                         break;
                     } else {
@@ -3614,7 +3608,7 @@ void __mp_ht_delete(void *ht, mp_Str k) {
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
+            if (mp_str_is_valid(e->key) && mp_str_eq(k, e->key)) {
                 mp_str_deinit(&e->key, self->alloc);
                 __MP_ASSERT(!mp_str_is_valid(e->key));
                 memset(&e->val, 1, sizeof(char));
@@ -3643,8 +3637,8 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
             __mp_Str_Ht_Entry *s_e = __mp_da_get(__mp_Str_Ht_Entry, s, i);
             __mp_Str_Ht_Entry *d_e = __mp_da_get(__mp_Str_Ht_Entry, d, i);
             if (mp_str_is_valid(s_e->key)) {
-                d_e->key = mp_str_clone(&s_e->key, alloc);
-                __MP_ASSERT(d_e->key.cstr != s_e->key.cstr);
+                d_e->key = mp_str_clone(s_e->key, alloc);
+                __MP_ASSERT(d_e->key.data != s_e->key.data);
             }
         }
     } else {
@@ -3667,7 +3661,7 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_ht_iter_init(it, self);
         while (__mp_ht_iter_next(it)) {
-            mp_da_append(keys, mp_str_clone(&it->key, keys->alloc));
+            mp_da_append(keys, mp_str_clone(it->key, keys->alloc));
         }
         mp_free(self->alloc, it, iter_size);
     }
@@ -3719,8 +3713,8 @@ bool __mp_ht_iter_next(void *it) {
 
 uint64_t __mp_ht_hash_str(const mp_Str *str) {
     uint64_t hash = __MP_FNV_OFFSET;
-    for (const char *p = str->cstr; *p; p++) {
-        hash ^= (uint64_t) (unsigned char) (*p);
+    for (size_t i = 0; i < str->len; ++i) {
+        hash ^= (uint64_t) (unsigned char) (str->data[i]);
         hash *= __MP_FNV_PRIME;
     }
     return hash;

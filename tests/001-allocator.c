@@ -9,7 +9,7 @@ void *alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size
     switch (op) {
         case MP_ALLOC_OP_ALLOC:   return (void *) new_size;
         case MP_ALLOC_OP_REALLOC: return (void *) (new_size + old_size + (uintptr_t) ptr);
-        case MP_ALLOC_OP_FREE:    return (void *) (new_size + (uintptr_t) ptr);
+        case MP_ALLOC_OP_FREE:    return NULL;
         case __MP_ALLOC_OP_COUNT: unr();
     }
     unr();
@@ -27,8 +27,7 @@ int main(void) {
     void *realloc_res = mp_realloc(allocator, (void *) 100, 10, 20);
     expect_eq(realloc_res, (void *) (100 + 10 + 20), "%p");
 
-    void *free_res = mp_free(allocator, (void *) 100, 10);
-    expect_eq(free_res, (void *) (100 + 10), "%p");
+    mp_free(allocator, (void *) 100, 10);
 
     return 0;
 

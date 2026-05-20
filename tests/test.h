@@ -53,6 +53,15 @@
         }                                                                                          \
     } while (0)
 
+#define expect_streq_mp(a, b)                                                                      \
+    do {                                                                                           \
+        if (!mp_str_eq((a), (b))) {                                                                \
+            elogf("Expected `a == b`, got\n\ta = `%.*s`\n\tb = `%.*s`", mp_str_print(a),           \
+                  mp_str_print(b));                                                                \
+            goto fail;                                                                             \
+        }                                                                                          \
+    } while (0)
+
 #define expect_memeq(a, b, len)                                                                    \
     do {                                                                                           \
         if (memcmp((a), (b), (len)) != 0) {                                                        \

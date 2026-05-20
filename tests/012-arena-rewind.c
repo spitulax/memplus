@@ -8,13 +8,13 @@ int main(void) {
         mp_arena_init(&arena, mp_heap());
         mp_Alloc alloc = mp_arena_alloc(&arena);
 
-        int *i1     = mp_create(alloc, int);
+        int *i1     = mp_make(alloc, int);
         *i1         = 1;
         size_t mark = mp_arena_mark(&arena);
-        int   *i2   = mp_create(alloc, int);
+        int   *i2   = mp_make(alloc, int);
         *i2         = 2;
         mp_arena_rewind(&arena, mark);
-        int *i3 = mp_create(alloc, int);
+        int *i3 = mp_make(alloc, int);
         *i3     = 3;
 
         expect_eq(*i1, 1, "%d");
@@ -42,13 +42,13 @@ int main(void) {
         mp_sarena_init(&arena, mp_heap(), 1024);
         mp_Alloc alloc = mp_sarena_alloc(&arena);
 
-        int *i1     = mp_create(alloc, int);
+        int *i1     = mp_make(alloc, int);
         *i1         = 1;
         size_t mark = mp_sarena_mark(&arena);
-        int   *i2   = mp_create(alloc, int);
+        int   *i2   = mp_make(alloc, int);
         *i2         = 2;
         mp_sarena_rewind(&arena, mark);
-        int *i3 = mp_create(alloc, int);
+        int *i3 = mp_make(alloc, int);
         *i3     = 3;
 
         expect_eq(*i1, 1, "%d");

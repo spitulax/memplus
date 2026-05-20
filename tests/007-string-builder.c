@@ -5,14 +5,14 @@
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
+    mp_Sb sb;
+    mp_sb_init(&sb, alloc);
 
-    mp_str_builder_append(&sb, "Hello, World!");
+    mp_sb_append(&sb, mp_str("Hello, World!"));
     expect_eq(sb.len, (size_t) 13, "%zu");
     expect_memeq(sb.data, "Hello, World!", 13);
 
-    mp_str_builder_appendf(&sb, " %d", 67);
+    mp_sb_appendf(&sb, " %d", 67);
     expect_eq(sb.len, (size_t) 16, "%zu");
     expect_memeq(sb.data, "Hello, World! 67", 16);
 
@@ -22,17 +22,25 @@ int main(void) {
 
     // Other functions should work like dynamic arrays, I hope
 
-    mp_Str str = mp_str_builder_string(&sb, alloc);
-    expect_eq(str.len, (size_t) strlen(str.cstr), "%zu");
-    expect_streq(str.cstr, "Hello, World! 67\n");
+    mp_Str str = mp_sb_str(&sb);
+    expect_eq(str.len, (size_t) strlen(str.data), "%zu");
+    expect_streq_mp(str, mp_str("Hello, World! 67\n"));
 
-    mp_Str str2 = mp_str_builder_string_take(&sb, alloc);
-    expect_eq(str2.len, (size_t) strlen(str.cstr), "%zu");
-    expect_streq(str2.cstr, "Hello, World! 67\n");
-    expect_streq(str.cstr, str2.cstr);
+    mp_sb_deinit(&sb);
 
-    mp_str_deinit(&str2, alloc);
-    mp_str_deinit(&str, alloc);
+    mp_sb_init_with(&sb, mp_str("hello"), alloc);
+    expect_eq(sb.len, (size_t) 5, "%zu");
+    expect_eq(sb.cap, (size_t) 5, "%zu");
+    expect_memeq(sb.data, "hello", 5);
+
+    mp_sb_deinit(&sb);
+
+    mp_sb_init_withf(&sb, alloc, "hello %d", 13);
+    expect_eq(sb.len, (size_t) 8, "%zu");
+    expect_eq(sb.cap, (size_t) 9, "%zu");
+    expect_memeq(sb.data, "hello 13", 8);
+
+    mp_sb_deinit(&sb);
 
     return 0;
 
