@@ -1356,7 +1356,7 @@ mp_Str mp_sb_str(const mp_Sb *sb);
 /**
  * \defgroup HashTableString Hash Table (String Key)
  *
- * Hash table with string (**null-terminated**) key.
+ * Hash table with string key (not null-terminated).
  * This uses the FNV-1a hash algorithm to hash the string.
  *
  * Throughout the documentation, a generic hash table (string key) type is written as \a
@@ -1418,12 +1418,12 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  * \endcode
  *
  * **Fields**
- * - **alloc**: The allocator that manages the allocation of the hash table
- * - **len**: The amount of items in the hash table
- * - **cap**: The size of the allocated block holding the data
- * - **size**: The size of an entry
- * - **data**: The pointer to the first entry (the data are continuous in memory)
- * - **val_size**: The size of individual value (0 for hash sets)
+ * - **alloc**: allocator that manages the allocations of the hash table
+ * - **len**: amount of items in the hash table
+ * - **cap**: size of the allocated block holding the data in bytes
+ * - **size**: size of an entry in bytes
+ * - **data**: pointer to the first entry (the entries are continuous in memory)
+ * - **val_size**: size of individual value in bytes (0 for hash sets)
  *
  * ## Entry
  *
@@ -1435,8 +1435,8 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  * \endcode
  *
  * **Fields**
- * - **key**: The key indicating the entry
- * - **val**: The value at the entry
+ * - **key**: key indicating the entry
+ * - **val**: value at the entry
  *
  * ## Iterator
  *
@@ -1450,10 +1450,10 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  * \endcode
  *
  * **Fields**
- * - **_h**: The hash table being iterated on
- * - **_i**: The index of iteration
- * - **key**: The retrieved key
- * - **val** The pointer to the retrieved value at \a key
+ * - **_h**: hash table being iterated on
+ * - **_i**: index of iteration
+ * - **key**: retrieved key
+ * - **val** pointer to the retrieved value at \a key
  *
  * # Marker
  *
@@ -1476,13 +1476,15 @@ mp_Str mp_sb_str(const mp_Sb *sb);
     #define __MP_HASH_TABLE_INIT_CAPACITY __MP_DARRAY_INIT_CAPACITY
 #endif
 
-/// Defines a \ref HashTableString "string hash table" struct with value of type \a value_type.
 /**
+ * \brief Defines a \ref HashTableString "hash table (string key)" struct with value of type \a
+ * value_type.
+ *
  * This also defines the hash table's iterator type, named by suffixing `Iter`
  * after the hash table's type name.
  *
- * \param value_type (identifier) The type of the value
- * \param name (identifier) The name of the hash table
+ * \param value_type ("Type") value type name
+ * \param name (identifier) hash table name
  */
 #define mp_ht_typedef(/* "Type" */ value_type, /* identifier */ name)                              \
     typedef struct {                                                                               \
@@ -1541,15 +1543,16 @@ typedef struct {
     void                  *val;
 } __mp_Str_Ht_Iter;
 
-/// Initializes a new string hash table managed by \a allocator.
 /**
+ * \brief Initializes \a ht managed by \a alloc.
+ *
  * Deinit with \ref mp_ht_deinit.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * \a ht->data == NULL if allocation failed.
  *
- * \param type (identifier) The type of the hash table
- * \param ht (Str_Hash_Table *) The hash table (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the hash table
+ * \param type ("Type") hash table type name
+ * \param ht (Str_Hash_Table *) hash table (initialized by this)
+ * \param alloc (mp_Alloc) allocator to manage \a ht
  */
 #define mp_ht_init(/* "Type" */ type, /* Str_Hash_Table* */ ht, /* mp_Alloc */ alloc)              \
     do {                                                                                           \
@@ -1559,9 +1562,10 @@ typedef struct {
     } while (0)
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
 
-/// Frees a string hash table.
 /**
- * \param ht (Str_Hash_Table *) The hash table (deinitialized by this)
+ * \brief Deinitializes \a ht.
+ *
+ * \param ht (Str_Hash_Table *) hash table (deinitialized by this)
  */
 #define mp_ht_deinit(/* Str_Hash_Table* */ ht)                                                     \
     do {                                                                                           \
@@ -1570,49 +1574,51 @@ void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
     } while (0)
 void __mp_ht_deinit(void *ht);
 
-/// Gets a pointer to an item at key \a k.
 /**
- * \a ret becomes NULL if it could not retrieve the item.
+ * \brief Gets pointer to item at \a k.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param k (const char *) The key (NON-NULL)
- * \return (void *) The retrieved value
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param k (const char *) key (non-null)
+ * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_ht_get(/* const Str_Hash_Table* */ ht, /* const char* */ k)                 \
-    ((void) (ht)->__mp_str_ht_marker, mp_ht_get_s((ht), mp_str(k)))
+    mp_ht_get_s((ht), mp_str(k))
 
-/// The same as \ref mp_ht_get but accepts \ref mp_Str.
 /**
+ * \brief Same as \ref mp_ht_get but accepts \ref mp_Str.
+ *
  * See \ref mp_ht_get.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param k (mp_Str) The key
- * \return (void *) The retrieved value
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param k (mp_Str) key
+ * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_ht_get_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                    \
     ((void) (ht)->__mp_str_ht_marker, __mp_ht_get((ht), (k)))
 void *__mp_ht_get(const void *ht, mp_Str k);
 
-/// Sets the value at key \a k to \a v.
 /**
- * When the item at \a k has not been initialized before, the key is cloned.
+ * \brief Sets the value at \a k to \a v.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * When the entry at \a k has not been initialized before, the key is cloned.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param k (const char *) The key
- * \param v (Type) The value to be stored
+ * \a ht->data == NULL if allocation failed.
+ *
+ * \param ht (Str_Hash_Table *) hash table (no side effects)
+ * \param k (const char *) key
+ * \param v (Type) value to be stored
  */
 #define mp_ht_set(/* Str_Hash_Table* */ ht, /* const char* */ k, /* Type */ v)                     \
     mp_ht_set_s((ht), mp_str(k), (v))
 
-/// The same as \ref mp_ht_set but accepts \ref mp_Str.
 /**
+ * \brief Same as \ref mp_ht_set but accepts \ref mp_Str.
+ *
  * See \ref mp_ht_set.
  *
- * \param ht (Str_Hash_Table *) The hash table (no side effects)
- * \param k (mp_Str) The key
- * \param v (Type) The value to be stored
+ * \param ht (Str_Hash_Table *) hash table (no side effects)
+ * \param k (mp_Str) key
+ * \param v (Type) value to be stored
  */
 #define mp_ht_set_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                        \
     do {                                                                                           \
@@ -1626,29 +1632,32 @@ void *__mp_ht_get(const void *ht, mp_Str k);
     } while (0)
 void __mp_ht_set(void *ht, mp_Str k, void *v);
 
-/// Tests whether an item at key \a k exists in the given string hash table.
 /**
- * \param ht (const Str_Hash_Table *) The hash table
- * \param k (const char *) The key
- * \return (bool) Whether an item at key \a k exists
+ * \brief Tests whether \a k exists in \a ht.
+ *
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param k (const char *) key
+ * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_ht_exists(/* const Str_Hash_Table* */ ht, /* const char * */ k)              \
-    ((void) (ht)->__mp_str_ht_marker, __mp_ht_exists((ht), mp_str(k)))
+    __mp_ht_exists((ht), mp_str(k))
 
-/// The same as \ref mp_ht_exists but accepts \ref mp_Str.
 /**
+ * \brief Same as \ref mp_ht_exists but accepts \ref mp_Str.
+ *
  * See \ref mp_ht_exists.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param k (mp_Str) The key
- * \return (bool) Whether an item at key \a k exists
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param k (mp_Str) key
+ * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_ht_exists_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                  \
     ((void) (ht)->__mp_str_ht_marker, __mp_ht_exists((ht), (k)))
 bool __mp_ht_exists(const void *ht, mp_Str k);
 
-/// Grows a string hash table to be able to hold \a offset more items from the current length.
 /**
+ * \brief Grows \a ht to be able to hold \a offset more items from the current length.
+ *
  * Does a calculation to determine the new capacity. The increase of the new capacity may not be
  * equal to \a offset.
  *
@@ -1656,10 +1665,10 @@ bool __mp_ht_exists(const void *ht, mp_Str k);
  *
  * If \a ht->cap is not large enough, reserves for double of \a ht->cap.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * \a ht->data == NULL if allocation failed.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param offset (size_t) The amount to grow
+ * \param ht (Str_Hash_Table *) hash table
+ * \param offset (size_t) amount to grow
  */
 #define mp_ht_grow(/* Str_Hash_Table* */ ht, /* size_t */ offset)                                  \
     do {                                                                                           \
@@ -1671,11 +1680,12 @@ void __mp_ht_grow(void *ht, size_t offset);
 // Invalidates and frees the string keys
 void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size);
 
-/// Sets the length of a string hash table to 0 and frees its keys.
 /**
- * This resets the hash table to "initial condition" but without actually freeing the data.
+ * \brief Sets the length of \a ht to 0 and frees its keys.
  *
- * \param ht (Str_Hash_Table *) The hash table
+ * This resets \a ht to "initial condition" but without actually freeing the data.
+ *
+ * \param ht (Str_Hash_Table *) hash table
  */
 #define mp_ht_reset(/* Str_Hash_Table* */ ht)                                                      \
     do {                                                                                           \
@@ -1684,28 +1694,26 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
     } while (0)
 void __mp_ht_reset(void *ht);
 
-/// Deletes an item at key \a k.
 /**
+ * \brief Deletes an entry at \a k from \a ht.
+ *
  * This decreases \a ht->len but does not actually shrink the hash table, but it just
- * marks the spot as "deleted", which may be overridden by subsequent set operations.
+ * marks the entry as "deleted", which may be overridden by subsequent set operations.
  *
  * Does nothing if it cannot find \a k.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param k (const char *) The key
+ * \param ht (Str_Hash_Table *) hash table
+ * \param k (const char *) key
  */
-#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k)                                \
-    do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
-        mp_ht_delete_s((ht), mp_str(k));                                                           \
-    } while (0)
+#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
 
-/// The same as \ref mp_ht_delete but accepts to \ref mp_Str.
 /**
+ * \brief Same as \ref mp_ht_delete but accepts to \ref mp_Str.
+ *
  * See \ref mp_ht_delete.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param k (mp_Str) The key
+ * \param ht (Str_Hash_Table *) hash table
+ * \param k (mp_Str) key
  */
 #define mp_ht_delete_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k)                                   \
     do {                                                                                           \
@@ -1714,14 +1722,15 @@ void __mp_ht_reset(void *ht);
     } while (0)
 void __mp_ht_delete(void *ht, mp_Str k);
 
-/// Clones a string hash table to \a dest to be managed by \a allocator.
 /**
- * \a dest inherits all fields of \a src.
- * \a dest->data becomes NULL if allocation failed.
+ * \brief Clones \a src to \a dest managed by \a alloc.
  *
- * \param dest (Str_Hash_Table *) Stores the cloned hash table (initialized by this)
- * \param src (const Str_Hash_Table *) The hash table to be cloned
- * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \a dest inherits all fields of \a src.
+ * \a dest->data == NULL if allocation failed.
+ *
+ * \param dest (Str_Hash_Table *) destination of the clone (initialized by this)
+ * \param src (const Str_Hash_Table *) source hash table
+ * \param alloc (mp_Alloc) allocator to manage \a dest
  */
 #define mp_ht_clone(/* Str_Hash_Table* */ dest, /* const Str_Hash_Table* */ src,                   \
                     /* mp_Alloc */ alloc)                                                          \
@@ -1734,32 +1743,34 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
 
 /**
  * \brief A \ref DynamicArray "dynamic array" of \ref mp_Str to hold the keys of \ref
- * HashTableString "string hash tables".
+ * HashTableString "hash tables (string key)".
  */
 typedef struct __mp_Ht_Keys mp_Ht_Keys;
 
 __mp_da_struct(mp_Str, __mp_Ht_Keys);
 
-/// Deinitializes an \ref mp_Ht_Keys.
 /**
- * \param keys The key array (deinitialized by this)
+ * \brief Deinitializes \a keys.
+ *
+ * \param keys key array (deinitialized by this)
  */
 void mp_ht_keys_deinit(mp_Ht_Keys *keys);
 
-/// Extracts the keys from a string hash table to an array.
 /**
+ * \brief Extracts the keys from \a ht to \a keys.
+ *
  * \a keys **must be initialized** with \ref mp_da_init first.
  *
  * Each key will be cloned using the allocator of \a keys, so free \a keys with \ref
  * mp_ht_keys_deinit.
  *
- * \a keys->data becomes NULL if allocation failed.
+ * \a keys->data == NULL if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param keys (mp_Ht_Keys *) The array to put the keys into
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param keys (mp_Ht_Keys *) destination of keys (must be initialized first)
  */
 #define mp_ht_keys(/* const Str_Hash_Table* */ ht, /* mp_Ht_Keys* */ keys)                         \
     do {                                                                                           \
@@ -1768,20 +1779,21 @@ void mp_ht_keys_deinit(mp_Ht_Keys *keys);
     } while (0)
 void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
 
-/// Extracts the keys from a string hash table to an array.
 /**
+ * \brief Extracts the values from \a ht to \a values.
+ *
  * \a values is a \ref DynamicArray "dynamic array" and its data type **must match** the
  * value type of \a ht.
  *
- * \a values must be initialized with \ref mp_da_init first.
+ * \a values **must be initialized** with \ref mp_da_init first.
  *
- * \a values->data becomes NULL if allocation failed.
+ * \a values->data == NULL if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param values (Dyn_Array *) The array to put the values into
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param values (Dyn_Array *) destination of values (must be initialized first)
  */
 #define mp_ht_values(/* const Str_Hash_Table* */ ht, /* Dyn_Array* */ values)                      \
     do {                                                                                           \
@@ -1790,12 +1802,13 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
     } while (0)
 void __mp_ht_values(const void *ht, void *values);
 
-/// Initializes an iterator on a string hash table.
 /**
+ * \brief Initializes \a it to iterate on \a ht.
+ *
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (Str_Hash_Table_Iter *) The iterator (initialized by this)
- * \param ht (const Str_Hash_Table *) The hash table to iterate
+ * \param it (Str_Hash_Table_Iter *) iterator (initialized by this)
+ * \param ht (const Str_Hash_Table *) hash table to iterate
  */
 #define mp_ht_iter_init(/* Str_Hash_Table_Iter* */ it, /* const Str_Hash_Table* */ ht)             \
     do {                                                                                           \
@@ -1804,12 +1817,13 @@ void __mp_ht_values(const void *ht, void *values);
     } while (0)
 void __mp_ht_iter_init(void *it, const void *ht);
 
-/// Get the next element in the iterator.
 /**
+ * \brief Get the next element of \a it.
+ *
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (Str_Hash_Table_Iter *) The iterator
- * \return (bool) Whether it is valid to access the data
+ * \param it (Str_Hash_Table_Iter *) iterator
+ * \return (bool) whether it is valid to access
  */
 #define /* bool */ mp_ht_iter_next(/* Str_Hash_Table_Iter* */ it)                                  \
     ((void) (it)->__mp_str_ht_iter_marker, __mp_ht_iter_next(it))
@@ -1821,8 +1835,8 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
 /**
  * \defgroup HashSetString Hash Set (String)
  *
- * Hash set with string (**null-terminated**) key.
- * Represented by a \ref HashTableString "string hash table" with opaque value.
+ * Hash set with string key.
+ * Represented by a \ref HashTableString "hash table (string key)" with opaque value.
  *
  * See \ref HashTableString for details about the actual representation.
  *
@@ -1853,19 +1867,23 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * \{
  */
 
-/// String hash set, essentially just \ref HashTableString "string hash table" with dummy value.
+/**
+ * \brief String hash set, essentially just a \ref HashTableString "hash table (string key)" with
+ * dummy value.
+ */
 typedef struct __mp_Str_Set mp_Str_Set;
 
 __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
 
-/// Initializes a new string hash set managed by \a allocator.
 /**
+ * \brief Initializes \a hs managed by \a alloc.
+ *
  * Deinit with \ref mp_hs_deinit.
  *
- * \a hs->data becomes NULL if allocation failed.
+ * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Str_Set *) The hash set (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the hash set
+ * \param hs (mp_Str_Set *) hash set (initialized by this)
+ * \param alloc (mp_Alloc) allocator to manage \a hs
  */
 #define mp_hs_init(/* mp_Str_Set* */ hs, /* mp_Alloc */ alloc)                                     \
     do {                                                                                           \
@@ -1873,9 +1891,10 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
         __mp_ht_init((hs), (alloc), sizeof(*((mp_Str_Set *) 0)->data), 0);                         \
     } while (0)
 
-/// Frees a string hash set.
 /**
- * \param hs (mp_Str_Set *) The hash set (deinitialized by this)
+ * \brief Deinitializes \a hs.
+ *
+ * \param hs (mp_Str_Set *) hash set (deinitialized by this)
  */
 #define mp_hs_deinit(/* mp_Str_Set* */ hs)                                                         \
     do {                                                                                           \
@@ -1883,23 +1902,25 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
         __mp_ht_deinit(hs);                                                                        \
     } while (0)
 
-/// Sets the key \a k.
 /**
+ * \brief Sets the key \a k.
+ *
  * When the key has not been set, \a k is cloned.
  *
- * \a hs->data becomes NULL if allocation failed.
+ * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Str_Set *) The hash set
- * \param k (const char *) The key
+ * \param hs (mp_Str_Set *) hash set
+ * \param k (const char *) key
  */
 #define mp_hs_set(/* mp_Str_Set* */ hs, /* const char* */ k) mp_hs_set_s((hs), mp_str(k))
 
-/// The same as \ref mp_hs_set but accepts \ref mp_Str.
 /**
+ * \brief Same as \ref mp_hs_set but accepts \ref mp_Str.
+ *
  * See \ref mp_hs_set.
  *
- * \param hs (mp_Str_Set *) The hash set
- * \param k (mp_Str) The key
+ * \param hs (mp_Str_Set *) hash set
+ * \param k (mp_Str) key
  */
 #define mp_hs_set_s(/* mp_Str_Set* */ hs, /* mp_Str */ k)                                          \
     do {                                                                                           \
@@ -1907,7 +1928,9 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
         __mp_ht_set((hs), (k), NULL);                                                              \
     } while (0)
 
-/// Iterator for \ref HashSetString "string hash sets".
+/**
+ * \brief Iterator for \ref HashSetString "hash sets (string key)".
+ */
 typedef struct __mp_Str_Set_Iter mp_Str_Set_Iter;
 
 struct __mp_Str_Set_Iter {
@@ -1992,12 +2015,12 @@ struct __mp_Str_Set_Iter {
  * \endcode
  *
  * **Fields**
- * - **alloc**: The allocator that manages the allocation of the hash table
- * - **len**: The amount of items in the hash table
- * - **cap**: The size of the allocated block holding the data
- * - **size**: The size of an entry
- * - **data**: The pointer to the first entry (the data are continuous in memory)
- * - **val_size**: The size of individual value (0 for hash sets)
+ * - **alloc**: allocator that manages the allocation of the hash table
+ * - **len**: amount of items in the hash table
+ * - **cap**: size of the allocated block holding the data in bytes
+ * - **size**: size of an entry in bytes
+ * - **data**: pointer to the first entry (the data are continuous in memory)
+ * - **val_size**: size of individual value (0 for hash sets)
  *
  * ## Entry
  *
@@ -2009,8 +2032,8 @@ struct __mp_Str_Set_Iter {
  * \endcode
  *
  * **Fields**
- * - **key**: The key indicating the entry
- * - **val**: The value at the entry
+ * - **key**: key indicating the entry
+ * - **val**: value at the entry
  *
  * ## Key
  *
@@ -2022,8 +2045,8 @@ struct __mp_Str_Set_Iter {
  * \endcode
  *
  * **Fields**
- * - **key**: The actual key
- * - **valid**: Whether the key is valid
+ * - **key**: key value
+ * - **valid**: whether the key is valid
  *
  * ## Iterator
  *
@@ -2037,10 +2060,10 @@ struct __mp_Str_Set_Iter {
  * \endcode
  *
  * **Fields**
- * - **_h**: The hash table being iterated on
- * - **_i**: The index of iteration
- * - **key**: The retrieved key
- * - **val** The pointer to the retrieved value at \a key
+ * - **_h**: hash table being iterated on
+ * - **_i**: index of iteration
+ * - **key**: retrieved key
+ * - **val** pointer to the retrieved value at \a key
  *
  * # Marker
  *
@@ -2053,13 +2076,15 @@ struct __mp_Str_Set_Iter {
  * \{
  */
 
-/// Defines an \ref HashTableInt "integer hash table" struct with value of type \a value_type.
 /**
- * This also defines the hash table's iterator type, named by suffixing `Iter`
- * after the hash table's type name.
+ * \brief Defines an \ref HashTableInt "hash table (integer key)" struct with value of type \a
+ * value_type.
  *
- * \param value_type (identifier) The type of the value
- * \param name (identifier) The name of the hash table
+ * This also defines the hash table's iterator type, named by suffixing `Iter` after the
+ * hash table's type name.
+ *
+ * \param value_type ("Type") value type name
+ * \param name (identifier) hash table name
  */
 #define mp_hti_typedef(/* "Type" */ value_type, /* identifier */ name)                             \
     typedef struct {                                                                               \
@@ -2114,15 +2139,16 @@ typedef struct {
     void                  *val;
 } __mp_Int_Ht_Iter;
 
-/// Initializes a new integer hash table managed by \a allocator.
 /**
+ * \brief Initializes \a ht managed by \a alloc.
+ *
  * Deinit with \ref mp_hti_deinit.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * \a ht->data == NULL if allocation failed.
  *
- * \param type (identifier) The type of the hash table
- * \param ht (Int_Hash_Table *) The hash table (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the hash table
+ * \param type ("Type") hash table type name
+ * \param ht (Int_Hash_Table *) hash table (initialized by this)
+ * \param alloc (mp_Alloc) allocator to manage \a ht
  */
 #define mp_hti_init(/* "Type" */ type, /* Int_Hash_Table* */ ht, /* mp_Alloc */ alloc)             \
     do {                                                                                           \
@@ -2131,9 +2157,10 @@ typedef struct {
                      sizeof((*((type *) 0)->data).val));                                           \
     } while (0)
 
-/// Frees an integer hash table.
 /**
- * \param ht (Int_Hash_Table *) The hash table (deinitialized by this)
+ * \brief Deinitializes \a ht.
+ *
+ * \param ht (Int_Hash_Table *) hash table (deinitialized by this)
  */
 #define mp_hti_deinit(/* Int_Hash_Table* */ ht)                                                    \
     do {                                                                                           \
@@ -2141,25 +2168,25 @@ typedef struct {
         __mp_da_deinit(ht);                                                                        \
     } while (0)
 
-/// Gets a pointer to an item at key \a k.
 /**
- * \a ret becomes NULL if it could not retrieve the item.
+ * \brief Gets pointer to item at \a k.
  *
- * \param ht (const Int_Hash_Table *) The hash table
- * \param k (size_t) The key
- * \return (void *) The retrieved value
+ * \param ht (const Int_Hash_Table *) hash table
+ * \param k (size_t) key
+ * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_hti_get(/* const Int_Hash_Table* */ ht, /* size_t */ k)                     \
     ((void) (ht)->__mp_int_ht_marker, __mp_hti_get((ht), (k)))
 void *__mp_hti_get(const void *ht, size_t k);
 
-/// Sets the value at key \a k to \a v.
 /**
- * \a ht->data becomes NULL if allocation failed.
+ * \brief Sets the value at \a k to \a v.
  *
- * \param ht (Int_Hash_Table *) The hash table (no side effects)
- * \param k (size_t) The key
- * \param v (Type) The value to be stored
+ * \a ht->data == NULL if allocation failed.
+ *
+ * \param ht (Int_Hash_Table *) hash table (no side effects)
+ * \param k (size_t) key
+ * \param v (Type) value to be stored
  */
 #define mp_hti_set(/* Int_Hash_Table* */ ht, /* size_t */ k, /* Type */ v)                         \
     do {                                                                                           \
@@ -2172,18 +2199,20 @@ void *__mp_hti_get(const void *ht, size_t k);
     } while (0)
 void __mp_hti_set(void *ht, size_t k, void *v);
 
-/// Tests whether an item at key \a k exists in the given int hash table.
 /**
- * \param ht (const Int_Hash_Table *) The hash table
- * \param k (size_t) The key
- * \return (bool) Whether an item at key \a k exists
+ * \brief Tests whether \a k exists in \a ht.
+ *
+ * \param ht (const Int_Hash_Table *) hash table
+ * \param k (size_t) key
+ * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_hti_exists(/* const Int_Hash_Table* */ ht, /* size_t */ k)                   \
     ((void) (ht)->__mp_int_ht_marker, __mp_hti_exists((ht), (k)))
 bool __mp_hti_exists(const void *ht, size_t k);
 
-/// Grows an integer hash table to be able to hold \a offset more items from the current length.
 /**
+ * \brief Grows \a ht to be able to hold \a offset more items from the current length.
+ *
  * Does a calculation to determine the new capacity. The increase of the new capacity may not be
  * equal to \a offset.
  *
@@ -2191,10 +2220,10 @@ bool __mp_hti_exists(const void *ht, size_t k);
  *
  * If \a ht->cap is not large enough, reserves for double of \a ht->cap.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * \a ht->data == NULL if allocation failed.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param offset (size_t) The amount to grow
+ * \param ht (Str_Hash_Table *) hash table
+ * \param offset (size_t) amount to grow
  */
 #define mp_hti_grow(/* Int_Hash_Table* */ ht, /* size_t */ offset)                                 \
     do {                                                                                           \
@@ -2203,11 +2232,12 @@ bool __mp_hti_exists(const void *ht, size_t k);
     } while (0)
 void __mp_hti_grow(void *ht, size_t offset);
 
-/// Sets the length of an integer hash table to 0 and invalidate its keys.
 /**
+ * \brief Sets the length of \a ht to 0 and frees its keys.
+ *
  * This resets the hash table to "initial condition" but without actually freeing the data.
  *
- * \param ht (Int_Hash_Table *) The hash table
+ * \param ht (Int_Hash_Table *) hash table
  */
 #define mp_hti_reset(/* Int_Hash_Table* */ ht)                                                     \
     do {                                                                                           \
@@ -2216,15 +2246,16 @@ void __mp_hti_grow(void *ht, size_t offset);
     } while (0)
 void __mp_hti_reset(void *ht);
 
-/// Deletes an item at key \a k.
 /**
+ * \brief Deletes an entry at \a k from \a ht.
+ *
  * This decreases \a ht->len but does not actually shrink the hash table, but it just
- * marks the spot as "deleted", which may be overridden by subsequent set operations.
+ * marks the entry as "deleted", which may be overridden by subsequent set operations.
  *
  * Does nothing if it cannot find \a k.
  *
- * \param ht (Int_Hash_Table *) The hash table
- * \param k (size_t) The key
+ * \param ht (Int_Hash_Table *) hash table
+ * \param k (size_t) key
  */
 #define mp_hti_delete(/* Int_Hash_Table* */ ht, /* size_t */ k)                                    \
     do {                                                                                           \
@@ -2233,14 +2264,15 @@ void __mp_hti_reset(void *ht);
     } while (0)
 void __mp_hti_delete(void *ht, size_t k);
 
-/// Clones an integer hash table to \a dest to be managed by \a allocator.
 /**
- * \a dest inherits all fields of \a src.
- * \a dest->data becomes NULL if allocation failed.
+ * \brief Clones \a src to \a dest managed by \a alloc.
  *
- * \param dest (Str_Hash_Table *) Stores the cloned hash table (initialized by this)
- * \param src (const Str_Hash_Table *) The hash table to be cloned
- * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \a dest inherits all fields of \a src.
+ * \a dest->data == NULL if allocation failed.
+ *
+ * \param dest (Str_Hash_Table *) destination of the clone (initialized by this)
+ * \param src (const Str_Hash_Table *) source hash table
+ * \param alloc (mp_Alloc) allocator to manage \a dest
  */
 #define mp_hti_clone(/* Int_Hash_Table* */ dest, /* const Int_Hash_Table* */ src,                  \
                      /* mp_Alloc */ alloc)                                                         \
@@ -2253,25 +2285,26 @@ void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
 
 /**
  * \brief A \ref DynamicArray "dynamic array" of size_t to hold the keys of \ref
- * HashTableInt "integer hash tables".
+ * HashTableInt "hash tables (integer key)".
  */
 typedef struct __mp_Hti_Keys mp_Hti_Keys;
 
 __mp_da_struct(size_t, __mp_Hti_Keys);
 
-/// Extracts the keys from an integer hash table to an array.
 /**
+ * \brief Extracts the keys from \a ht to \a keys.
+ *
  * \a keys **must be initialized** with \ref mp_da_init first.
  *
  * Deinit \a keys with \ref mp_da_deinit.
  *
- * \a keys->data becomes NULL if allocation failed.
+ * \a keys->data == NULL if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
- * \param ht (const Int_Hash_Table *) The hash table
- * \param keys (mp_Hti_Keys *) The array to put the keys into
+ * \param ht (const Int_Hash_Table *) hash table
+ * \param keys (mp_Hti_Keys *) destination of keys (must be initialized first)
  */
 #define mp_hti_keys(/* const IntHashTable* */ ht, /* mp_Hti_Keys* */ keys)                         \
     do {                                                                                           \
@@ -2280,20 +2313,21 @@ __mp_da_struct(size_t, __mp_Hti_Keys);
     } while (0)
 void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
 
-/// Extracts the keys from an integer hash table to an array.
 /**
+ * \brief Extracts the values from \a ht to \a values.
+ *
  * \a values is a \ref DynamicArray "dynamic array" and its data type **must match** the
  * value type of \a ht.
  *
- * \a values must be initialized with \ref mp_da_init first.
+ * \a values **must be initialized** with \ref mp_da_init first.
  *
- * \a values->data becomes NULL if allocation failed.
+ * \a values->data == NULL if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
- * \param ht (const Int_Hash_Table *) The hash table
- * \param values (Dyn_Array *) The array to put the values into
+ * \param ht (const Int_Hash_Table *) hash table
+ * \param values (Dyn_Array *) destination of values (must be initialized first)
  */
 #define mp_hti_values(/* const Int_Hash_Table* */ ht, /* Dyn_Array* */ values)                     \
     do {                                                                                           \
@@ -2302,12 +2336,13 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
     } while (0)
 void __mp_hti_values(const void *ht, void *values);
 
-/// Initializes an iterator on an integer hash table.
 /**
+ * \brief Initializes \a it to iterate on \a ht.
+ *
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (Int_Hash_Table_Iter *) The iterator (initialized by this)
- * \param ht (const Int_Hash_Table *) The hash table to iterate
+ * \param it (Int_Hash_Table_Iter *) iterator (initialized by this)
+ * \param ht (const Int_Hash_Table *) hash table to iterate
  */
 #define mp_hti_iter_init(/* Int_Hash_Table_Iter* */ it, /* const Int_Hash_Table* */ ht)            \
     do {                                                                                           \
@@ -2316,12 +2351,13 @@ void __mp_hti_values(const void *ht, void *values);
     } while (0)
 void __mp_hti_iter_init(void *it, const void *ht);
 
-/// Get the next element in the iterator.
 /**
+ * \brief Get the next element of \a it.
+ *
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (Int_Hash_Table_Iter *) The iterator
- * \return (bool) Whether it is valid to access the data
+ * \param it (Int_Hash_Table_Iter *) iterator
+ * \return (bool) whether it is valid to access
  */
 #define /* bool */ mp_hti_iter_next(/* Int_Hash_Table_Iter* */ it)                                 \
     ((void) (it)->__mp_int_ht_iter_marker, __mp_hti_iter_next(it))
@@ -2330,7 +2366,7 @@ bool __mp_hti_iter_next(void *it);
 /** \defgroup HashSetInt Hash Set (Integer)
  *
  * Hash set with integer key.
- * Represented by a \ref HashTableInt "integer hash table" with opaque value.
+ * Represented by a \ref HashTableInt "hash table (integer key)" with opaque value.
  *
  * See \ref HashTableInt for details about the actual representation.
  *
@@ -2361,19 +2397,23 @@ bool __mp_hti_iter_next(void *it);
  * \{
  */
 
-/// Integer hash set, essentially just \ref HashTableInt "integer hash table" with dummy value.
+/**
+ * \brief Integer hash set, essentially just a \ref HashTableInt "hash table (integer key)" with
+ * dummy value.
+ */
 typedef struct __mp_Int_Set mp_Int_Set;
 
 __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 
-/// Initializes a new integer hash set managed by \a allocator.
 /**
+ * \brief Initializes \a hs managed by \a alloc.
+ *
  * Deinit with \ref mp_hsi_deinit.
  *
- * \a hs->data becomes NULL if allocation failed.
+ * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Int_Set *) The hash set (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the hash set
+ * \param hs (mp_Int_Set *) hash set (initialized by this)
+ * \param alloc (mp_Alloc) allocator to manage \a hs
  */
 #define mp_hsi_init(/* mp_Int_Set* */ hs, /* mp_Alloc */ alloc)                                    \
     do {                                                                                           \
@@ -2381,9 +2421,10 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
         __mp_ht_init((hs), (alloc), sizeof(*((mp_Int_Set *) 0)->data), 0);                         \
     } while (0)
 
-/// Frees an integer hash set.
 /**
- * \param hs (mp_Int_Set *) The hash set (deinitialized by this)
+ * \brief Deinitializes \a hs.
+ *
+ * \param hs (mp_Int_Set *) hash set (deinitialized by this)
  */
 #define mp_hsi_deinit(/* mp_Int_Set* */ hs)                                                        \
     do {                                                                                           \
@@ -2391,12 +2432,13 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
         __mp_ht_deinit(hs);                                                                        \
     } while (0)
 
-/// Sets the key \a k.
 /**
- * \a hs->data becomes NULL if allocation failed.
+ * \brief Sets the key \a k.
  *
- * \param hs (mp_Int_Set *) The hash set
- * \param k (size_t) The key
+ * \a hs->data == NULL if allocation failed.
+ *
+ * \param hs (mp_Int_Set *) hash set
+ * \param k (size_t) key
  */
 #define mp_hsi_set(/* mp_Int_Set* */ hs, /* size_t */ k)                                           \
     do {                                                                                           \
@@ -2404,7 +2446,9 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
         __mp_hti_set((hs), (k), NULL);                                                             \
     } while (0)
 
-/// Iterator for \ref HashSetInt "integer hash sets".
+/**
+ * \brief Iterator for \ref HashSetInt "hash sets (integer key)".
+ */
 typedef struct __mp_Int_Set_Iter mp_Int_Set_Iter;
 
 struct __mp_Int_Set_Iter {
