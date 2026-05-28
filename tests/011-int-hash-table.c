@@ -11,8 +11,8 @@ int main(void) {
 
     Ht_Int ht;
     mp_hti_init(Ht_Int, &ht, alloc);
-    expect_eq(ht.val_size, sizeof(int), "%zu");
-    expect_eq(ht.size, sizeof(__Ht_Int_Entry), "%zu");
+    expect_eq(ht.__hti_val_size, sizeof(int), "%zu");
+    expect_eq(ht.__da_item_size, sizeof(__Ht_Int_Entry), "%zu");
 
     expect_eq(mp_hti_get(&ht, 0), NULL, "%p");
 
@@ -116,7 +116,7 @@ int main(void) {
 
     mp_hti_iter_init(&it, &ht);
     while (mp_hti_iter_next(&it)) {
-        __Ht_Int_Entry *o = ht.data + (it._i - 1);
+        __Ht_Int_Entry *o = ht.data + (it.__hti_it_i - 1);
         expect_eq(it.key.key, o->key.key, "%zu");
         expect_eq(*it.val, o->val, "%d");
         mp_hti_iter_next(&it);

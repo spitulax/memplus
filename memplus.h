@@ -579,24 +579,20 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *     mp_Alloc alloc;
  *     size_t   len;
  *     size_t   cap;
- *     size_t   size;
  *     Type     *data;
+ *     size_t   __da_item_size;
  * };
  * \endcode
  *
  * **Fields**
- * - **alloc**: The allocator that manages the allocation of the array
- * - **len**: The amount of used data in the array
- * - **cap**: The size of the allocated block holding the data
- * - **size**: The size of an individual datum
- * - **data**: The pointer to the first element of the array (the data are continuous in memory)
+ * - **alloc**: allocator managing allocations of array
+ * - **len**: amount of used data in the array in bytes
+ * - **cap**: size of the allocated block in bytes
+ * - **data**: pointer to the first element (data are continuous in memory)
+ * - **__da_item_size**: size of an individual datum
  *
- * # Marker
- *
- * Dynamic arrays contain a zero-sized field `__mp_dyn_array_marker`. This field is used as a type
- * checking for function-like macros used for dynamic arrays. These macros will check if this field
- * exists and if it does then the data should be a valid dynamic array and thus can be passed to the
- * implementation function safely.
+ * \a __da_item_size has a long name to serve as a "type marker" to mark any dynamic array
+ * type because generic functions take dynamic arrays as void* and do not check the type themselves.
  *
  * \{
  */
@@ -617,9 +613,8 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
         mp_Alloc alloc;                                                                            \
         size_t   len;                                                                              \
         size_t   cap;                                                                              \
-        size_t   size;                                                                             \
         type    *data;                                                                             \
-        char     __mp_dyn_array_marker[];                                                          \
+        size_t   __da_item_size;                                                                   \
     } name
 
 #define __mp_da_struct(type, name)                                                                 \
@@ -627,9 +622,8 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
         mp_Alloc alloc;                                                                            \
         size_t   len;                                                                              \
         size_t   cap;                                                                              \
-        size_t   size;                                                                             \
         type    *data;                                                                             \
-        char     __mp_dyn_array_marker[];                                                          \
+        size_t   __da_item_size;                                                                   \
     }
 
 // Generic dynamic array type.
@@ -637,8 +631,8 @@ typedef struct {
     mp_Alloc alloc;
     size_t   len;
     size_t   cap;
-    size_t   size;
     void    *data;
+    size_t   __da_item_size;
 } __mp_Dyn_Array;
 
 /**
@@ -654,7 +648,7 @@ typedef struct {
  */
 #define mp_da_init(/* "Type" */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc)                    \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data));                                   \
     } while (0)
 void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
@@ -674,7 +668,7 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 #define mp_da_init_with(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc,                 \
                         /* DataType... */...)                                                      \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         mp_da_init(type, (a), (alloc));                                                            \
         mp_da_append_many((a), __VA_ARGS__);                                                       \
     } while (0)
@@ -686,7 +680,7 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
  */
 #define mp_da_deinit(/* Dyn_Array* */ a)                                                           \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __mp_da_deinit(a);                                                                         \
     } while (0)
 void __mp_da_deinit(void *a);
@@ -703,9 +697,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_append(/* Dyn_Array* */ a, /* Type */ item)                                          \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __MP_TYPEOF(item) __it = (item);                                                           \
-        __MP_ASSERT_MSG(sizeof(__it) == (a)->size,                                                 \
+        __MP_ASSERT_MSG(sizeof(__it) == (a)->__da_item_size,                                       \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_append((a), &__it, 1);                                                             \
     } while (0)
@@ -720,10 +714,10 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_append_many(/* Dyn_Array* */ a, /* Type... */...)                                    \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __MP_TYPEOF(*(a)->data) __items[] = { __VA_ARGS__ };                                       \
         size_t __len                      = sizeof(__items) / sizeof(*__items);                    \
-        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->__da_item_size,                                   \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_append((a), __items, __len);                                                       \
     } while (0)
@@ -739,9 +733,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_append_array(/* Dyn_Array* */ a, /* Type* */ items, /* size_t */ items_len)          \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __MP_TYPEOF(*items) *__items = (items);                                                    \
-        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->__da_item_size,                                   \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_append((a), __items, (items_len));                                                 \
     } while (0)
@@ -756,7 +750,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type) item at \a i
  */
 #define /* Type */ mp_da_get(/* const Dyn_Array* */ a, /* size_t */ i)                             \
-    ((void) (a)->__mp_dyn_array_marker, (a)->data[i])
+    ((void) (a)->__da_item_size, (a)->data[i])
 
 /**
  * \brief Gets pointer to item at \a i.
@@ -768,7 +762,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type *) pointer to item at \a i
  */
 #define /* Type* */ mp_da_getp(/* const Dyn_Array* */ a, /* size_t */ i)                           \
-    ((void) (a)->__mp_dyn_array_marker, (a)->data + i)
+    ((void) (a)->__da_item_size, (a)->data + i)
 
 /**
  * \brief Gets item at \a i with bounds-checking.
@@ -782,7 +776,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type) item at \a i
  */
 #define /* Type */ mp_da_get_s(/* const Dyn_Array */ a, /* size_t */ i)                            \
-    ((void) (a)->__mp_dyn_array_marker, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
+    ((void) (a)->__da_item_size, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 
 /**
  * \brief Gets pointer to item at \a i with bounds-checking.
@@ -796,10 +790,10 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type *) pointer to item at \a i
  */
 #define /* Type* */ mp_da_getp_s(/* const Dyn_Array */ a, /* size_t */ i)                          \
-    ((void) (a)->__mp_dyn_array_marker, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
+    ((void) (a)->__da_item_size, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
 
 // Generic dynamic array get function
-#define __mp_da_get(type, a, i) (type *) ((char *) (a)->data + (i) * (a)->size)
+#define __mp_da_get(type, a, i) (type *) ((char *) (a)->data + (i) * (a)->__da_item_size)
 
 /**
  * \brief Alias of \ref mp_da_get.
@@ -830,7 +824,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type) the last item in \a a
  */
 #define /* Type */ mp_da_last(/* const Dyn_Array* */ a)                                            \
-    ((void) (a)->__mp_dyn_array_marker, (a)->data[(a)->len - 1])
+    ((void) (a)->__da_item_size, (a)->data[(a)->len - 1])
 
 /**
  * \brief Removes the last item in \a a and returns it.
@@ -839,7 +833,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type) the last item in \a a
  */
 #define /* Type */ mp_da_pop(/* Dyn_Array* */ a)                                                   \
-    ((void) (a)->__mp_dyn_array_marker, --(a)->len, (a)->data[(a)->len])
+    ((void) (a)->__da_item_size, --(a)->len, (a)->data[(a)->len])
 
 /**
  * \brief Sets length of \a a to 0.
@@ -850,7 +844,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_reset(/* Dyn_Array* */ a)                                                            \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         (a)->len = 0;                                                                              \
     } while (0)
 
@@ -874,7 +868,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define mp_da_grow(/* Dyn_Array* */ a, /* size_t */ offset)                                        \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __mp_da_grow((a), (offset));                                                               \
     } while (0)
 void __mp_da_grow(void *a, size_t offset);
@@ -891,7 +885,7 @@ void __mp_da_grow(void *a, size_t offset);
  */
 #define mp_da_reserve(/* Dyn_Array* */ a, /* size_t */ offset)                                     \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __mp_da_reserve((a), (offset));                                                            \
     } while (0)
 void __mp_da_reserve(void *a, size_t offset);
@@ -910,8 +904,8 @@ void __mp_da_reserve(void *a, size_t offset);
  */
 #define mp_da_clone(/* Dyn_Array* */ dest, /* const Dyn_Array* */ src, /* mp_Alloc */ alloc)       \
     do {                                                                                           \
-        (void) (dest)->__mp_dyn_array_marker;                                                      \
-        (void) (src)->__mp_dyn_array_marker;                                                       \
+        (void) (dest)->__da_item_size;                                                             \
+        (void) (src)->__da_item_size;                                                              \
         __mp_da_clone((dest), (src), (alloc));                                                     \
     } while (0)
 void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc);
@@ -935,9 +929,9 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  */
 #define mp_da_insert(/* Dyn_Array* */ a, /* size_t */ pos, /* Type */ item)                        \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __MP_TYPEOF(item) __it = (item);                                                           \
-        __MP_ASSERT_MSG(sizeof(__it) == (a)->size,                                                 \
+        __MP_ASSERT_MSG(sizeof(__it) == (a)->__da_item_size,                                       \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_insert((a), (pos), &__it, 1);                                                      \
     } while (0)
@@ -960,10 +954,10 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  */
 #define mp_da_insert_many(/* Dyn_Array* */ a, /* size_t */ pos, /* Type... */...)                  \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __MP_TYPEOF(*(a)->data) __items[] = { __VA_ARGS__ };                                       \
         size_t __len                      = sizeof(__items) / sizeof(*__items);                    \
-        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->__da_item_size,                                   \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_insert((a), (pos), __items, __len);                                                \
     } while (0)
@@ -985,9 +979,9 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 #define mp_da_insert_array(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ items,                \
                            /* size_t */ items_len)                                                 \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __MP_TYPEOF(*items) *__items = (items);                                                    \
-        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->__da_item_size,                                   \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_insert((a), (pos), (items), (items_len));                                          \
     } while (0)
@@ -1007,7 +1001,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  */
 #define mp_da_delete(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len)                       \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __mp_da_move((a), (pos), NULL, (len));                                                     \
     } while (0)
 
@@ -1025,7 +1019,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  */
 #define mp_da_quick_delete(/* Dyn_Array* */ a, /* size_t */ pos)                                   \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __mp_da_quick_move((a), (pos), NULL);                                                      \
     } while (0)
 
@@ -1047,9 +1041,9 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  */
 #define mp_da_move(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)       \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __MP_TYPEOF(*dest) *__dest = (dest);                                                       \
-        __MP_ASSERT_MSG(sizeof(*__dest) == (a)->size,                                              \
+        __MP_ASSERT_MSG(sizeof(*__dest) == (a)->__da_item_size,                                    \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_move((a), (pos), __dest, (len));                                                   \
     } while (0)
@@ -1073,9 +1067,9 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
  */
 #define mp_da_quick_move(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ dest)                   \
     do {                                                                                           \
-        (void) (a)->__mp_dyn_array_marker;                                                         \
+        (void) (a)->__da_item_size;                                                                \
         __MP_TYPEOF(*dest) *__dest = (dest);                                                       \
-        __MP_ASSERT_MSG(sizeof(*__dest) == (a)->size,                                              \
+        __MP_ASSERT_MSG(sizeof(*__dest) == (a)->__da_item_size,                                    \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_quick_move((a), (pos), __dest);                                                    \
     } while (0)
@@ -1411,9 +1405,9 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  *     mp_Alloc    alloc;
  *     size_t      len;
  *     size_t      cap;
- *     size_t      size;
  *     Entry_Type *data;
- *     size_t      val_size;
+ *     size_t      __da_item_size;
+ *     size_t      __ht_val_size;
  * };
  * \endcode
  *
@@ -1421,9 +1415,12 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  * - **alloc**: allocator that manages the allocations of the hash table
  * - **len**: amount of items in the hash table
  * - **cap**: size of the allocated block holding the data in bytes
- * - **size**: size of an entry in bytes
  * - **data**: pointer to the first entry (the entries are continuous in memory)
- * - **val_size**: size of individual value in bytes (0 for hash sets)
+ * - **__da_item_size**: size of an entry in bytes
+ * - **__ht_val_size**: size of individual value in bytes (0 for hash sets)
+ *
+ * \a __ht_val_size has a long name to serve as a "type marker" to mark any hash table (string key)
+ * type because generic functions take hash tables as void* and do not check the type themselves.
  *
  * ## Entry
  *
@@ -1443,7 +1440,7 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  * \code
  * struct {
  *     const Str_Hash_Table *_h;
- *     size_t                _i;
+ *     size_t                __ht_it_i;
  *     mp_Str                key;
  *     Value_Type           *val;
  * };
@@ -1451,17 +1448,13 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  *
  * **Fields**
  * - **_h**: hash table being iterated on
- * - **_i**: index of iteration
+ * - **__ht_it_i**: index of iteration
  * - **key**: retrieved key
  * - **val** pointer to the retrieved value at \a key
  *
- * # Marker
- *
- * String hash tables contain a zero-sized field `__mp_str_ht_marker`. This field is used as a type
- * checking for function-like macros used for string hash tables. These macros will check if this
- * field exists and if it does then the data should be a valid string hash tables and thus can be
- * passed to the implementation function safely.
- * String hash table iterators also contain similar field `__mp_str_ht_iter_marker`.
+ * \a __ht_it_i has a long name to serve as a "type marker" to mark any hash table iterator (string
+ * key) type because generic functions take hash table iterators as void* and do not check the type
+ * themselves.
  *
  * \{
  */
@@ -1495,17 +1488,15 @@ mp_Str mp_sb_str(const mp_Sb *sb);
         mp_Alloc          alloc;                                                                   \
         size_t            len;                                                                     \
         size_t            cap;                                                                     \
-        size_t            size;                                                                    \
         __##name##_Entry *data;                                                                    \
-        size_t            val_size;                                                                \
-        char              __mp_str_ht_marker[];                                                    \
+        size_t            __da_item_size;                                                          \
+        size_t            __ht_val_size;                                                           \
     } name;                                                                                        \
     typedef struct {                                                                               \
         const name *_h;                                                                            \
-        size_t      _i;                                                                            \
+        size_t      __ht_it_i;                                                                     \
         mp_Str      key;                                                                           \
         value_type *val;                                                                           \
-        char        __mp_str_ht_iter_marker[];                                                     \
     } name##_Iter
 
 #define __mp_ht_struct(entry_type, name)                                                           \
@@ -1513,21 +1504,20 @@ mp_Str mp_sb_str(const mp_Sb *sb);
         mp_Alloc    alloc;                                                                         \
         size_t      len;                                                                           \
         size_t      cap;                                                                           \
-        size_t      size;                                                                          \
         entry_type *data;                                                                          \
-        size_t      val_size;                                                                      \
-        char        __mp_str_ht_marker[];                                                          \
+        size_t      __da_item_size;                                                                \
+        size_t      __ht_val_size;                                                                 \
     }
 
-// Generic hash table type.
+// Generic string hash table type.
 typedef struct {
     mp_Alloc alloc;
     size_t   len;
     size_t   cap;
-    size_t   size;
     void    *data;
-    size_t   val_size;
-} __mp_Hash_Table;
+    size_t   __da_item_size;
+    size_t   __ht_val_size;
+} __mp_Str_Ht;
 
 // Generic string hash table entry type.
 typedef struct {
@@ -1537,10 +1527,10 @@ typedef struct {
 
 // Generic string hash table iterator type.
 typedef struct {
-    const __mp_Hash_Table *_h;
-    size_t                 _i;
-    mp_Str                 key;
-    void                  *val;
+    const __mp_Str_Ht *_h;
+    size_t             __ht_it_i;
+    mp_Str             key;
+    void              *val;
 } __mp_Str_Ht_Iter;
 
 /**
@@ -1556,7 +1546,7 @@ typedef struct {
  */
 #define mp_ht_init(/* "Type" */ type, /* Str_Hash_Table* */ ht, /* mp_Alloc */ alloc)              \
     do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
+        (void) (ht)->__ht_val_size;                                                                \
         __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data),                                   \
                      sizeof((*((type *) 0)->data).val));                                           \
     } while (0)
@@ -1569,7 +1559,7 @@ void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
  */
 #define mp_ht_deinit(/* Str_Hash_Table* */ ht)                                                     \
     do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
+        (void) (ht)->__ht_val_size;                                                                \
         __mp_ht_deinit(ht);                                                                        \
     } while (0)
 void __mp_ht_deinit(void *ht);
@@ -1594,7 +1584,7 @@ void __mp_ht_deinit(void *ht);
  * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_ht_get_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                    \
-    ((void) (ht)->__mp_str_ht_marker, __mp_ht_get((ht), (k)))
+    ((void) (ht)->__ht_val_size, __mp_ht_get((ht), (k)))
 void *__mp_ht_get(const void *ht, mp_Str k);
 
 /**
@@ -1622,11 +1612,11 @@ void *__mp_ht_get(const void *ht, mp_Str k);
  */
 #define mp_ht_set_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                        \
     do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
+        (void) (ht)->__ht_val_size;                                                                \
         __MP_TYPEOF(v) __it = (v);                                                                 \
-        __MP_ASSERT_MSG((ht)->val_size > 0, "Did you mean to use `mp_hs_set` instead?");           \
+        __MP_ASSERT_MSG((ht)->__ht_val_size > 0, "Did you mean to use `mp_hs_set` instead?");      \
         __MP_ASSERT_MSG(                                                                           \
-            sizeof(__it) == (ht)->val_size,                                                        \
+            sizeof(__it) == (ht)->__ht_val_size,                                                   \
             "The size of the value provided does not match the hash table's value size");          \
         __mp_ht_set((ht), (k), &__it);                                                             \
     } while (0)
@@ -1652,7 +1642,7 @@ void __mp_ht_set(void *ht, mp_Str k, void *v);
  * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_ht_exists_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                  \
-    ((void) (ht)->__mp_str_ht_marker, __mp_ht_exists((ht), (k)))
+    ((void) (ht)->__ht_val_size, __mp_ht_exists((ht), (k)))
 bool __mp_ht_exists(const void *ht, mp_Str k);
 
 /**
@@ -1672,7 +1662,7 @@ bool __mp_ht_exists(const void *ht, mp_Str k);
  */
 #define mp_ht_grow(/* Str_Hash_Table* */ ht, /* size_t */ offset)                                  \
     do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
+        (void) (ht)->__ht_val_size;                                                                \
         __mp_ht_grow((ht), (offset));                                                              \
     } while (0)
 void __mp_ht_grow(void *ht, size_t offset);
@@ -1689,7 +1679,7 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
  */
 #define mp_ht_reset(/* Str_Hash_Table* */ ht)                                                      \
     do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
+        (void) (ht)->__ht_val_size;                                                                \
         __mp_ht_reset(ht);                                                                         \
     } while (0)
 void __mp_ht_reset(void *ht);
@@ -1717,7 +1707,7 @@ void __mp_ht_reset(void *ht);
  */
 #define mp_ht_delete_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k)                                   \
     do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
+        (void) (ht)->__ht_val_size;                                                                \
         __mp_ht_delete((ht), (k));                                                                 \
     } while (0)
 void __mp_ht_delete(void *ht, mp_Str k);
@@ -1735,8 +1725,8 @@ void __mp_ht_delete(void *ht, mp_Str k);
 #define mp_ht_clone(/* Str_Hash_Table* */ dest, /* const Str_Hash_Table* */ src,                   \
                     /* mp_Alloc */ alloc)                                                          \
     do {                                                                                           \
-        (void) (dest)->__mp_str_ht_marker;                                                         \
-        (void) (src)->__mp_str_ht_marker;                                                          \
+        (void) (dest)->__ht_val_size;                                                              \
+        (void) (src)->__ht_val_size;                                                               \
         __mp_ht_clone((dest), (src), (alloc));                                                     \
     } while (0)
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
@@ -1774,7 +1764,7 @@ void mp_ht_keys_deinit(mp_Ht_Keys *keys);
  */
 #define mp_ht_keys(/* const Str_Hash_Table* */ ht, /* mp_Ht_Keys* */ keys)                         \
     do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
+        (void) (ht)->__ht_val_size;                                                                \
         __mp_ht_keys((ht), (keys));                                                                \
     } while (0)
 void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
@@ -1797,7 +1787,7 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
  */
 #define mp_ht_values(/* const Str_Hash_Table* */ ht, /* Dyn_Array* */ values)                      \
     do {                                                                                           \
-        (void) (ht)->__mp_str_ht_marker;                                                           \
+        (void) (ht)->__ht_val_size;                                                                \
         __mp_ht_values((ht), (values));                                                            \
     } while (0)
 void __mp_ht_values(const void *ht, void *values);
@@ -1812,7 +1802,7 @@ void __mp_ht_values(const void *ht, void *values);
  */
 #define mp_ht_iter_init(/* Str_Hash_Table_Iter* */ it, /* const Str_Hash_Table* */ ht)             \
     do {                                                                                           \
-        (void) (it)->__mp_str_ht_iter_marker;                                                      \
+        (void) (it)->__ht_it_i;                                                                    \
         __mp_ht_iter_init((it), (ht));                                                             \
     } while (0)
 void __mp_ht_iter_init(void *it, const void *ht);
@@ -1826,7 +1816,7 @@ void __mp_ht_iter_init(void *it, const void *ht);
  * \return (bool) whether it is valid to access the value
  */
 #define /* bool */ mp_ht_iter_next(/* Str_Hash_Table_Iter* */ it)                                  \
-    ((void) (it)->__mp_str_ht_iter_marker, __mp_ht_iter_next(it))
+    ((void) (it)->__ht_it_i, __mp_ht_iter_next(it))
 bool __mp_ht_iter_next(void *it);
 
 // Hashes a string with FNV-1a hash algorithm.
@@ -1887,7 +1877,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  */
 #define mp_hs_init(/* mp_Str_Set* */ hs, /* mp_Alloc */ alloc)                                     \
     do {                                                                                           \
-        (void) (hs)->__mp_str_ht_marker;                                                           \
+        (void) (hs)->__ht_val_size;                                                                \
         __mp_ht_init((hs), (alloc), sizeof(*((mp_Str_Set *) 0)->data), 0);                         \
     } while (0)
 
@@ -1898,7 +1888,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  */
 #define mp_hs_deinit(/* mp_Str_Set* */ hs)                                                         \
     do {                                                                                           \
-        (void) (hs)->__mp_str_ht_marker;                                                           \
+        (void) (hs)->__ht_val_size;                                                                \
         __mp_ht_deinit(hs);                                                                        \
     } while (0)
 
@@ -1924,7 +1914,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  */
 #define mp_hs_set_s(/* mp_Str_Set* */ hs, /* mp_Str */ k)                                          \
     do {                                                                                           \
-        (void) (hs)->__mp_str_ht_marker;                                                           \
+        (void) (hs)->__ht_val_size;                                                                \
         __mp_ht_set((hs), (k), NULL);                                                              \
     } while (0)
 
@@ -1934,11 +1924,10 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
 typedef struct __mp_Str_Set_Iter mp_Str_Set_Iter;
 
 struct __mp_Str_Set_Iter {
-    const __mp_Hash_Table *_h;
-    size_t                 _i;
-    mp_Str                 key;
-    void                  *val;
-    char                   __mp_str_ht_iter_marker[];
+    const __mp_Str_Ht *_h;
+    size_t             __ht_it_i;
+    mp_Str             key;
+    void              *val;
 };
 
 /// \}
@@ -2008,9 +1997,9 @@ struct __mp_Str_Set_Iter {
  *     mp_Alloc    alloc;
  *     size_t      len;
  *     size_t      cap;
- *     size_t      size;
  *     Entry_Type *data;
- *     size_t      val_size;
+ *     size_t      __da_item_size;
+ *     size_t      __hti_val_size;
  * };
  * \endcode
  *
@@ -2018,9 +2007,13 @@ struct __mp_Str_Set_Iter {
  * - **alloc**: allocator that manages the allocation of the hash table
  * - **len**: amount of items in the hash table
  * - **cap**: size of the allocated block holding the data in bytes
- * - **size**: size of an entry in bytes
  * - **data**: pointer to the first entry (the data are continuous in memory)
- * - **val_size**: size of individual value (0 for hash sets)
+ * - **__da_item_size**: size of an entry in bytes
+ * - **__hti_val_size**: size of individual value (0 for hash sets)
+ *
+ * \a __hti_val_size has a long name to serve as a "type marker" to mark any hash table (integer
+ * key) type because generic functions take hash tables as void* and do not check the type
+ * themselves.
  *
  * ## Entry
  *
@@ -2053,7 +2046,7 @@ struct __mp_Str_Set_Iter {
  * \code
  * struct {
  *     const Int_Hash_Table *_h;
- *     size_t                _i;
+ *     size_t                __hti_it_i;
  *     Int_Key               key;
  *     Value_Type           *val;
  * };
@@ -2061,17 +2054,13 @@ struct __mp_Str_Set_Iter {
  *
  * **Fields**
  * - **_h**: hash table being iterated on
- * - **_i**: index of iteration
+ * - **__hti_it_i**: index of iteration
  * - **key**: retrieved key
  * - **val** pointer to the retrieved value at \a key
  *
- * # Marker
- *
- * Integer hash tables contain a zero-sized field `__mp_int_ht_marker`. This field is used as a type
- * checking for function-like macros used for integer hash tables. These macros will check if this
- * field exists and if it does then the data should be a valid integer hash tables and thus can be
- * passed to the implementation function safely.
- * Integer hash table iterators also contain similar field `__mp_int_ht_iter_marker`.
+ * \a __hti_it_i has a long name to serve as a "type marker" to mark any hash table iterator
+ * (integer key) type because generic functions take hash table iterators as void* and do not check
+ * the type themselves.
  *
  * \{
  */
@@ -2095,17 +2084,15 @@ struct __mp_Str_Set_Iter {
         mp_Alloc          alloc;                                                                   \
         size_t            len;                                                                     \
         size_t            cap;                                                                     \
-        size_t            size;                                                                    \
         __##name##_Entry *data;                                                                    \
-        size_t            val_size;                                                                \
-        char              __mp_int_ht_marker[];                                                    \
+        size_t            __da_item_size;                                                          \
+        size_t            __hti_val_size;                                                          \
     } name;                                                                                        \
     typedef struct {                                                                               \
         const name     *_h;                                                                        \
-        size_t          _i;                                                                        \
+        size_t          __hti_it_i;                                                                \
         __mp_Int_Ht_Key key;                                                                       \
         value_type     *val;                                                                       \
-        char            __mp_int_ht_iter_marker[];                                                 \
     } name##_Iter
 
 #define __mp_hti_struct(entry_type, name)                                                          \
@@ -2113,11 +2100,20 @@ struct __mp_Str_Set_Iter {
         mp_Alloc    alloc;                                                                         \
         size_t      len;                                                                           \
         size_t      cap;                                                                           \
-        size_t      size;                                                                          \
         entry_type *data;                                                                          \
-        size_t      val_size;                                                                      \
-        char        __mp_int_ht_marker[];                                                          \
+        size_t      __da_item_size;                                                                \
+        size_t      __hti_val_size;                                                                \
     }
+
+// Generic int hash table type.
+typedef struct {
+    mp_Alloc alloc;
+    size_t   len;
+    size_t   cap;
+    void    *data;
+    size_t   __da_item_size;
+    size_t   __hti_val_size;
+} __mp_Int_Ht;
 
 // The key type is wrapped by this struct so it can have 0 as a key.
 typedef struct {
@@ -2133,10 +2129,10 @@ typedef struct {
 
 // Generic string hash table iterator type.
 typedef struct {
-    const __mp_Hash_Table *_h;
-    size_t                 _i;
-    __mp_Int_Ht_Key        key;
-    void                  *val;
+    const __mp_Int_Ht *_h;
+    size_t             __hti_it_i;
+    __mp_Int_Ht_Key    key;
+    void              *val;
 } __mp_Int_Ht_Iter;
 
 /**
@@ -2152,7 +2148,7 @@ typedef struct {
  */
 #define mp_hti_init(/* "Type" */ type, /* Int_Hash_Table* */ ht, /* mp_Alloc */ alloc)             \
     do {                                                                                           \
-        (void) (ht)->__mp_int_ht_marker;                                                           \
+        (void) (ht)->__hti_val_size;                                                               \
         __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data),                                   \
                      sizeof((*((type *) 0)->data).val));                                           \
     } while (0)
@@ -2164,7 +2160,7 @@ typedef struct {
  */
 #define mp_hti_deinit(/* Int_Hash_Table* */ ht)                                                    \
     do {                                                                                           \
-        (void) (ht)->__mp_int_ht_marker;                                                           \
+        (void) (ht)->__hti_val_size;                                                               \
         __mp_da_deinit(ht);                                                                        \
     } while (0)
 
@@ -2176,7 +2172,7 @@ typedef struct {
  * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_hti_get(/* const Int_Hash_Table* */ ht, /* size_t */ k)                     \
-    ((void) (ht)->__mp_int_ht_marker, __mp_hti_get((ht), (k)))
+    ((void) (ht)->__hti_val_size, __mp_hti_get((ht), (k)))
 void *__mp_hti_get(const void *ht, size_t k);
 
 /**
@@ -2190,10 +2186,10 @@ void *__mp_hti_get(const void *ht, size_t k);
  */
 #define mp_hti_set(/* Int_Hash_Table* */ ht, /* size_t */ k, /* Type */ v)                         \
     do {                                                                                           \
-        (void) (ht)->__mp_int_ht_marker;                                                           \
+        (void) (ht)->__hti_val_size;                                                               \
         __MP_TYPEOF(v) __it = (v);                                                                 \
-        __MP_ASSERT_MSG((ht)->val_size > 0, "Did you mean to use `mp_hsi_set` instead?");          \
-        __MP_ASSERT_MSG(sizeof(__it) == (ht)->val_size,                                            \
+        __MP_ASSERT_MSG((ht)->__hti_val_size > 0, "Did you mean to use `mp_hsi_set` instead?");    \
+        __MP_ASSERT_MSG(sizeof(__it) == (ht)->__hti_val_size,                                      \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_hti_set((ht), (k), &__it);                                                            \
     } while (0)
@@ -2207,7 +2203,7 @@ void __mp_hti_set(void *ht, size_t k, void *v);
  * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_hti_exists(/* const Int_Hash_Table* */ ht, /* size_t */ k)                   \
-    ((void) (ht)->__mp_int_ht_marker, __mp_hti_exists((ht), (k)))
+    ((void) (ht)->__hti_val_size, __mp_hti_exists((ht), (k)))
 bool __mp_hti_exists(const void *ht, size_t k);
 
 /**
@@ -2227,7 +2223,7 @@ bool __mp_hti_exists(const void *ht, size_t k);
  */
 #define mp_hti_grow(/* Int_Hash_Table* */ ht, /* size_t */ offset)                                 \
     do {                                                                                           \
-        (void) (ht)->__mp_int_ht_marker;                                                           \
+        (void) (ht)->__hti_val_size;                                                               \
         __mp_hti_grow((ht), (offset));                                                             \
     } while (0)
 void __mp_hti_grow(void *ht, size_t offset);
@@ -2241,7 +2237,7 @@ void __mp_hti_grow(void *ht, size_t offset);
  */
 #define mp_hti_reset(/* Int_Hash_Table* */ ht)                                                     \
     do {                                                                                           \
-        (void) (ht)->__mp_int_ht_marker;                                                           \
+        (void) (ht)->__hti_val_size;                                                               \
         __mp_hti_reset(ht);                                                                        \
     } while (0)
 void __mp_hti_reset(void *ht);
@@ -2259,7 +2255,7 @@ void __mp_hti_reset(void *ht);
  */
 #define mp_hti_delete(/* Int_Hash_Table* */ ht, /* size_t */ k)                                    \
     do {                                                                                           \
-        (void) (ht)->__mp_int_ht_marker;                                                           \
+        (void) (ht)->__hti_val_size;                                                               \
         __mp_hti_delete((ht), (k));                                                                \
     } while (0)
 void __mp_hti_delete(void *ht, size_t k);
@@ -2277,8 +2273,8 @@ void __mp_hti_delete(void *ht, size_t k);
 #define mp_hti_clone(/* Int_Hash_Table* */ dest, /* const Int_Hash_Table* */ src,                  \
                      /* mp_Alloc */ alloc)                                                         \
     do {                                                                                           \
-        (void) (dest)->__mp_int_ht_marker;                                                         \
-        (void) (src)->__mp_int_ht_marker;                                                          \
+        (void) (dest)->__hti_val_size;                                                             \
+        (void) (src)->__hti_val_size;                                                              \
         __mp_hti_clone((dest), (src), (alloc));                                                    \
     } while (0)
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
@@ -2308,7 +2304,7 @@ __mp_da_struct(size_t, __mp_Hti_Keys);
  */
 #define mp_hti_keys(/* const IntHashTable* */ ht, /* mp_Hti_Keys* */ keys)                         \
     do {                                                                                           \
-        (void) (ht)->__mp_int_ht_marker;                                                           \
+        (void) (ht)->__hti_val_size;                                                               \
         __mp_hti_keys((ht), (keys));                                                               \
     } while (0)
 void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
@@ -2331,7 +2327,7 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
  */
 #define mp_hti_values(/* const Int_Hash_Table* */ ht, /* Dyn_Array* */ values)                     \
     do {                                                                                           \
-        (void) (ht)->__mp_int_ht_marker;                                                           \
+        (void) (ht)->__hti_val_size;                                                               \
         __mp_hti_values((ht), (values));                                                           \
     } while (0)
 void __mp_hti_values(const void *ht, void *values);
@@ -2346,7 +2342,7 @@ void __mp_hti_values(const void *ht, void *values);
  */
 #define mp_hti_iter_init(/* Int_Hash_Table_Iter* */ it, /* const Int_Hash_Table* */ ht)            \
     do {                                                                                           \
-        (void) (it)->__mp_int_ht_iter_marker;                                                      \
+        (void) (it)->__hti_it_i;                                                                   \
         __mp_hti_iter_init((it), (ht));                                                            \
     } while (0)
 void __mp_hti_iter_init(void *it, const void *ht);
@@ -2360,7 +2356,7 @@ void __mp_hti_iter_init(void *it, const void *ht);
  * \return (bool) whether it is valid to access the value
  */
 #define /* bool */ mp_hti_iter_next(/* Int_Hash_Table_Iter* */ it)                                 \
-    ((void) (it)->__mp_int_ht_iter_marker, __mp_hti_iter_next(it))
+    ((void) (it)->__hti_it_i, __mp_hti_iter_next(it))
 bool __mp_hti_iter_next(void *it);
 
 /** \defgroup HashSetInt Hash Set (Integer)
@@ -2417,7 +2413,7 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  */
 #define mp_hsi_init(/* mp_Int_Set* */ hs, /* mp_Alloc */ alloc)                                    \
     do {                                                                                           \
-        (void) (hs)->__mp_int_ht_marker;                                                           \
+        (void) (hs)->__hti_val_size;                                                               \
         __mp_ht_init((hs), (alloc), sizeof(*((mp_Int_Set *) 0)->data), 0);                         \
     } while (0)
 
@@ -2428,7 +2424,7 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  */
 #define mp_hsi_deinit(/* mp_Int_Set* */ hs)                                                        \
     do {                                                                                           \
-        (void) (hs)->__mp_int_ht_marker;                                                           \
+        (void) (hs)->__hti_val_size;                                                               \
         __mp_ht_deinit(hs);                                                                        \
     } while (0)
 
@@ -2442,7 +2438,7 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  */
 #define mp_hsi_set(/* mp_Int_Set* */ hs, /* size_t */ k)                                           \
     do {                                                                                           \
-        (void) (hs)->__mp_int_ht_marker;                                                           \
+        (void) (hs)->__hti_val_size;                                                               \
         __mp_hti_set((hs), (k), NULL);                                                             \
     } while (0)
 
@@ -2452,11 +2448,10 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 typedef struct __mp_Int_Set_Iter mp_Int_Set_Iter;
 
 struct __mp_Int_Set_Iter {
-    const __mp_Hash_Table *_h;
-    size_t                 _i;
-    __mp_Int_Ht_Key        key;
-    void                  *val;
-    char                   __mp_int_ht_iter_marker[];
+    const __mp_Str_Ht *_h;
+    size_t             __hti_it_i;
+    __mp_Int_Ht_Key    key;
+    void              *val;
 };
 
 /// \}
@@ -3406,16 +3401,16 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
 void __mp_da_init(void *a, mp_Alloc alloc, size_t size) {
     __mp_Dyn_Array *self = a;
     __MP_ZERO(self);
-    self->alloc = alloc;
-    self->len   = 0;
-    self->cap   = 0;
-    self->size  = size;
-    self->data  = NULL;
+    self->alloc          = alloc;
+    self->len            = 0;
+    self->cap            = 0;
+    self->__da_item_size = size;
+    self->data           = NULL;
 }
 
 void __mp_da_deinit(void *a) {
     __mp_Dyn_Array *self = a;
-    mp_free(self->alloc, self->data, self->cap * self->size);
+    mp_free(self->alloc, self->data, self->cap * self->__da_item_size);
     __MP_ZERO(self);
 }
 
@@ -3423,7 +3418,8 @@ void __mp_da_append(void *a, const void *items, size_t items_len) {
     __mp_Dyn_Array *self = a;
     __mp_da_grow(self, items_len);
     if (self->data != NULL) {
-        memcpy((char *) self->data + self->len * self->size, items, items_len * self->size);
+        memcpy((char *) self->data + self->len * self->__da_item_size, items,
+               items_len * self->__da_item_size);
         self->len += items_len;
     }
 }
@@ -3448,7 +3444,8 @@ void __mp_da_reserve(void *a, size_t offset) {
     }
     __mp_Dyn_Array *self    = a;
     size_t          new_cap = self->cap + offset;
-    self->data = mp_realloc(self->alloc, self->data, self->cap * self->size, new_cap * self->size);
+    self->data              = mp_realloc(self->alloc, self->data, self->cap * self->__da_item_size,
+                                         new_cap * self->__da_item_size);
     if (self->data != NULL) {
         self->cap = new_cap;
     }
@@ -3458,12 +3455,12 @@ void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc) {
     const __mp_Dyn_Array *s = src;
     __mp_Dyn_Array       *d = dest;
     __MP_ZERO(d);
-    d->data = mp_dup(alloc, s->data, s->cap * s->size);
+    d->data = mp_dup(alloc, s->data, s->cap * s->__da_item_size);
     if (d->data != NULL) {
-        d->alloc = alloc;
-        d->len   = s->len;
-        d->cap   = s->len + __MP_DARRAY_INIT_CAPACITY;
-        d->size  = s->size;
+        d->alloc          = alloc;
+        d->len            = s->len;
+        d->cap            = s->len + __MP_DARRAY_INIT_CAPACITY;
+        d->__da_item_size = s->__da_item_size;
     }
 }
 
@@ -3472,9 +3469,11 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len) {
     size_t          actual_pos = (pos > self->len) ? self->len : pos;
     __mp_da_grow(self, items_len);
     if (self->data != NULL) {
-        memmove((char *) self->data + (actual_pos + items_len) * self->size,
-                (char *) self->data + actual_pos * self->size, (items_len + 1) * self->size);
-        memcpy((char *) self->data + actual_pos * self->size, items, items_len * self->size);
+        memmove((char *) self->data + (actual_pos + items_len) * self->__da_item_size,
+                (char *) self->data + actual_pos * self->__da_item_size,
+                (items_len + 1) * self->__da_item_size);
+        memcpy((char *) self->data + actual_pos * self->__da_item_size, items,
+               items_len * self->__da_item_size);
         self->len += items_len;
     }
 }
@@ -3484,11 +3483,13 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len) {
     __MP_BOUNDS_CHECK(pos, self->len);
     size_t moved = self->len - (pos + items_len);
     if (ret_items != NULL) {
-        memcpy(ret_items, (char *) self->data + pos * self->size, items_len * self->size);
+        memcpy(ret_items, (char *) self->data + pos * self->__da_item_size,
+               items_len * self->__da_item_size);
     }
     if (moved >= 1) {
-        memmove((char *) self->data + pos * self->size,
-                (char *) self->data + (pos + items_len) * self->size, moved * self->size);
+        memmove((char *) self->data + pos * self->__da_item_size,
+                (char *) self->data + (pos + items_len) * self->__da_item_size,
+                moved * self->__da_item_size);
         self->len -= items_len;
     }
 }
@@ -3497,11 +3498,11 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item) {
     __mp_Dyn_Array *self = a;
     __MP_BOUNDS_CHECK(pos, self->len);
     if (ret_item != NULL) {
-        memcpy(ret_item, (char *) self->data + pos * self->size, self->size);
+        memcpy(ret_item, (char *) self->data + pos * self->__da_item_size, self->__da_item_size);
     }
     if (pos != self->len - 1) {
-        memcpy((char *) self->data + pos * self->size,
-               (char *) self->data + (self->len - 1) * self->size, self->size);
+        memcpy((char *) self->data + pos * self->__da_item_size,
+               (char *) self->data + (self->len - 1) * self->__da_item_size, self->__da_item_size);
     }
     --self->len;
 }
@@ -3612,13 +3613,13 @@ mp_Str mp_sb_str(const mp_Sb *sb) {
 }
 
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
-    __mp_Hash_Table *self = ht;
+    __mp_Str_Ht *self = ht;
     __mp_da_init(self, alloc, size);
-    self->val_size = val_size;
+    self->__ht_val_size = val_size;
 }
 
 void __mp_ht_deinit(void *ht) {
-    __mp_Hash_Table *self = ht;
+    __mp_Str_Ht *self = ht;
     for (size_t i = 0; i < self->cap; i++) {
         __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
         if (mp_str_is_valid(e->key)) {
@@ -3629,7 +3630,7 @@ void __mp_ht_deinit(void *ht) {
 }
 
 void *__mp_ht_get(const void *ht, mp_Str k) {
-    const __mp_Hash_Table *self = ht;
+    const __mp_Str_Ht *self = ht;
     if (self->cap == 0) {
         return NULL;
     }
@@ -3654,7 +3655,7 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
 }
 
 void __mp_ht_set(void *ht, mp_Str k, void *v) {
-    __mp_Hash_Table *self = ht;
+    __mp_Str_Ht *self = ht;
     __mp_ht_grow(self, 1);
     if (self->data != NULL) {
         uint64_t hash = __mp_ht_hash_str(&k);
@@ -3663,10 +3664,10 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (!mp_str_is_valid(e->key)) {
                 e->key = mp_str_clone(k, self->alloc);
-                memcpy(&e->val, v, self->val_size);
+                memcpy(&e->val, v, self->__ht_val_size);
                 break;
             } else if (mp_str_eq(e->key, k)) {
-                memcpy(&e->val, v, self->val_size);
+                memcpy(&e->val, v, self->__ht_val_size);
                 --self->len;
                 break;
             } else {
@@ -3684,7 +3685,7 @@ bool __mp_ht_exists(const void *ht, mp_Str k) {
 }
 
 void __mp_ht_grow(void *ht, size_t offset) {
-    __mp_Hash_Table *self = ht;
+    __mp_Str_Ht *self = ht;
     if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD)
         && offset > 0) {
         size_t old_cap = self->cap;
@@ -3694,7 +3695,7 @@ void __mp_ht_grow(void *ht, size_t offset) {
         while (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD)) {
             self->cap *= 2;
         }
-        void *new_data = mp_alloc(self->alloc, self->cap * self->size);
+        void *new_data = mp_alloc(self->alloc, self->cap * self->__da_item_size);
         if (new_data == NULL) {
             self->data = NULL;
             return;
@@ -3706,10 +3707,10 @@ void __mp_ht_grow(void *ht, size_t offset) {
                 size_t   new_i = (size_t) (hash % (uint64_t) (self->cap - 1));
                 for (;;) {
                     __mp_Str_Ht_Entry *new_e =
-                        (__mp_Str_Ht_Entry *) ((char *) new_data + new_i * self->size);
+                        (__mp_Str_Ht_Entry *) ((char *) new_data + new_i * self->__da_item_size);
                     if (!mp_str_is_valid(new_e->key)) {
                         new_e->key = mp_str_clone(e->key, self->alloc);
-                        memcpy(&new_e->val, &e->val, self->val_size);
+                        memcpy(&new_e->val, &e->val, self->__ht_val_size);
                         break;
                     } else {
                         ++new_i;
@@ -3720,8 +3721,8 @@ void __mp_ht_grow(void *ht, size_t offset) {
                 }
             }
         }
-        __mp_ht_free_entries(self->data, self->alloc, old_cap, self->size);
-        mp_free(self->alloc, self->data, old_cap * self->size);
+        __mp_ht_free_entries(self->data, self->alloc, old_cap, self->__da_item_size);
+        mp_free(self->alloc, self->data, old_cap * self->__da_item_size);
         self->data = new_data;
     }
     self->len += offset;
@@ -3738,14 +3739,14 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
 }
 
 void __mp_ht_reset(void *ht) {
-    __mp_Hash_Table *self = ht;
-    __mp_ht_free_entries(self->data, self->alloc, self->cap, self->size);
+    __mp_Str_Ht *self = ht;
+    __mp_ht_free_entries(self->data, self->alloc, self->cap, self->__da_item_size);
     self->len = 0;
 }
 
 // TODO: mp_ht(i)_move
 void __mp_ht_delete(void *ht, mp_Str k) {
-    __mp_Hash_Table *self = ht;
+    __mp_Str_Ht *self = ht;
     if (mp_str_is_valid(k)) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
@@ -3771,10 +3772,10 @@ void __mp_ht_delete(void *ht, mp_Str k) {
 
 // DOCS: notice to clone funcs that dest and src must not overlap
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
-    const __mp_Hash_Table *s = src;
-    __mp_Hash_Table       *d = dest;
-    memcpy(d, s, sizeof(__mp_Hash_Table));
-    d->data = mp_dup(alloc, s->data, s->cap * s->size);
+    const __mp_Str_Ht *s = src;
+    __mp_Str_Ht       *d = dest;
+    memcpy(d, s, sizeof(__mp_Str_Ht));
+    d->data = mp_dup(alloc, s->data, s->cap * s->__da_item_size);
     if (d->data != NULL) {
         for (size_t i = 0; i < s->cap; ++i) {
             __mp_Str_Ht_Entry *s_e = __mp_da_get(__mp_Str_Ht_Entry, s, i);
@@ -3797,10 +3798,10 @@ void mp_ht_keys_deinit(mp_Ht_Keys *keys) {
 }
 
 void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
-    const __mp_Hash_Table *self = ht;
+    const __mp_Str_Ht *self = ht;
     mp_da_reserve(keys, self->len);
     if (keys->data != NULL) {
-        size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
+        size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->__ht_val_size;
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_ht_iter_init(it, self);
         while (__mp_ht_iter_next(it)) {
@@ -3811,16 +3812,17 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
 }
 
 void __mp_ht_values(const void *ht, void *values) {
-    const __mp_Hash_Table *self = ht;
-    __mp_Hash_Table       *vals = values;
-    __MP_ASSERT(self->val_size == vals->size);
+    const __mp_Str_Ht *self = ht;
+    __mp_Dyn_Array    *vals = values;
+    __MP_ASSERT(self->__ht_val_size == vals->__da_item_size);
     __mp_da_reserve(vals, self->len);
     if (vals->data != NULL) {
-        size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
+        size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->__ht_val_size;
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_ht_iter_init(it, self);
         while (__mp_ht_iter_next(it)) {
-            memcpy((char *) vals->data + vals->len * vals->size, it->val, vals->size);
+            memcpy((char *) vals->data + vals->len * vals->__da_item_size, it->val,
+                   vals->__da_item_size);
             ++vals->len;
         }
         mp_free(self->alloc, it, iter_size);
@@ -3828,25 +3830,25 @@ void __mp_ht_values(const void *ht, void *values) {
 }
 
 void __mp_ht_iter_init(void *it, const void *ht) {
-    __mp_Str_Ht_Iter      *self = it;
-    const __mp_Hash_Table *h    = ht;
-    memset(self, 0, sizeof(*self) + h->val_size);
+    __mp_Str_Ht_Iter  *self = it;
+    const __mp_Str_Ht *h    = ht;
+    memset(self, 0, sizeof(*self));
     self->_h = h;
 }
 
 bool __mp_ht_iter_next(void *it) {
     __mp_Str_Ht_Iter *self = it;
-    while (self->_i < self->_h->cap) {
-        __mp_Str_Ht_Entry *entry = __mp_da_get(__mp_Str_Ht_Entry, self->_h, self->_i);
+    while (self->__ht_it_i < self->_h->cap) {
+        __mp_Str_Ht_Entry *entry = __mp_da_get(__mp_Str_Ht_Entry, self->_h, self->__ht_it_i);
         if (mp_str_is_valid(entry->key)) {
             self->key = entry->key;
-            if (self->_h->val_size > 0) {
+            if (self->_h->__ht_val_size > 0) {
                 self->val = &entry->val;
             }
-            ++self->_i;
+            ++self->__ht_it_i;
             return true;
         }
-        ++self->_i;
+        ++self->__ht_it_i;
     }
     return false;
 }
@@ -3864,7 +3866,7 @@ uint64_t __mp_ht_hash_str(const mp_Str *str) {
 }
 
 void *__mp_hti_get(const void *ht, size_t k) {
-    const __mp_Hash_Table *self = ht;
+    const __mp_Str_Ht *self = ht;
     if (self->cap == 0) {
         return NULL;
     }
@@ -3890,7 +3892,7 @@ bool __mp_hti_exists(const void *ht, size_t k) {
 }
 
 void __mp_hti_set(void *ht, size_t k, void *v) {
-    __mp_Hash_Table *self = ht;
+    __mp_Int_Ht *self = ht;
     __mp_hti_grow(self, 1);
     if (self->data != NULL) {
         size_t i = (size_t) (k % (uint64_t) (self->cap - 1));
@@ -3901,10 +3903,10 @@ void __mp_hti_set(void *ht, size_t k, void *v) {
                     .key   = k,
                     .valid = true,
                 };
-                memcpy(&e->val, v, self->val_size);
+                memcpy(&e->val, v, self->__hti_val_size);
                 break;
             } else if (e->key.key == k) {
-                memcpy(&e->val, v, self->val_size);
+                memcpy(&e->val, v, self->__hti_val_size);
                 --self->len;
                 break;
             } else {
@@ -3918,7 +3920,7 @@ void __mp_hti_set(void *ht, size_t k, void *v) {
 }
 
 void __mp_hti_grow(void *ht, size_t offset) {
-    __mp_Hash_Table *self = ht;
+    __mp_Int_Ht *self = ht;
     if (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD)
         && offset > 0) {
         size_t old_cap = self->cap;
@@ -3928,7 +3930,7 @@ void __mp_hti_grow(void *ht, size_t offset) {
         while (self->len + offset > (size_t) ((double) self->cap * __MP_HASH_TABLE_MAX_LOAD)) {
             self->cap *= 2;
         }
-        void *new_data = mp_alloc(self->alloc, self->cap * self->size);
+        void *new_data = mp_alloc(self->alloc, self->cap * self->__da_item_size);
         if (new_data == NULL) {
             self->data = NULL;
             return;
@@ -3939,10 +3941,10 @@ void __mp_hti_grow(void *ht, size_t offset) {
                 size_t new_i = (size_t) (e->key.key % (uint64_t) (self->cap - 1));
                 for (;;) {
                     __mp_Int_Ht_Entry *new_e =
-                        (__mp_Int_Ht_Entry *) ((char *) new_data + new_i * self->size);
+                        (__mp_Int_Ht_Entry *) ((char *) new_data + new_i * self->__da_item_size);
                     if (!new_e->key.valid) {
                         new_e->key = e->key;
-                        memcpy(&new_e->val, &e->val, self->val_size);
+                        memcpy(&new_e->val, &e->val, self->__hti_val_size);
                         break;
                     } else {
                         ++new_i;
@@ -3953,14 +3955,14 @@ void __mp_hti_grow(void *ht, size_t offset) {
                 }
             }
         }
-        mp_free(self->alloc, self->data, old_cap * self->size);
+        mp_free(self->alloc, self->data, old_cap * self->__da_item_size);
         self->data = new_data;
     }
     self->len += offset;
 }
 
 void __mp_hti_reset(void *ht) {
-    __mp_Hash_Table *self = ht;
+    __mp_Int_Ht *self = ht;
     for (size_t i = 0; i < self->cap; ++i) {
         __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
         if (e->key.valid) {
@@ -3971,8 +3973,8 @@ void __mp_hti_reset(void *ht) {
 }
 
 void __mp_hti_delete(void *ht, size_t k) {
-    __mp_Hash_Table *self = ht;
-    size_t           i    = (size_t) (k % (uint64_t) (self->cap - 1));
+    __mp_Int_Ht *self = ht;
+    size_t       i    = (size_t) (k % (uint64_t) (self->cap - 1));
     for (;;) {
         __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
         if (e->key.valid && k == e->key.key) {
@@ -3992,20 +3994,20 @@ void __mp_hti_delete(void *ht, size_t k) {
 }
 
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
-    const __mp_Hash_Table *s = src;
-    __mp_Hash_Table       *d = dest;
-    memcpy(d, s, sizeof(__mp_Hash_Table));
-    d->data = mp_dup(alloc, s->data, s->cap * s->size);
+    const __mp_Int_Ht *s = src;
+    __mp_Int_Ht       *d = dest;
+    memcpy(d, s, sizeof(__mp_Int_Ht));
+    d->data = mp_dup(alloc, s->data, s->cap * s->__da_item_size);
     if (d->data == NULL) {
         __MP_ZERO(d);
     }
 }
 
 void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys) {
-    const __mp_Hash_Table *self = ht;
+    const __mp_Int_Ht *self = ht;
     mp_da_reserve(keys, self->len);
     if (keys->data != NULL) {
-        size_t            iter_size = sizeof(__mp_Int_Ht_Iter) + self->val_size;
+        size_t            iter_size = sizeof(__mp_Int_Ht_Iter) + self->__hti_val_size;
         __mp_Int_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_hti_iter_init(it, self);
         while (__mp_hti_iter_next(it)) {
@@ -4016,16 +4018,17 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys) {
 }
 
 void __mp_hti_values(const void *ht, void *values) {
-    const __mp_Hash_Table *self = ht;
-    __mp_Hash_Table       *vals = values;
-    __MP_ASSERT(self->val_size == vals->size);
+    const __mp_Int_Ht *self = ht;
+    __mp_Dyn_Array    *vals = values;
+    __MP_ASSERT(self->__hti_val_size == vals->__da_item_size);
     __mp_da_reserve(vals, self->len);
     if (vals->data != NULL) {
-        size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->val_size;
+        size_t            iter_size = sizeof(__mp_Int_Ht_Iter) + self->__hti_val_size;
         __mp_Int_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_hti_iter_init(it, self);
         while (__mp_hti_iter_next(it)) {
-            memcpy((char *) vals->data + vals->len * vals->size, it->val, vals->size);
+            memcpy((char *) vals->data + vals->len * vals->__da_item_size, it->val,
+                   vals->__da_item_size);
             ++vals->len;
         }
         mp_free(self->alloc, it, iter_size);
@@ -4033,25 +4036,25 @@ void __mp_hti_values(const void *ht, void *values) {
 }
 
 void __mp_hti_iter_init(void *it, const void *ht) {
-    __mp_Int_Ht_Iter      *self = it;
-    const __mp_Hash_Table *h    = ht;
-    memset(self, 0, sizeof(*self) + h->val_size);
+    __mp_Int_Ht_Iter  *self = it;
+    const __mp_Int_Ht *h    = ht;
+    memset(self, 0, sizeof(*self));
     self->_h = h;
 }
 
 bool __mp_hti_iter_next(void *it) {
     __mp_Int_Ht_Iter *self = it;
-    while (self->_i < self->_h->cap) {
-        __mp_Int_Ht_Entry *entry = __mp_da_get(__mp_Int_Ht_Entry, self->_h, self->_i);
+    while (self->__hti_it_i < self->_h->cap) {
+        __mp_Int_Ht_Entry *entry = __mp_da_get(__mp_Int_Ht_Entry, self->_h, self->__hti_it_i);
         if (entry->key.valid) {
             self->key = entry->key;
-            if (self->_h->val_size > 0) {
+            if (self->_h->__hti_val_size > 0) {
                 self->val = &entry->val;
             }
-            ++self->_i;
+            ++self->__hti_it_i;
             return true;
         }
-        ++self->_i;
+        ++self->__hti_it_i;
     }
     return false;
 }
