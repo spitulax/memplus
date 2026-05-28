@@ -898,6 +898,8 @@ void __mp_da_reserve(void *a, size_t offset);
  *
  * \a dest->data == NULL if allocation failed.
  *
+ * \a dest and \a src must not overlap.
+ *
  * \param dest (Dyn_Array *) destination of the clone (initialized by this)
  * \param src (const Dyn_Array *) source array
  * \param alloc (\ref mp_Alloc) allocator to manage \a dest
@@ -1716,7 +1718,10 @@ void __mp_ht_delete(void *ht, mp_Str k);
  * \brief Clones \a src to \a dest managed by \a alloc.
  *
  * \a dest inherits all fields of \a src.
+ *
  * \a dest->data == NULL if allocation failed.
+ *
+ * \a dest and \a src must not overlap.
  *
  * \param dest (Str_Hash_Table *) destination of the clone (initialized by this)
  * \param src (const Str_Hash_Table *) source hash table
@@ -2264,7 +2269,10 @@ void __mp_hti_delete(void *ht, size_t k);
  * \brief Clones \a src to \a dest managed by \a alloc.
  *
  * \a dest inherits all fields of \a src.
+ *
  * \a dest->data == NULL if allocation failed.
+ *
+ * \a dest and \a src must not overlap.
  *
  * \param dest (Str_Hash_Table *) destination of the clone (initialized by this)
  * \param src (const Str_Hash_Table *) source hash table
@@ -3770,7 +3778,6 @@ void __mp_ht_delete(void *ht, mp_Str k) {
     }
 }
 
-// DOCS: notice to clone funcs that dest and src must not overlap
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
     const __mp_Str_Ht *s = src;
     __mp_Str_Ht       *d = dest;
