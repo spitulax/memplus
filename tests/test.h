@@ -62,19 +62,28 @@
         }                                                                                          \
     } while (0)
 
-#define expect_memeq(a, b, len)                                                                    \
+#define expect_streq_mp_s(mp, str)                                                                 \
     do {                                                                                           \
-        if (memcmp((a), (b), (len)) != 0) {                                                        \
+        if ((mp).len != strlen(str) || memcmp((mp).data, (str), (mp).len) != 0) {                  \
+            elogf("Expected `a == b`, got\n\ta = `%.*s`\n\tb = `%s`", (int) (mp).len, (mp).data,   \
+                  (str));                                                                          \
+            goto fail;                                                                             \
+        }                                                                                          \
+    } while (0)
+
+#define expect_mem(cond, a, b, size)                                                               \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
             elogs("Expected `a == b`, got");                                                       \
             elogsn("\ta = `");                                                                     \
-            for (size_t __i = 0; __i < (len); ++__i) {                                             \
+            for (size_t __i = 0; __i < (size); ++__i) {                                            \
                 if (__i > 0)                                                                       \
                     elogsn(" ");                                                                   \
                 elogfn("%02hhX", ((char *) (a))[__i]);                                             \
             }                                                                                      \
             elogsn("`\n");                                                                         \
             elogsn("\tb = `");                                                                     \
-            for (size_t __i = 0; __i < (len); ++__i) {                                             \
+            for (size_t __i = 0; __i < (size); ++__i) {                                            \
                 if (__i > 0)                                                                       \
                     elogsn(" ");                                                                   \
                 elogfn("%02hhX", ((char *) (b))[__i]);                                             \
@@ -84,7 +93,39 @@
         }                                                                                          \
     } while (0)
 
+#define expect_memeq(a, b, size) expect_mem(memcmp((a), (b), (size)) == 0, (a), (b), (size))
+
 #define expect_eq(a, b, fmt) expect_binop(==, a, b, fmt)
 #define expect_ne(a, b, fmt) expect_binop(!=, a, b, fmt)
 
 #define expect_erreq(a, b, f) expect_eq(f(a), f(b), "%s")
+
+#define __expect_arreq(a, a_len, b, b_len, fmt)                                                    \
+    do {                                                                                           \
+        if ((a_len) != (b_len) || sizeof(*(a)) != sizeof(*(b))                                     \
+            || memcmp((a), (b), (a_len) * sizeof(*(a))) != 0) {                                    \
+            elogs("Expected `a == b`, got");                                                       \
+            elogsn("\ta = ");                                                                      \
+            for (size_t __i = 0; __i < (a_len); ++__i) {                                           \
+                if (__i > 0)                                                                       \
+                    elogsn(" ");                                                                   \
+                elogfn("`" fmt "`", (a)[__i]);                                                     \
+            }                                                                                      \
+            elogsn("\n");                                                                          \
+            elogsn("\tb = ");                                                                      \
+            for (size_t __i = 0; __i < (b_len); ++__i) {                                           \
+                if (__i > 0)                                                                       \
+                    elogsn(" ");                                                                   \
+                elogfn("`" fmt "`", (b)[__i]);                                                     \
+            }                                                                                      \
+            elogsn("\n");                                                                          \
+            goto fail;                                                                             \
+        }                                                                                          \
+    } while (0)
+
+#define expect_arreq(a, b, fmt)                                                                    \
+    __expect_arreq((a), sizeof(a) / sizeof(*(a)), (b), sizeof(b) / sizeof(*(b)), fmt)
+
+#define expect_arreq_s(a, b, len, fmt) __expect_arreq((a), (len), (b), (len), fmt)
+
+#define expect_da_arr_eq(da, arr, fmt) __expect_arreq((da).data, (da).len, (arr), (da).len, fmt)

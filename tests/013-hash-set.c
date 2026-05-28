@@ -10,7 +10,7 @@ int main(void) {
     {
         mp_Str_Set str_set;
         mp_hs_init(&str_set, mp_heap());
-        expect_eq(str_set.val_size, (size_t) 0, "%zu");
+        expect_eq(str_set.__ht_val_size, (size_t) 0, "%zu");
 
         for (size_t i = 0; i < nums; ++i) {
             mp_Sb key;
@@ -39,7 +39,7 @@ int main(void) {
     {
         mp_Int_Set int_set;
         mp_hsi_init(&int_set, mp_heap());
-        expect_eq(int_set.val_size, (size_t) 0, "%zu");
+        expect_eq(int_set.__hti_val_size, (size_t) 0, "%zu");
 
         for (size_t i = 0; i < nums; ++i) {
             size_t key = i / 2;

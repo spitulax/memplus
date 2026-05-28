@@ -6,6 +6,7 @@ set -uo pipefail
 QUIET=${QUIET:-}
 WINDOWS=${WINDOWS:-}
 COMPILER=${COMPILER:-clang}
+SANITIZER=${SANITIZER:-1}
 if [[ $WINDOWS -eq 1 ]]; then
     CSTD=${CSTD:-c11}
 else
@@ -14,6 +15,10 @@ fi
 export WINEDEBUG=-all
 
 CCARGS="-x c -std=$CSTD -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb -Og"
+if [[ $SANITIZER -eq 1 ]]; then
+    CCARGS+=" -fsanitize=address -fsanitize=undefined"
+fi
+
 # MSVC does not have c99 option
 MSVCARGS="/nologo /std:$CSTD /I. /I.. /TC"
 
