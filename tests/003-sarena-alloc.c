@@ -5,8 +5,7 @@
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 
-#define align(a)      (__MP_DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
-#define align_down(a) (((a) / sizeof(uintptr_t)) * sizeof(uintptr_t))
+#define align(a) (__MP_DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
 
 void test(mp_Alloc alloc, mp_Temp *arena) {
     // First allocation
@@ -64,7 +63,7 @@ int main(void) {
     char    buf[1050];
     mp_temp_init(&t_arena, buf, sizeof(buf));
     mp_Alloc t_alloc = mp_temp_alloc(&t_arena);
-    expect_eq(t_arena.cap, (size_t) align_down(1050), "%zu");
+    expect_eq(t_arena.cap, (size_t) align(1050), "%zu");
     test(t_alloc, &t_arena);
 
     {

@@ -2477,7 +2477,6 @@ struct __mp_Int_Set_Iter {
  * \{
  */
 
-
 /**
  * \defgroup GrowingArenaAllocator Growing Arena Allocator
  *
@@ -2499,124 +2498,140 @@ struct __mp_Int_Set_Iter {
  * \{
  */
 
-// Default size of a single region in bytes.
 /*
+ * Default size of a single region in bytes.
+ *
  * The value will be aligned to the nearest multiple of `sizeof(uintptr_t)`.
  */
 #ifndef __MP_REGION_DEFAULT_SIZE
     #define __MP_REGION_DEFAULT_SIZE (64 * 1024)
 #endif
 
-/// Forward declaration of \ref mp_Region.
+/**
+ * \brief Forward declaration of \ref mp_Region.
+ */
 typedef struct mp_Region mp_Region;
 
-/// Linked list element that holds certain size of allocated memory managed by \ref mp_Arena.
+/**
+ * \brief Linked list element that holds certain size of allocated memory managed by \ref mp_Arena.
+ */
 struct mp_Region {
     /// The next region in linked list if any.
     mp_Region *next;
-    /// The amount of data (in bytes) used.
+    /// The amount of data used in bytes.
     size_t len;
-    /// The amount of data (in bytes) allocated.
+    /// The amount of data allocated in bytes.
     size_t cap;
-    /// The data (aligned to the `sizeof(uintptr_t)`).
+    /// The data aligned to `sizeof(uintptr_t)`.
     uintptr_t data[];
 };
 
-/// Allocates a new region with \a cap bytes of size using \a alloc.
 /**
+ * \brief Allocates a region with \a cap bytes of size using \a alloc.
+ *
  * \a cap will be **rounded up** to the nearest multiple of `sizeof(uintptr_t)`.
  *
  * Deinit with \ref mp_region_deinit.
  *
- * \param alloc The backing allocator used to allocate the memory
- * \param cap How many bytes to allocates
- * \return The pointer to the allocated region
+ * \param alloc backing allocator
+ * \param cap how many bytes to allocate
+ * \return pointer to the allocated region
  */
 mp_Region *mp_region_new(mp_Alloc alloc, size_t cap);
 
-/// Frees a region.
 /**
- * \param r The region to free (deinitialized by this)
- * \param alloc The backing allocator that allocated the memory
+ * \brief Deinitializes a region.
+ *
+ * \param r region (deinitialized by this)
+ * \param alloc backing allocator of \a r
  */
 void mp_region_deinit(mp_Region *r, mp_Alloc alloc);
 
-/// The internal context of growing arena allocators, manages regions in a linked list.
+/**
+ * \brief The internal context of growing arena allocators, manages regions in a linked list.
+ */
 typedef struct {
     /// The first element of the region linked list.
     mp_Region *begin;
     /// The last element of the region linked list.
     mp_Region *end;
-    /// The amount of data used (in bytes, aligned to `sizeof(uintptr_t)`).
+    /// The amount of data used in bytes, aligned to `sizeof(uintptr_t)`.
     size_t len;
     /// The backing allocator, allocator used to allocate the regions.
     mp_Alloc alloc;
-    /// The default size of regions allocated by this arena.
+    /// The default size of regions allocated by this arena in bytes.
     size_t _def_size;
 } mp_Arena;
 
-/// Creates a new, unallocated arena using \a alloc as the backing allocator.
 /**
+ * \brief Initializes \a a using \a alloc as the backing allocator.
+ *
  * The arena will not allocate anything until the first operation that allocates.
  *
  * Deinit with \ref mp_arena_deinit.
  *
- * \param a (mp_Arena *) The arena (initialized by this)
- * \param alloc (mp_Alloc) The backing allocator
+ * \param a (mp_Arena *) arena (initialized by this)
+ * \param alloc (mp_Alloc) backing allocator
  */
 #define mp_arena_init(/* mp_Arena* */ a, /* mp_Alloc */ alloc)                                     \
     mp_arena_init_s((a), (alloc), __MP_REGION_DEFAULT_SIZE)
 
-/// The same as \ref mp_arena_init but accepts a custom default size for regions.
 /**
+ * \brief Same as \ref mp_arena_init but accepts default size for regions.
+ *
  * See \ref mp_arena_init.
  *
- * Regions will be allocated with \a def_size size.
+ * Regions will be allocated with \a def_size bytes of size.
  *
- * \param a The arena (initialized by this)
- * \param alloc The backing allocator
- * \param def_size The size of regions
+ * \param a arena (initialized by this)
+ * \param alloc backing allocator
+ * \param def_size size of regions in bytes
  */
 void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size);
 
-/// Sets an arena length to 0, but does not free allocated regions.
 /**
+ * \brief Sets the length of \a a to 0, but does not free allocated regions.
+ *
  * This resets the arena to "initial condition" but without actually freeing the data.
  *
- * \param a The arena
+ * \param a arena
  */
 void mp_arena_reset(mp_Arena *a);
 
-/// Frees an arena and its regions.
 /**
- * The free will be performed using the arena's backing allocator.
+ * \brief Deinitializes \a a and its regions.
  *
- * \param a The arena (deinitialized by this)
+ * The freeing will be performed using the arena's backing allocator.
+ *
+ * \param a arena (deinitialized by this)
  */
 void mp_arena_deinit(mp_Arena *a);
 
-/// Returns an allocator that works with \ref mp_Arena.
 /**
- * \param a The arena
- * \return The allocator interface
+ * \brief Returns an allocator that works with \a a.
+ *
+ * \param a arena
+ * \return allocator interface
  */
 mp_Alloc mp_arena_alloc(mp_Arena *a);
 
-/// Gets the position after the last element.
 /**
+ * \brief Gets the position after the last element.
+ *
  * Used in conjunction with \ref mp_arena_rewind.
  *
- * \param a The arena
- * \return The pointer (as number) to the end of the last element
+ * \param a arena
+ * \return pointer (as number) to the end of the last element
  */
 uintptr_t mp_arena_mark(const mp_Arena *a);
 
-/// Sets the pointer to the end of the last element to \a mark.
 /**
+ * \brief Sets the pointer to the end of the last element to \a mark.
+ *
  * \a mark can be obtained via \ref mp_arena_mark.
  *
- * \param a The arena
- * \param mark The mark
+ * \param a arena
+ * \param mark marker (pointer to the end of the last element)
  */
 void mp_arena_rewind(mp_Arena *a, uintptr_t mark);
 
@@ -2643,74 +2658,80 @@ void mp_arena_rewind(mp_Arena *a, uintptr_t mark);
  * \{
  */
 
-/// The internal context of static arena allocators.
+/**
+ * \brief The internal context of static arena allocators.
+ */
 typedef struct {
-    /// The arena buffer (of size \a cap).
+    /// The arena buffer of size \a cap.
     uintptr_t *buf;
-    /// The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    /// The amount of data in bytes used, aligned to `sizeof(uintptr_t)`.
     size_t len;
-    /// The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    /// The amount of data in bytes allocated, aligned to `sizeof(uintptr_t)`.
     size_t cap;
     /// The backing allocator, allocator used to allocate \a buf.
     mp_Alloc alloc;
 } mp_Sarena;
 
-/// Initializes and allocates a static arena of size \a cap in bytes.
 /**
+ * \brief Initializes \a a and allocates the buffer of size \a cap bytes.
+ *
  * \a cap will be **rounded up** to the nearest multiple of `sizeof(uintptr_t)`.
  *
- * The arena's buffer will be immediately allocated.
+ * The arena's buffer is immediately allocated.
  *
- * \a a->buf is NULL if allocation failed.
+ * \a a->buf == NULL if allocation failed.
  *
  * Deinit with \ref mp_sarena_deinit.
  *
- * \param a The arena (initialized by this)
- * \param alloc The backing allocator
- * \param cap How many bytes to allocate
+ * \param a arena (initialized by this)
+ * \param alloc backing allocator
+ * \param cap how many bytes to allocate
  */
 void mp_sarena_init(mp_Sarena *a, mp_Alloc alloc, size_t cap);
 
-/// Sets an arena length to 0, but does not free the allocated buffer.
 /**
+ * \brief Sets the length of \a a to 0, but does not free the allocated buffer.
+ *
  * This resets the arena to "initial condition" but without actually freeing the data.
  *
- * \param a The arena
+ * \param a arena
  */
 void mp_sarena_reset(mp_Sarena *a);
 
-/// Frees an arena and its buffer.
 /**
+ * \brief Deinitializes \a a and its buffer.
+ *
  * The free will be performed using the arena's backing allocator.
  *
- * \param a The arena (deinitialized by this)
+ * \param a arena (deinitialized by this)
  */
 void mp_sarena_deinit(mp_Sarena *a);
 
-/// Returns an allocator that works with \ref mp_Sarena.
 /**
- * Returns an invalid allocator if \a a->buf is NULL.
+ * \brief Returns an allocator that works with \a a.
  *
- * \param a The arena
- * \return The allocator interface
+ * \param a arena
+ * \return allocator interface, \ref mp_alloc_invalid "invalid allocator" if \a a->buf is NULL
  */
 mp_Alloc mp_sarena_alloc(mp_Sarena *a);
 
-/// Gets the position after the last element.
 /**
+ * \brief Gets the position after the last element.
+ *
  * Used in conjunction with \ref mp_sarena_rewind.
  *
- * \param a The arena
- * \return The pointer (as number) to the end of the last element
+ * \param a arena
+ * \return pointer (as number) to the end of the last element
  */
 uintptr_t mp_sarena_mark(const mp_Sarena *a);
 
-/// Sets the pointer to the end of the last element to \a mark.
 /**
+ * \brief Sets the pointer to the end of the last element to \a mark.
+ *
  * \a mark can be obtained via \ref mp_sarena_mark.
  *
- * \param a The arena
- * \param mark The mark
+ * \param a arena
+ * \param mark marker (pointer to the end of the last element)
  */
 void mp_sarena_rewind(mp_Sarena *a, uintptr_t mark);
 
@@ -2736,31 +2757,35 @@ void mp_sarena_rewind(mp_Sarena *a, uintptr_t mark);
  * \{
  */
 
-/// The internal context of temp allocators.
+/**
+ * \brief The internal context of temp allocators.
+ */
 typedef struct {
-    /// The arena buffer (of size \a cap).
+    /// The arena buffer of size \a cap bytes.
     uintptr_t *buf;
-    /// The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    /// The amount of data in bytes used, aligned to `sizeof(uintptr_t)`.
     size_t len;
-    /// The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    /// The amount of data in bytes allocated, aligned to `sizeof(uintptr_t)`.
     size_t cap;
 } mp_Temp;
 
-/// Shortcut for defining and initializing a temp allocator.
 /**
- * Will initialize an \ref mp_Temp 1024 bytes in size.
+ * \brief Shortcut for defining and initializing a temp allocator.
+ *
+ * Will initialize a \ref mp_Temp "temp allocator" 1024 bytes in size.
  *
  * Defines `temp_alloc` variable for the current scope.
  */
 #define mp_talloc() mp_talloc_s(1024)
 
-/// Shortcut for defining and initializing a temp allocator \a size bytes in size.
 /**
- * Will initialize an \ref mp_Temp \a size bytes in size.
+ * \brief Shortcut for defining and initializing a temp allocator \a size bytes in size.
+ *
+ * Will initialize a \ref mp_Temp "temp allocator" \a size bytes in size.
  *
  * Defines `temp_alloc` variable for the current scope.
  *
- * \param size (size_t) The size of the temp buffer (in bytes)
+ * \param size (size_t) size of buffer in bytes
  */
 #define mp_talloc_s(/* size_t */ size)                                                             \
     char    __mp_tempbuf[(size)];                                                                  \
@@ -2768,49 +2793,54 @@ typedef struct {
     mp_temp_init(&__mp_temp, __mp_tempbuf, (size));                                                \
     mp_Alloc temp_alloc = mp_temp_alloc(&__mp_temp);
 
-/// Initializes a temp allocator with \a buf of size \a cap (in bytes).
 /**
- * \a cap should be an multiple of `sizeof(uintptr_t)`.
- * If not, the actual \a cap will **round down** to the nearest multiple.
+ * \brief Initializes \a t with \a buf of size \a cap bytes.
  *
- * \param t The temp arena (initialized by this)
- * \param buf The buffer
- * \param cap The size of \a buf (in bytes)
+ * \a cap should be an multiple of `sizeof(uintptr_t)`.
+ * If not, the actual \a cap will **round up** to the nearest multiple.
+ *
+ * \param t temp arena (initialized by this)
+ * \param buf buffer
+ * \param cap size of \a buf in bytes
  */
 void mp_temp_init(mp_Temp *t, char *buf, size_t cap);
 
-/// Sets an arena length to 0, but does not deinitialize the buffer.
 /**
+ * \brief Sets the length of \a t to 0, but does not deinitialize the buffer.
+ *
  * This resets the arena to "initial condition" but without actually freeing the data.
  *
- * \param t The temp arena
+ * \param t temp arena
  */
 void mp_temp_reset(mp_Temp *t);
 
-/// Returns an allocator that works with \ref mp_Temp.
 /**
- * \param t The temp arena
- * \return The allocator interface
+ * \brief Returns an allocator that works with \a t.
+ *
+ * \param t temp arena
+ * \return allocator interface, \ref mp_alloc_invalid "invalid allocator" if \a a->buf is NULL
  */
 mp_Alloc mp_temp_alloc(mp_Temp *t);
 
-/// Gets the position after the last element.
 /**
+ * \brief Gets the position after the last element.
+ *
  * Used in conjunction with \ref mp_temp_rewind.
  *
- * \param a The temp arena
- * \return The pointer (as number) to the end of the last element
+ * \param t temp arena
+ * \return pointer (as number) to the end of the last element
  */
-uintptr_t mp_temp_mark(const mp_Sarena *a);
+uintptr_t mp_temp_mark(const mp_Temp *t);
 
-/// Sets the pointer to the end of the last element to \a mark.
 /**
+ * \brief Sets the pointer to the end of the last element to \a mark.
+ *
  * \a mark can be obtained via \ref mp_temp_mark.
  *
- * \param a The temp arena
- * \param mark The mark
+ * \param t temp arena
+ * \param mark marker (pointer to the end of the last element)
  */
-void mp_temp_rewind(mp_Sarena *a, uintptr_t mark);
+void mp_temp_rewind(mp_Temp *t, uintptr_t mark);
 
 /// \}
 
@@ -2826,14 +2856,17 @@ void mp_temp_rewind(mp_Sarena *a, uintptr_t mark);
  * \{
  */
 
-/// Returns an allocator that works with the heap.
 /**
- * \return The allocator interface
+ * \brief Alias to \ref mp_heap_alloc.
+ */
+#define mp_heap() mp_heap_alloc()
+
+/**
+ * \brief Returns an allocator that works with the heap.
+ *
+ * \return allocator interface
  */
 mp_Alloc mp_heap_alloc(void);
-
-/// Alias to \ref mp_heap_alloc.
-#define mp_heap() mp_heap_alloc()
 
 /// \}
 
@@ -4201,7 +4234,7 @@ void mp_temp_init(mp_Temp *t, char *buf, size_t cap) {
     memset(buf, 0, cap);
     t->buf = (uintptr_t *) buf;
     t->len = 0;
-    t->cap = __MP_ALIGN_DOWN(cap, sizeof(uintptr_t));
+    t->cap = __MP_ALIGN(cap, sizeof(uintptr_t));
 }
 
 void mp_temp_reset(mp_Temp *t) {
@@ -4209,15 +4242,18 @@ void mp_temp_reset(mp_Temp *t) {
 }
 
 mp_Alloc mp_temp_alloc(mp_Temp *t) {
+    if (t->buf == NULL) {
+        return mp_alloc_invalid();
+    }
     return mp_alloc_new(t, mp_sarena_alloc_func);
 }
 
-uintptr_t mp_temp_mark(const mp_Sarena *a) {
-    return mp_sarena_mark(a);
+uintptr_t mp_temp_mark(const mp_Temp *t) {
+    return (uintptr_t) (char *) t->buf + t->len;
 }
 
-void mp_temp_rewind(mp_Sarena *a, uintptr_t mark) {
-    mp_sarena_rewind(a, mark);
+void mp_temp_rewind(mp_Temp *t, uintptr_t mark) {
+    t->len = mark - (uintptr_t) t->buf;
 }
 
 mp_Alloc mp_heap_alloc(void) {
