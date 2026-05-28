@@ -3335,42 +3335,46 @@ const char *mp_err_str(mp_Err e);
 // - mp_dir_copy_recursive
 // - Directory iterator
 
-/// Reads the contents of a file at \a file_path to \a out_str.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Reads the contents of file at \a file_path to \a out_str.
  *
- * \param[out] out_str The contents of the file (initialized by this)
- * \param file_path The path to the file
- * \param alloc The allocator allocating \a out_str
- * \return The error if occurs, MP_ERR_NONE if successful
+ * Deinit \a out_str with \ref mp_str_deinit.
+ *
+ * \param[out] out_str destination of file contents (initialized by this)
+ * \param file_path path to file
+ * \param alloc allocator allocating \a out_str
+ * \return MP_ERR_NONE if successful, an error if failed
  */
 mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc);
 
-/// Writes data into a file at \a file_path.
 /**
- * \param file_path The path to the file
- * \param data The data
- * \param data_size The size of \a data (in bytes)
- * \param append Whether to write from the end (append) or from the beginning (truncate)
- * \return The error if occurs, MP_ERR_NONE if successful
+ * \brief Writes data into file at \a file_path.
+ *
+ * \param file_path path to file
+ * \param data data to write
+ * \param data_size size of \a data in bytes
+ * \param append whether to write from the end (append) or from the beginning (truncate)
+ * \return MP_ERR_NONE if successful, an error if failed
  */
 mp_Err mp_file_write(const char *file_path, const char *data, size_t data_size, bool append);
 
-/// Creates a file at \a file_path.
 /**
+ * \brief Creates a file at \a file_path.
+ *
  * The created file will be readable and writeable if permitted.
  *
- * \param file_path The path to the file
- * \return The error if occurs, MP_ERR_NONE if successful
+ * \param file_path path to file
+ * \return MP_ERR_NONE if successful, an error if failed
  */
 mp_Err mp_file_create(const char *file_path);
 
-/// Deletes a file at \a file_path.
 /**
+ * \brief Deletes a file at \a file_path.
+ *
  * Also works on symbolic links and empty directory.
  *
- * \param file_path The path to the file
- * \return The error if occurs, MP_ERR_NONE if successful
+ * \param file_path path to file
+ * \return MP_ERR_NONE if successful, an error if failed
  */
 mp_Err mp_file_delete(const char *file_path);
 
@@ -4867,7 +4871,7 @@ mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
     buf[size] = '\0';
 
     *out_str = (mp_Str) {
-        .cstr = buf,
+        .data = buf,
         .len  = size,
     };
 

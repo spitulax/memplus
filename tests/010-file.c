@@ -11,7 +11,7 @@ int main(void) {
         mp_Err err = mp_file_read(&text, ".hello.txt", temp_alloc);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
         expect_eq(text.len, (size_t) 14, "%zu");
-        expect_streq(text.cstr, "Hello, World!\n");
+        expect_streq(text.data, "Hello, World!\n");
     }
 
     // File create, write, delete
@@ -27,20 +27,20 @@ int main(void) {
         err = mp_file_create(path);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
 
-        err = mp_file_write(path, data.cstr, data.len, false);
+        err = mp_file_write(path, data.data, data.len, false);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
 
         mp_Str text;
         err = mp_file_read(&text, path, temp_alloc);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
-        expect_streq(text.cstr, "Foobarbazquux");
+        expect_streq(text.data, "Foobarbazquux");
 
-        err = mp_file_write(path, data.cstr, data.len, true);
+        err = mp_file_write(path, data.data, data.len, true);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
 
         err = mp_file_read(&text, path, temp_alloc);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
-        expect_streq(text.cstr, "FoobarbazquuxFoobarbazquux");
+        expect_streq(text.data, "FoobarbazquuxFoobarbazquux");
 
         err = mp_file_delete(path);
         expect_erreq(err, MP_ERR_NONE, mp_err_str);
