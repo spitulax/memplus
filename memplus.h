@@ -292,6 +292,8 @@ typedef enum {
  *     Reallocates a block of memory, i.e. allocates new block, copies over the data from the old
  *     block to the new block then frees the old block. Returns the pointer to the new block.
  *
+ *     If \a ptr == NULL, does **MP_ALLOC_OP_ALLOC** instead and ignores \a old_size.
+ *
  *     **Notes**
  *     - If \a old_size <= \a new_size, reallocation does not happen and the function just returns
  * \a ptr.
@@ -369,7 +371,7 @@ typedef struct {
  * Calls allocator function with **MP_ALLOC_OP_REALLOC**.
  *
  * \param alloc (\ref mp_Alloc) allocator (no side effects)
- * \param old_ptr (void *) pointer to the block to be reallocated
+ * \param old_ptr (void *) pointer to the block to be reallocated (nullable)
  * \param old_size (size_t) size of block in bytes
  * \param new_size (size_t) size of new allocated block in bytes
  * \return (void *) pointer to newly allocated block of memory, NULL if allocation failed
@@ -3390,6 +3392,10 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size) {
 }
 
 void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size) {
+    if (old_ptr == NULL) {
+        return mp_alloc(alloc, new_size);
+    }
+
     if (new_size == 0) {
         return NULL;
     }
@@ -3672,10 +3678,14 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (!mp_str_is_valid(e->key)) {
                 e->key = mp_str_clone(k, self->alloc);
-                memcpy(&e->val, v, self->__ht_val_size);
+                if (v != NULL) {
+                    memcpy(&e->val, v, self->__ht_val_size);
+                }
                 break;
             } else if (mp_str_eq(e->key, k)) {
-                memcpy(&e->val, v, self->__ht_val_size);
+                if (v != NULL) {
+                    memcpy(&e->val, v, self->__ht_val_size);
+                }
                 --self->len;
                 break;
             } else {
@@ -3910,10 +3920,14 @@ void __mp_hti_set(void *ht, size_t k, void *v) {
                     .key   = k,
                     .valid = true,
                 };
-                memcpy(&e->val, v, self->__hti_val_size);
+                if (v != NULL) {
+                    memcpy(&e->val, v, self->__hti_val_size);
+                }
                 break;
             } else if (e->key.key == k) {
-                memcpy(&e->val, v, self->__hti_val_size);
+                if (v != NULL) {
+                    memcpy(&e->val, v, self->__hti_val_size);
+                }
                 --self->len;
                 break;
             } else {
