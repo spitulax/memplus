@@ -10,15 +10,15 @@ int main(void) {
 
     mp_sb_append(&sb, mp_str("Hello, World!"));
     expect_eq(sb.len, (size_t) 13, "%zu");
-    expect_memeq(sb.data, "Hello, World!", 13);
+    expect_streq_mp_s(sb, "Hello, World!");
 
     mp_sb_appendf(&sb, " %d", 67);
     expect_eq(sb.len, (size_t) 16, "%zu");
-    expect_memeq(sb.data, "Hello, World! 67", 16);
+    expect_streq_mp_s(sb, "Hello, World! 67");
 
     mp_da_append(&sb, (char) 10);
     expect_eq(sb.len, (size_t) 17, "%zu");
-    expect_memeq(sb.data, "Hello, World! 67\n", 16);
+    expect_streq_mp_s(sb, "Hello, World! 67\n");
 
     // Other functions should work like dynamic arrays, I hope
 
@@ -31,14 +31,14 @@ int main(void) {
     mp_sb_init_with(&sb, mp_str("hello"), alloc);
     expect_eq(sb.len, (size_t) 5, "%zu");
     expect_eq(sb.cap, (size_t) 5, "%zu");
-    expect_memeq(sb.data, "hello", 5);
+    expect_streq_mp_s(sb, "hello");
 
     mp_sb_deinit(&sb);
 
     mp_sb_init_withf(&sb, alloc, "hello %d", 13);
     expect_eq(sb.len, (size_t) 8, "%zu");
     expect_eq(sb.cap, (size_t) 9, "%zu");
-    expect_memeq(sb.data, "hello 13", 8);
+    expect_streq_mp_s(sb, "hello 13");
 
     mp_sb_deinit(&sb);
 

@@ -1079,6 +1079,35 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
     } while (0)
 void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 
+/**
+ * \brief Tests whether both dynamic array \a a and \a b contain the same items.
+ *
+ * Only \a len and \a data are compared.
+ *
+ * \param a (const Dyn_Array *) array (no side effects)
+ * \param b (const Dyn_Array *) array (no side effects)
+ * \return (bool) whether \a a and \a b contain the same items.
+ */
+#define /* bool */ mp_da_eq(/* const Dyn_Array* */ a, /* const Dyn_Array* */ b)                    \
+    ((void) (a)->__da_item_size, (void) (b)->__da_item_size,                                       \
+     (a)->__da_item_size == (b)->__da_item_size && (a)->len == (b)->len                            \
+         && memcmp((a)->data, (b)->data, (a)->len * (a)->__da_item_size) == 0)
+
+/**
+ * \brief Tests whether dynamic array \a a contains the same items as array \a b.
+ *
+ * Only \a len and \a data are compared with \a b.
+ *
+ * \param a (const Dyn_Array *) dynamic array (no side effects)
+ * \param b (const Any *) array
+ * \param size (size_t) size of \a b in bytes
+ * \return (bool) whether \a a and \a b contain the same items.
+ */
+#define /* bool */ mp_da_eq_a(/* const Dyn_Array* */ a, /* const Any* */ b, /* size_t */ size)     \
+    ((void) (a)->__da_item_size,                                                                   \
+     (a)->len * (a)->__da_item_size == (size)                                                      \
+         && memcmp((a)->data, (b), (a)->len * (a)->__da_item_size) == 0)
+
 /// \}
 
 /***********
