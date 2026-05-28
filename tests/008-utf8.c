@@ -13,20 +13,20 @@ int main(void) {
     expect_eq((size_t) strlen(all_kinds), (size_t) 34, "%zu");
     expect_eq(mp_utf8_len(all_kinds), (size_t) 15, "%zu");
 
-    bool          valids[]     = { true,  true,  true,  true,  true, true,  true, true,
-                                   false, false, false, false, true, false, false };
-    unsigned int  codepoints[] = { 0x20, 0x61, 0x62, 0xAD6D, 0xA9A7, 0x11A00, 0x9B48, 0x10FF80,
-                                   0x0,  0x0,  0x0,  0x0,    0x20,   0x0,     0x0 };
-    unsigned char sizes[]      = { 1, 1, 1, 3, 3, 4, 3, 4, 1, 1, 2, 2, 1, 4, 3 };
-    size_t        size         = strlen(all_kinds);
-    size_t        size_copy    = size;
-    mp_Utf8_Char  c;
-    size_t        i = 0;
+    bool              valids[]     = { true,  true,  true,  true,  true, true,  true, true,
+                                       false, false, false, false, true, false, false };
+    unsigned int      codepoints[] = { 0x20, 0x61, 0x62, 0xAD6D, 0xA9A7, 0x11A00, 0x9B48, 0x10FF80,
+                                       0x0,  0x0,  0x0,  0x0,    0x20,   0x0,     0x0 };
+    unsigned char     sizes[]      = { 1, 1, 1, 3, 3, 4, 3, 4, 1, 1, 2, 2, 1, 4, 3 };
+    size_t            size         = strlen(all_kinds);
+    size_t            size_copy    = size;
+    mp_Utf8_Char_Data c;
+    size_t            i = 0;
     while ((c = mp_utf8_take(&all_kinds, &size)).c != NULL) {
         bool valid = mp_utf8_char_is_valid(c);
         expect_eq(valid, valids[i], "%d");
         expect_eq(c.size, sizes[i], "%d");
-        mp_Utf8_Char ch = mp_utf8_char_s(c.c, c.size);
+        mp_Utf8_Char_Data ch = mp_utf8_char_s(c.c, c.size);
         if (valid) {
             expect_eq(c.codepoint, codepoints[i], "%d");
             expect_eq(c.size, ch.size, "%hhu");

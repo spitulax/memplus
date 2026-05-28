@@ -1101,9 +1101,9 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
  * \brief Holds a pointer to a string and its size (excluding the null-terminator if any).
  */
 typedef struct {
-    /// The length/size of the string (in bytes, excluding the null-terminator).
+    /// Length/size of the string (in bytes, excluding the null-terminator).
     size_t len;
-    /// The pointer to the first character.
+    /// Pointer to the first character.
     const char *data;
 } mp_Str;
 
@@ -1154,7 +1154,7 @@ typedef struct {
     })
 
 /**
- * \brief Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` format specifier.
+ * \brief Shortcut for printing a \ref mp_Utf8_Char_Data, use with `%.*s` format specifier.
  *
  * \param str (\ref mp_Str) string (no side effects)
  */
@@ -1552,7 +1552,7 @@ typedef struct {
  *
  * \param type ("Type") hash table type name
  * \param ht (Str_Hash_Table *) hash table (initialized by this)
- * \param alloc (mp_Alloc) allocator to manage \a ht
+ * \param alloc (\ref mp_Alloc) allocator to manage \a ht
  */
 #define mp_ht_init(/* "Type" */ type, /* Str_Hash_Table* */ ht, /* mp_Alloc */ alloc)              \
     do {                                                                                           \
@@ -1590,7 +1590,7 @@ void __mp_ht_deinit(void *ht);
  * See \ref mp_ht_get.
  *
  * \param ht (const Str_Hash_Table *) hash table
- * \param k (mp_Str) key
+ * \param k (\ref mp_Str) key
  * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_ht_get_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                    \
@@ -1617,7 +1617,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
  * See \ref mp_ht_set.
  *
  * \param ht (Str_Hash_Table *) hash table (no side effects)
- * \param k (mp_Str) key
+ * \param k (\ref mp_Str) key
  * \param v (Type) value to be stored
  */
 #define mp_ht_set_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                        \
@@ -1648,7 +1648,7 @@ void __mp_ht_set(void *ht, mp_Str k, void *v);
  * See \ref mp_ht_exists.
  *
  * \param ht (const Str_Hash_Table *) hash table
- * \param k (mp_Str) key
+ * \param k (\ref mp_Str) key
  * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_ht_exists_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                  \
@@ -1713,7 +1713,7 @@ void __mp_ht_reset(void *ht);
  * See \ref mp_ht_delete.
  *
  * \param ht (Str_Hash_Table *) hash table
- * \param k (mp_Str) key
+ * \param k (\ref mp_Str) key
  */
 #define mp_ht_delete_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k)                                   \
     do {                                                                                           \
@@ -1730,7 +1730,7 @@ void __mp_ht_delete(void *ht, mp_Str k);
  *
  * \param dest (Str_Hash_Table *) destination of the clone (initialized by this)
  * \param src (const Str_Hash_Table *) source hash table
- * \param alloc (mp_Alloc) allocator to manage \a dest
+ * \param alloc (\ref mp_Alloc) allocator to manage \a dest
  */
 #define mp_ht_clone(/* Str_Hash_Table* */ dest, /* const Str_Hash_Table* */ src,                   \
                     /* mp_Alloc */ alloc)                                                          \
@@ -1770,7 +1770,7 @@ void mp_ht_keys_deinit(mp_Ht_Keys *keys);
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
  * \param ht (const Str_Hash_Table *) hash table
- * \param keys (mp_Ht_Keys *) destination of keys (must be initialized first)
+ * \param keys (\ref mp_Ht_Keys *) destination of keys (must be initialized first)
  */
 #define mp_ht_keys(/* const Str_Hash_Table* */ ht, /* mp_Ht_Keys* */ keys)                         \
     do {                                                                                           \
@@ -1823,7 +1823,7 @@ void __mp_ht_iter_init(void *it, const void *ht);
  * To use hash table iterators, see \ref HashTableString.
  *
  * \param it (Str_Hash_Table_Iter *) iterator
- * \return (bool) whether it is valid to access
+ * \return (bool) whether it is valid to access the value
  */
 #define /* bool */ mp_ht_iter_next(/* Str_Hash_Table_Iter* */ it)                                  \
     ((void) (it)->__mp_str_ht_iter_marker, __mp_ht_iter_next(it))
@@ -1882,7 +1882,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  *
  * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Str_Set *) hash set (initialized by this)
+ * \param hs (\ref mp_Str_Set *) hash set (initialized by this)
  * \param alloc (mp_Alloc) allocator to manage \a hs
  */
 #define mp_hs_init(/* mp_Str_Set* */ hs, /* mp_Alloc */ alloc)                                     \
@@ -1894,7 +1894,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
 /**
  * \brief Deinitializes \a hs.
  *
- * \param hs (mp_Str_Set *) hash set (deinitialized by this)
+ * \param hs (\ref mp_Str_Set *) hash set (deinitialized by this)
  */
 #define mp_hs_deinit(/* mp_Str_Set* */ hs)                                                         \
     do {                                                                                           \
@@ -1909,7 +1909,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  *
  * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Str_Set *) hash set
+ * \param hs (\ref mp_Str_Set *) hash set
  * \param k (const char *) key
  */
 #define mp_hs_set(/* mp_Str_Set* */ hs, /* const char* */ k) mp_hs_set_s((hs), mp_str(k))
@@ -1919,8 +1919,8 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  *
  * See \ref mp_hs_set.
  *
- * \param hs (mp_Str_Set *) hash set
- * \param k (mp_Str) key
+ * \param hs (\ref mp_Str_Set *) hash set
+ * \param k (\ref mp_Str) key
  */
 #define mp_hs_set_s(/* mp_Str_Set* */ hs, /* mp_Str */ k)                                          \
     do {                                                                                           \
@@ -2148,7 +2148,7 @@ typedef struct {
  *
  * \param type ("Type") hash table type name
  * \param ht (Int_Hash_Table *) hash table (initialized by this)
- * \param alloc (mp_Alloc) allocator to manage \a ht
+ * \param alloc (\ref mp_Alloc) allocator to manage \a ht
  */
 #define mp_hti_init(/* "Type" */ type, /* Int_Hash_Table* */ ht, /* mp_Alloc */ alloc)             \
     do {                                                                                           \
@@ -2272,7 +2272,7 @@ void __mp_hti_delete(void *ht, size_t k);
  *
  * \param dest (Str_Hash_Table *) destination of the clone (initialized by this)
  * \param src (const Str_Hash_Table *) source hash table
- * \param alloc (mp_Alloc) allocator to manage \a dest
+ * \param alloc (\ref mp_Alloc) allocator to manage \a dest
  */
 #define mp_hti_clone(/* Int_Hash_Table* */ dest, /* const Int_Hash_Table* */ src,                  \
                      /* mp_Alloc */ alloc)                                                         \
@@ -2304,7 +2304,7 @@ __mp_da_struct(size_t, __mp_Hti_Keys);
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
  * \param ht (const Int_Hash_Table *) hash table
- * \param keys (mp_Hti_Keys *) destination of keys (must be initialized first)
+ * \param keys (\ref mp_Hti_Keys *) destination of keys (must be initialized first)
  */
 #define mp_hti_keys(/* const IntHashTable* */ ht, /* mp_Hti_Keys* */ keys)                         \
     do {                                                                                           \
@@ -2357,7 +2357,7 @@ void __mp_hti_iter_init(void *it, const void *ht);
  * To use hash table iterators, see \ref HashTableInt.
  *
  * \param it (Int_Hash_Table_Iter *) iterator
- * \return (bool) whether it is valid to access
+ * \return (bool) whether it is valid to access the value
  */
 #define /* bool */ mp_hti_iter_next(/* Int_Hash_Table_Iter* */ it)                                 \
     ((void) (it)->__mp_int_ht_iter_marker, __mp_hti_iter_next(it))
@@ -2412,7 +2412,7 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  *
  * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Int_Set *) hash set (initialized by this)
+ * \param hs (\ref mp_Int_Set *) hash set (initialized by this)
  * \param alloc (mp_Alloc) allocator to manage \a hs
  */
 #define mp_hsi_init(/* mp_Int_Set* */ hs, /* mp_Alloc */ alloc)                                    \
@@ -2424,7 +2424,7 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 /**
  * \brief Deinitializes \a hs.
  *
- * \param hs (mp_Int_Set *) hash set (deinitialized by this)
+ * \param hs (\ref mp_Int_Set *) hash set (deinitialized by this)
  */
 #define mp_hsi_deinit(/* mp_Int_Set* */ hs)                                                        \
     do {                                                                                           \
@@ -2437,7 +2437,7 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  *
  * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Int_Set *) hash set
+ * \param hs (\ref mp_Int_Set *) hash set
  * \param k (size_t) key
  */
 #define mp_hsi_set(/* mp_Int_Set* */ hs, /* size_t */ k)                                           \
@@ -2516,13 +2516,13 @@ typedef struct mp_Region mp_Region;
  * \brief Linked list element that holds certain size of allocated memory managed by \ref mp_Arena.
  */
 struct mp_Region {
-    /// The next region in linked list if any.
+    /// Next region in linked list if any.
     mp_Region *next;
-    /// The amount of data used in bytes.
+    /// Amount of data used in bytes.
     size_t len;
-    /// The amount of data allocated in bytes.
+    /// Amount of data allocated in bytes.
     size_t cap;
-    /// The data aligned to `sizeof(uintptr_t)`.
+    /// Data aligned to `sizeof(uintptr_t)`.
     uintptr_t data[];
 };
 
@@ -2551,15 +2551,15 @@ void mp_region_deinit(mp_Region *r, mp_Alloc alloc);
  * \brief The internal context of growing arena allocators, manages regions in a linked list.
  */
 typedef struct {
-    /// The first element of the region linked list.
+    /// First element of the region linked list.
     mp_Region *begin;
-    /// The last element of the region linked list.
+    /// Last element of the region linked list.
     mp_Region *end;
-    /// The amount of data used in bytes, aligned to `sizeof(uintptr_t)`.
+    /// Amount of data used in bytes, aligned to `sizeof(uintptr_t)`.
     size_t len;
-    /// The backing allocator, allocator used to allocate the regions.
+    /// Backing allocator, allocator used to allocate the regions.
     mp_Alloc alloc;
-    /// The default size of regions allocated by this arena in bytes.
+    /// Default size of regions allocated by this arena in bytes.
     size_t _def_size;
 } mp_Arena;
 
@@ -2570,8 +2570,8 @@ typedef struct {
  *
  * Deinit with \ref mp_arena_deinit.
  *
- * \param a (mp_Arena *) arena (initialized by this)
- * \param alloc (mp_Alloc) backing allocator
+ * \param a (\ref mp_Arena *) arena (initialized by this)
+ * \param alloc (\ref mp_Alloc) backing allocator
  */
 #define mp_arena_init(/* mp_Arena* */ a, /* mp_Alloc */ alloc)                                     \
     mp_arena_init_s((a), (alloc), __MP_REGION_DEFAULT_SIZE)
@@ -2662,13 +2662,13 @@ void mp_arena_rewind(mp_Arena *a, uintptr_t mark);
  * \brief The internal context of static arena allocators.
  */
 typedef struct {
-    /// The arena buffer of size \a cap.
+    /// Arena buffer of size \a cap.
     uintptr_t *buf;
-    /// The amount of data in bytes used, aligned to `sizeof(uintptr_t)`.
+    /// Amount of data in bytes used, aligned to `sizeof(uintptr_t)`.
     size_t len;
-    /// The amount of data in bytes allocated, aligned to `sizeof(uintptr_t)`.
+    /// Amount of data in bytes allocated, aligned to `sizeof(uintptr_t)`.
     size_t cap;
-    /// The backing allocator, allocator used to allocate \a buf.
+    /// Backing allocator, allocator used to allocate \a buf.
     mp_Alloc alloc;
 } mp_Sarena;
 
@@ -2761,11 +2761,11 @@ void mp_sarena_rewind(mp_Sarena *a, uintptr_t mark);
  * \brief The internal context of temp allocators.
  */
 typedef struct {
-    /// The arena buffer of size \a cap bytes.
+    /// Arena buffer of size \a cap bytes.
     uintptr_t *buf;
-    /// The amount of data in bytes used, aligned to `sizeof(uintptr_t)`.
+    /// Amount of data in bytes used, aligned to `sizeof(uintptr_t)`.
     size_t len;
-    /// The amount of data in bytes allocated, aligned to `sizeof(uintptr_t)`.
+    /// Amount of data in bytes allocated, aligned to `sizeof(uintptr_t)`.
     size_t cap;
 } mp_Temp;
 
@@ -2884,62 +2884,76 @@ mp_Alloc mp_heap_alloc(void);
  * \{
  */
 
-/// Value for invalid Unicode codepoint.
-#define MP_UTF8_INVALID_CODEPOINT ((unsigned int) -1)
-
-/// Stores a pointer to a character and its UTF-8 metadata.
-typedef struct {
-    /// The size of the character (in bytes, at most 4 bytes).
-    unsigned char size;
-    /// The Unicode codepoint of the character (\ref MP_UTF8_INVALID_CODEPOINT when invalid).
-    unsigned int codepoint;
-    /// The pointer to the start of the character.
-    const char *c;
-} mp_Utf8_Char;
-
-/// Returns an invalid \ref mp_Utf8_Char.
 /**
- * An invalid \ref mp_Utf8_Char requires that field \a codepoint is \ref MP_UTF8_INVALID_CODEPOINT.
+ * \brief Value for invalid Unicode codepoint.
+ */
+#define MP_UTF8_INVALID_CODEPOINT ((uint32_t) -1)
+
+/**
+ * \brief Stores a pointer to a character and its UTF-8 metadata.
+ */
+typedef struct {
+    /// Size of the character in bytes, at most 4 bytes.
+    uint8_t size;
+    /// Unicode codepoint of the character (\ref MP_UTF8_INVALID_CODEPOINT when invalid).
+    uint32_t codepoint;
+    /// Pointer to the start of the character.
+    const char *c;
+} mp_Utf8_Char_Data;
+
+/**
+ * \brief Returns an invalid \ref mp_Utf8_Char_Data.
  *
- * An invalid \ref mp_Utf8_Char only means that it is not a valid UTF-8 character, but the
+ * An invalid \ref mp_Utf8_Char_Data requires that field \a codepoint is \ref
+ * MP_UTF8_INVALID_CODEPOINT.
+ *
+ * An invalid \ref mp_Utf8_Char_Data only means that it is not a valid UTF-8 character, but the
  * underlying bytes may still exist and are accessible. Invalid does not always mean inacessible, so
  * `c` and `size` may still be usable.
  *
- * \param ch (const char *) The start of the error character (nullable)
- * \param sz (unsigned char) The size of the error character (should be zero if \a ch is NULL)
- * \return (mp_Utf8_Char) An invalid character
+ * \param ch (const char *) start of the error character (nullable)
+ * \param sz (uint8_t) size of the error character (should be zero if \a ch is NULL)
+ * \return (\ref mp_Utf8_Char_Data) invalid character
  */
-#define /* mp_Utf8_Char */ mp_utf8_char_invalid(/* const char* */ ch, /* unsigned char */ sz)      \
-    ((mp_Utf8_Char) {                                                                              \
+#define /* mp_Utf8_Char_Data */ mp_utf8_char_invalid(/* const char* */ ch, /* uint8_t */ sz)       \
+    ((mp_Utf8_Char_Data) {                                                                         \
         .size      = (sz),                                                                         \
-        .codepoint = (unsigned int) -1,                                                            \
+        .codepoint = (uint32_t) -1,                                                                \
         .c         = (ch),                                                                         \
     })
 
-/// Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` format specifier.
-#define mp_utf8_char_print(ch) (ch).size, (ch).c
-
-/// Tests whether an \ref mp_Utf8_Char is a valid UTF-8 character.
 /**
- * An invalid \ref mp_Utf8_Char requires that field \a codepoint is the maximum possible value of
- * `unsigned int`.
+ * \brief Shortcut for printing a \ref mp_Utf8_Char_Data, use with `%.*s` format specifier.
+ *
+ * \param ch (\ref mp_Utf8_Char_Data) character data
+ */
+#define mp_utf8_char_print(/* mp_Utf8_Char_Data */ ch) (ch).size, (ch).c
+
+/**
+ * \brief Tests whether \a ch is a valid UTF-8 character.
+ *
+ * An invalid \ref mp_Utf8_Char_Data requires that field \a codepoint is the maximum possible value
+ * of `uint32_t`.
  *
  * The bytes may still be accessible, test with \ref mp_utf8_char_is_accessible.
  *
- * \param c (mp_Utf8_Char) The character
- * \return (bool) Whether \a c is a valid UTF-8 character.
+ * \param ch (\ref mp_Utf8_Char_Data) character data
+ * \return (bool) whether \a ch is a valid UTF-8 character.
  */
-#define /* bool */ mp_utf8_char_is_valid(/* mp_Utf8_Char */ c) ((c).codepoint != (unsigned int) -1)
+#define /* bool */ mp_utf8_char_is_valid(/* mp_Utf8_Char_Data */ ch)                               \
+    ((ch).codepoint != (uint32_t) -1)
 
-/// Tests whether an \ref mp_Utf8_Char is accessible.
 /**
- * \param ch (mp_Utf8_Char) The charactr
- * \return (bool) Whether \a c is accessible
+ * \brief Tests whether an \a ch is accessible.
+ *
+ * \param ch (\ref mp_Utf8_Char_Data) character data
+ * \return (bool) whether \a ch is accessible
  */
-#define /* bool */ mp_utf8_char_is_accessible(/* mp_Utf8_Char */ ch) ((ch).c != NULL)
+#define /* bool */ mp_utf8_char_is_accessible(/* mp_Utf8_Char_Data */ ch) ((ch).c != NULL)
 
-/// Takes the first valid UTF-8 character or an error character from a string.
 /**
+ * \brief Takes the first valid UTF-8 character or an error character from a string.
+ *
  * After calling this function, \a str will point to the character after the retrieved character and
  * \a size is decremented according to the size of the retrieved character.
  *
@@ -2951,77 +2965,86 @@ typedef struct {
  * gets the required amount of bytes, or one of the bytes is not a valid byte. For more details see
  * <https://en.wikipedia.org/wiki/UTF-8#Error_handling>.
  *
- * \param str The pointer to the string
- * \param size The pointer to the size of \a str (in bytes)
- * \return The metadata about the character
+ * \param str pointer to string
+ * \param size pointer to size of \a str in bytes
+ * \return metadata of retrieved character
  */
-mp_Utf8_Char mp_utf8_take(const char **str, size_t *size);
+mp_Utf8_Char_Data mp_utf8_take(const char **str, size_t *size);
 
-/// Gets a \ref mp_Utf8_Char from a **null-terminated** string.
 /**
+ * \brief Gets a \ref mp_Utf8_Char_Data "character data" from \a c (null-terminated).
+ *
  * This function will only read the first UTF-8 character from \a c.
  *
- * Returns invalid \ref mp_Utf8_Char if \a c is not a valid UTF-8 character.
- *
- * \param c The string (**null-terminated**)
- * \return The character metadata
+ * \param c null-terminated string
+ * \return character data, \ref mp_utf8_char_invalid "invalid character data" if \a c is not a valid
+ * UTF-8 character.
  */
-mp_Utf8_Char mp_utf8_char(const char *c);
+mp_Utf8_Char_Data mp_utf8_char(const char *c);
 
-/// Gets a \ref mp_Utf8_Char from a string.
 /**
+ * \brief Gets a \ref mp_Utf8_Char_Data "character data" from \a c.
+ *
  * See \ref mp_utf8_char.
  *
- * \param c The string
- * \param size The size of \a str (in bytes)
- * \return The character metadata
+ * \param c string
+ * \param size size of \a str in bytes
+ * \return character data, \ref mp_utf8_char_invalid "invalid character data" if \a c is not a valid
+ * UTF-8 character.
  */
-mp_Utf8_Char mp_utf8_char_s(const char *c, size_t size);
+mp_Utf8_Char_Data mp_utf8_char_s(const char *c, size_t size);
 
-/// Calculate the amount of characters in a **null-terminated** UTF-8 string.
 /**
+ * \brief Calculates the amount of Unicode characters in \a str (null-terminated).
+ *
  * This operation is O(n).
  *
  * Use \ref mp_utf8_len_s for non-null-terminated strings.
  *
- * \param str The string (**null-terminated**)
- * \return The amount of characters in \a str
+ * \param str null-terminated string
+ * \return amount of Unicode characters in \a str
  */
 size_t mp_utf8_len(const char *str);
 
-/// Calculate the amount of characters in a UTF-8 string with size parameter (in bytes).
 /**
- * \param str The string
- * \param size The size of \a str (in bytes)
- * \return The amount of characters in \a str
+ * \brief Calculates the amount of Unicode characters in \a str.
+ *
+ * See \ref mp_utf8_len.
+ *
+ * \param str string
+ * \param size size of \a str in bytes
+ * \return amount of Unicode characters in \a str
  */
 size_t mp_utf8_len_s(const char *str, size_t size);
 
-/// Gets a UTF-8 character from a **null-terminated** string at \a index.
 /**
+ * \brief Gets a UTF-8 character from \a str (null-terminated) at \a index.
+ *
  * This operation is O(n).
  *
- * Returns an invalid \ref mp_Utf8_Char if out of bounds.
- *
- * \param str The string (**null-terminated**)
- * \param index The index
- * \return The character at \a index
+ * \param str null-terminated string
+ * \param index index
+ * \return character data at \a index, \ref mp_utf8_char_invalid "invalid character data" when out
+ * of bounds.
  */
-mp_Utf8_Char mp_utf8_get(const char *str, size_t index);
+mp_Utf8_Char_Data mp_utf8_get(const char *str, size_t index);
 
-/// Gets a UTF-8 character from a string at \a index.
 /**
+ * \brief Gets a UTF-8 character from \a str at \a index.
+ *
  * See \ref mp_utf8_get.
  *
- * \param str The string
- * \param size The size of \a str (in bytes)
- * \param index The index
- * \return The character at \a index
+ * \param str string
+ * \param size size of \a str in bytes
+ * \param index index
+ * \return character data at \a index, \ref mp_utf8_char_invalid "invalid character data" when out
+ * of bounds.
  */
-mp_Utf8_Char mp_utf8_get_s(const char *str, size_t size, size_t index);
+mp_Utf8_Char_Data mp_utf8_get_s(const char *str, size_t size, size_t index);
 
-/// Iterator for UTF-8 strings.
 /**
+ * \brief Iterator for UTF-8 strings.
+ *
  * \a c can be accessed to get the current character's information.
  *
  * # Usage
@@ -3030,52 +3053,56 @@ mp_Utf8_Char mp_utf8_get_s(const char *str, size_t size, size_t index);
  * const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂)⸝♡􏾀";
  * mp_Utf8_Iter iter = mp_utf8_iter_new(utf8);
  * while (mp_utf8_iter_next(&iter)) {
- *     (void) iter.c;      // The current character (mp_Utf8_Char)
+ *     (void) iter.c;      // The current character (mp_Utf8_Char_Data)
  * }
  * \endcode
  *
  * It is best to not modify the string in the middle of iteration.
- *
  */
 typedef struct {
     /// Holds the current character in iteration.
-    mp_Utf8_Char c;
+    mp_Utf8_Char_Data c;
 
     /// The string being iterated on.
     const char *_str;
-    /// The remaining size of the string (in bytes).
+    /// Remaining size of the string in bytes.
     size_t _size;
 } mp_Utf8_Iter;
 
-/// Creates a new \ref mp_Utf8_Iter that iterates over a **null-terminated** string.
 /**
+ * \brief Creates a \ref mp_Utf8_Iter "UTF-8 iterator" that iterates over \a str (null-terminated).
+ *
  * Use \ref mp_utf8_iter_new_s for non-null-terminated strings.
  *
  * See \ref mp_Utf8_Iter for usage.
  *
- * \param str The UTF-8 string (**null-terminated**)
- * \return The iterator
+ * \param str null-terminated UTF-8 string
+ * \return iterator over \a str
  */
 mp_Utf8_Iter mp_utf8_iter_new(const char *str);
 
-/// Creates a new \ref mp_Utf8_Iter that iterates over a string with size parameter (in bytes).
 /**
+ * \brief Creates a \ref mp_Utf8_Iter "UTF-8 iterator" that iterates over \a str.
+ *
+ * Use \ref mp_utf8_iter_new for null-terminated strings.
+ *
  * See \ref mp_Utf8_Iter for usage.
  *
- * \param str The UTF-8 string
- * \param size The size of \a str (in bytes)
- * \return The iterator
+ * \param str UTF-8 string
+ * \param size size of \a str in bytes
+ * \return iterator over \a str
  */
 mp_Utf8_Iter mp_utf8_iter_new_s(const char *str, size_t size);
 
-/// Continues iterating an \ref mp_Utf8_Iter.
 /**
+ * \brief Continues iterating with \a it.
+ *
  * See \ref mp_Utf8_Iter for usage.
  *
  * This function consumes \a it->_str.
  *
- * \param it The iterator
- * \return Whether it is valid to access the data
+ * \param it iterator
+ * \return whether it is valid to access the value
  */
 bool mp_utf8_iter_next(mp_Utf8_Iter *it);
 
@@ -4292,18 +4319,18 @@ static void *mp_heap_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, 
 }
 
 // Thanks, Wikipedia! <https://en.wikipedia.org/wiki/UTF-8#Description>
-mp_Utf8_Char mp_utf8_take(const char **str, size_t *size) {
+mp_Utf8_Char_Data mp_utf8_take(const char **str, size_t *size) {
     if (!(str != NULL && *str != NULL)) {
         return mp_utf8_char_invalid(NULL, 0);
     }
     if (*size == 0) {
         return mp_utf8_char_invalid(NULL, 0);
     }
-    const char   *ch    = *str;
-    unsigned char first = (unsigned char) ch[0];
+    const char *ch    = *str;
+    uint8_t     first = (uint8_t) ch[0];
 
-    unsigned char char_size           = 0;
-    unsigned char actual_decoded_size = 0;
+    uint8_t char_size           = 0;
+    uint8_t actual_decoded_size = 0;
     if (first <= 0x7F) {
         char_size = 1;
     } else if (first >= 0xC0 && first <= 0xDF) {
@@ -4316,24 +4343,24 @@ mp_Utf8_Char mp_utf8_take(const char **str, size_t *size) {
         goto fail;
     }
 
-    unsigned int codepoint = 0x00;
-    for (unsigned char i = 1; i <= char_size; ++i) {
+    uint32_t codepoint = 0x00;
+    for (uint8_t i = 1; i <= char_size; ++i) {
         if (i > *size) {
             goto fail;
         }
 
-        unsigned char byte  = (unsigned char) ch[i - 1];
-        unsigned char order = char_size - i;
+        uint8_t byte  = (uint8_t) ch[i - 1];
+        uint8_t order = char_size - i;
 
         if (i == 1) {
-            unsigned char second_shift = (char_size == 1) ? char_size : char_size + 1;
-            codepoint |= (unsigned int) ((byte & (0xFF >> second_shift)) << 6 * (char_size - 1));
+            uint8_t second_shift = (char_size == 1) ? char_size : char_size + 1;
+            codepoint |= (uint32_t) ((byte & (0xFF >> second_shift)) << 6 * (char_size - 1));
         } else {
             // not a "continuation byte"
             if (!(byte >= 0x80 && byte <= 0xBF)) {
                 goto fail;
             }
-            codepoint |= (unsigned int) (byte & 0x3F) << 6 * order;
+            codepoint |= (uint32_t) (byte & 0x3F) << 6 * order;
         }
         ++actual_decoded_size;
     }
@@ -4359,7 +4386,7 @@ mp_Utf8_Char mp_utf8_take(const char **str, size_t *size) {
     *str += char_size;
     *size -= char_size;
 
-    return (mp_Utf8_Char) {
+    return (mp_Utf8_Char_Data) {
         .size      = char_size,
         .c         = ch,
         .codepoint = codepoint,
@@ -4374,11 +4401,11 @@ fail:
     return mp_utf8_char_invalid(ch, actual_decoded_size);
 }
 
-mp_Utf8_Char mp_utf8_char(const char *c) {
+mp_Utf8_Char_Data mp_utf8_char(const char *c) {
     return mp_utf8_char_s(c, strlen(c));
 }
 
-mp_Utf8_Char mp_utf8_char_s(const char *c, size_t size) {
+mp_Utf8_Char_Data mp_utf8_char_s(const char *c, size_t size) {
     return mp_utf8_take(&c, &size);
 }
 
@@ -4387,21 +4414,21 @@ size_t mp_utf8_len(const char *str) {
 }
 
 size_t mp_utf8_len_s(const char *str, size_t size) {
-    size_t       len = 0;
-    mp_Utf8_Char c;
+    size_t            len = 0;
+    mp_Utf8_Char_Data c;
     while ((c = mp_utf8_take(&str, &size)).c != NULL) {
         ++len;
     }
     return len;
 }
 
-mp_Utf8_Char mp_utf8_get(const char *str, size_t index) {
+mp_Utf8_Char_Data mp_utf8_get(const char *str, size_t index) {
     return mp_utf8_get_s(str, strlen(str), index);
 }
 
-mp_Utf8_Char mp_utf8_get_s(const char *str, size_t size, size_t index) {
-    size_t       i = 0;
-    mp_Utf8_Char c;
+mp_Utf8_Char_Data mp_utf8_get_s(const char *str, size_t size, size_t index) {
+    size_t            i = 0;
+    mp_Utf8_Char_Data c;
     while ((c = mp_utf8_take(&str, &size)).c != NULL) {
         if (index == i) {
             return c;
