@@ -20,6 +20,18 @@ int main(void) {
     mp_free(alloc, p2, sizeof(*p2));
     mp_free(alloc, p3, sizeof(*p3));
 
+    {
+        int *ptr = mp_make(alloc, int);
+        *ptr     = 69;
+        expect_eq(*ptr, 69, "%d");
+
+        int *ptr_clone = mp_clone(alloc, int, ptr);
+        expect_eq(*ptr_clone, 69, "%d");
+
+        mp_deinit(alloc, int, ptr_clone);
+        mp_deinit(alloc, int, ptr);
+    }
+
     return 0;
 
 fail:

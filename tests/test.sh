@@ -6,11 +6,16 @@ set -uo pipefail
 QUIET=${QUIET:-}
 WINDOWS=${WINDOWS:-}
 COMPILER=${COMPILER:-clang}
+if [[ $WINDOWS -eq 1 ]]; then
+    CSTD=${CSTD:-c11}
+else
+    CSTD=${CSTD:-c99}
+fi
 export WINEDEBUG=-all
 
-CCARGS="-x c -std=c99 -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb -Og"
+CCARGS="-x c -std=$CSTD -Wconversion -Wsign-conversion -Wpedantic -Wall -Wextra -I. -I.. -ggdb -Og"
 # MSVC does not have c99 option
-MSVCARGS="/nologo /std:c11 /I. /I.. /TC"
+MSVCARGS="/nologo /std:$CSTD /I. /I.. /TC"
 
 if [[ $QUIET -eq 1 ]]; then
     CCARGS+=" -DQUIET"
@@ -75,7 +80,7 @@ mkdir -p .build &>/dev/null
 if [[ $# -gt 0 ]]; then
     TESTS=("$@")
 else
-    TESTS=($(find -maxdepth 1 -mindepth 1 '(' -type d -or -type f -name '*.c' ')' -and ! -name ".*"))
+    TESTS=($(find -maxdepth 1 -mindepth 1 '(' -type d -or -type f -name '*.c' ')' -and ! -name ".*" | sort -r))
 fi
 
 run "${TESTS[@]}"

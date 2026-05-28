@@ -65,8 +65,9 @@ int main(void) {
 
     // Realloc test
     for (int i = 0; i < __MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
-        mp_Str key = mp_str_newf(temp_alloc, "key_%d", i);
-        mp_ht_set_s(&ht, key, i);
+        mp_Sb key;
+        mp_sb_init_withf(&key, temp_alloc, "key_%d", i);
+        mp_ht_set_s(&ht, mp_sb_str(&key), i);
     }
 
     expect_eq(ht.len, (size_t) (__MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1),
@@ -80,8 +81,9 @@ int main(void) {
     // printf("\n");
 
     for (int i = 0; i < (int) ht.len; ++i) {
-        mp_Str key = mp_str_newf(temp_alloc, "key_%d", i);
-        val        = mp_ht_get_s(&ht, key);
+        mp_Sb key;
+        mp_sb_init_withf(&key, temp_alloc, "key_%d", i);
+        val = mp_ht_get_s(&ht, mp_sb_str(&key));
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
     }
@@ -109,7 +111,11 @@ int main(void) {
     expect_eq(vals.cap, ht.len, "%zu");
 
     for (size_t i = 0; i < keys.len; ++i) {
-        int val_from_key = atoi(mp_get(&keys, i).cstr + 4);
+        mp_Str key = mp_get(&keys, i);
+        // TODO: use `mp_str_substr`
+        char *null_term_key =
+            mp_str_null_terminated_from(mp_str_s(key.data + 4, key.len - 4), temp_alloc);
+        int val_from_key = atoi(null_term_key);
         expect_eq(val_from_key, mp_get(&vals, i), "%d");
     }
 
@@ -126,8 +132,8 @@ int main(void) {
     mp_ht_iter_init(&it, &ht);
     while (mp_ht_iter_next(&it)) {
         __Ht_Int_Entry *o = ht.data + (it._i - 1);
-        expect_streq(it.key.cstr, o->key.cstr);
-        expect_eq(it.val, o->val, "%d");
+        expect_streq_mp(it.key, o->key);
+        expect_eq(*it.val, o->val, "%d");
     }
 
     mp_ht_deinit(&ht2);

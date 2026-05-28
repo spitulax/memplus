@@ -1,3 +1,4 @@
+#include <string.h>
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 #include "test.h"
@@ -8,58 +9,30 @@ int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
     mp_Str sv = mp_str("Hello");
-    expect_streq(sv.cstr, "Hello");
+    expect_streq_mp(sv, mp_str("Hello"));
     expect_eq(sv.len, (size_t) 5, "%zu");
 
-    mp_Str s1 = mp_str_new(alloc, "Hello, World!");
-    expect_streq(s1.cstr, "Hello, World!");
+    mp_Str s1 = mp_str_alloc("Hello, World!", alloc);
+    expect_streq_mp(s1, mp_str("Hello, World!"));
     expect_eq(s1.len, (size_t) 13, "%zu");
 
-    size_t i  = 69;
-    mp_Str s2 = mp_str_newf(alloc, "Hello, World!, %zu", i);
-    expect_streq(s2.cstr, "Hello, World!, 69");
-    expect_eq(s2.len, (size_t) 17, "%zu");
+    char *s1c = mp_str_null_terminated_from(s1, alloc);
+    expect_eq(strlen(s1c), s1.len, "%zu");
+    expect_streq(s1c, "Hello, World!");
+    mp_str_null_terminated_deinit(&s1c, alloc);
 
-    mp_Str s3 = mp_str_clone(&s2, alloc);
-    expect_streq(s3.cstr, "Hello, World!, 69");
-    expect_ne((void *) s3.cstr, (void *) s2.cstr, "%p");
-    expect_eq(s3.len, (size_t) 17, "%zu");
+    mp_Str s2 = mp_str_clone(s1, alloc);
+    expect_streq_mp(s2, mp_str("Hello, World!"));
+    expect_ne((void *) s1.data, (void *) s2.data, "%p");
+    expect_eq(s2.len, (size_t) 13, "%zu");
 
-    char   non_null[] = { 'h', 'e', 'l', 'l', 'o' };
-    mp_Str s4         = mp_str_new_len(alloc, non_null, 5);
-    expect_streq(s4.cstr, "hello");
-    expect_eq(s4.len, (size_t) 5, "%zu");
+    char non_null[] = { 'h', 'e', 'l', 'l', 'o' };
+    sv              = mp_str_s(non_null, 5);
+    expect_streq_mp(sv, mp_str("hello"));
+    expect_eq(sv.len, (size_t) 5, "%zu");
 
-    mp_str_deinit(&s4, alloc);
-    mp_str_deinit(&s3, alloc);
     mp_str_deinit(&s2, alloc);
     mp_str_deinit(&s1, alloc);
-
-    // String misc. funcs
-    {
-        Da_String strings;
-        mp_da_init_with(Da_String, &strings, alloc, "Hello", "World", "69");
-
-        mp_Str string = mp_str("Hello, World!");
-
-        {
-            mp_talloc();
-            mp_Str str = mp_str_concat(mp_da_arg(&strings), NULL, temp_alloc);
-            expect_streq(str.cstr, "HelloWorld69");
-            str = mp_str_concat(mp_da_arg(&strings), " ", temp_alloc);
-            expect_streq(str.cstr, "Hello World 69");
-        }
-
-        {
-            mp_talloc();
-            mp_Str low_str = mp_str_to_lower(&string, temp_alloc);
-            expect_streq(low_str.cstr, "hello, world!");
-            mp_Str up_str = mp_str_to_upper(&string, temp_alloc);
-            expect_streq(up_str.cstr, "HELLO, WORLD!");
-        }
-
-        mp_da_deinit(&strings);
-    }
 
     return 0;
 

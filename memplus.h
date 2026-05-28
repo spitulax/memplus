@@ -94,14 +94,6 @@
 
 #endif
 
-#if __STDC_VERSION__ >= 202311L
-    #define __MP_STATIC_ASSERT(...) static_assert(__VA_ARGS__)
-#elif __STDC_VERSION__ >= 201112L
-    #define __MP_STATIC_ASSERT(...) _Static_assert(__VA_ARGS__)
-#else
-    #define __MP_STATIC_ASSERT(...) (void) 0
-#endif
-
 /*
  * Compilers
  */
@@ -112,23 +104,48 @@
     #define __MP_COMP_MSVC
 #endif
 
+#if __STDC_VERSION__ >= 202311L
+    #define __MP_STD_C23
+#elif __STDC_VERSION__ >= 201710L
+    #define __MP_STD_C17
+#elif __STDC_VERSION__ >= 201112L
+    #define __MP_STD_C11
+#elif __STDC_VERSION__ >= 199901L
+    #define __MP_STD_C99
+#else
+    #error "You can't compile this"
+#endif
+
+#if defined(__MP_STD_C23)
+    #define __MP_STATIC_ASSERT(...) static_assert(__VA_ARGS__)
+#elif defined(__MP_STD_C11)
+    #define __MP_STATIC_ASSERT(...) _Static_assert(__VA_ARGS__)
+#else
+    #define __MP_STATIC_ASSERT(...) ((void) 0)
+#endif
+
+#if defined(__MP_STD_C23)
+    #define __MP_NORETURN [[noreturn]]
+#elif defined(__MP_STD_C11)
+    #define __MP_NORETURN _Noreturn
+#else
+    #if defined(__MP_COMP_GCC_CLANG)
+        #define __MP_NORETURN __attribute__((noreturn))
+    #elif defined(__MP_COMP_MSVC)
+        #define __MP_NORETURN __declspec(noreturn)
+    #else
+        #define __MP_NORETURN
+    #endif
+#endif
+
+#if defined(__MP_STD_C23)
+    #define __MP_TYPEOF typeof
+#else
+    #define __MP_TYPEOF __typeof__
+#endif
+
 // Define custom assert by modidying the definition of `__mp_assert_fail()`
 #if !(defined(__MP_ASSERT) && defined(__MP_ASSERT_MSG))
-
-    #if __STDC_VERSION__ >= 201112L
-        #define __MP_NORETURN _Noreturn
-    #elif __STDC_VERSION__ >= 202311L
-        #define __MP_NORETURN [[noreturn]]
-    #else
-        #if defined(__MP_COMP_GCC_CLANG)
-            #define __MP_NORETURN __attribute__((noreturn))
-        #elif defined(__MP_COMP_MSVC)
-            #define __MP_NORETURN __declspec(noreturn)
-        #else
-            #define __MP_NORETURN
-        #endif
-    #endif
-
     #include <stdio.h>
     #include <stdlib.h>
 
@@ -162,8 +179,9 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
     #define __MP_FREE free
 #endif
 
-/// The version of the library.
 /**
+ * \brief The version of the library.
+ *
  * Semver encoded in hexadecimal where two digits represent each element.
  * Example: 0.1.0 -> (0x) 00 01 00
  */
@@ -179,7 +197,9 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
     #define __MP_PRINTF_FORMAT(fmt_index)
 #endif
 
-/// Indicates error return for `size_t`.
+/**
+ * \brief Indicates error return for `size_t`.
+ */
 #define MP_ERROR ((size_t) -1)
 
 /***********
@@ -234,8 +254,9 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
  * \{
  */
 
-/// Possible operations on \ref mp_Alloc_Func.
 /**
+ * \brief Possible operations on \ref mp_Alloc_Func.
+ *
  * See the documentation for each operation \ref mp_Alloc_Func "here".
  */
 typedef enum {
@@ -245,8 +266,9 @@ typedef enum {
     __MP_ALLOC_OP_COUNT,
 } mp_Alloc_Op;
 
-/// Function prototype used for allocators.
 /**
+ * \brief Function prototype used for allocators.
+ *
  * Functions of this type do different things depending on the \a op given.
  * They also use their parameters differently on each type.
  *
@@ -262,8 +284,8 @@ typedef enum {
  *     - If \a new_size == 0, does nothing and returns NULL
  *
  *     **Parameters**
- *     - **context**: The allocator context
- *     - **new_size**: The size of the block (in bytes)
+ *     - **context**: allocator context
+ *     - **new_size**: size to allocate in bytes
  *
  * - **MP_ALLOC_OP_REALLOC**
  *
@@ -274,14 +296,14 @@ typedef enum {
  *     - If \a old_size <= \a new_size, reallocation does not happen and the function just returns
  * \a ptr.
  *     - If \a new_size == 0, does nothing and returns NULL
- *     - If \a old_size == 0 or \a ptr == NULL., skips copying data and freeing the
- * old block, behaving like **MP_ALLOC_OP_ALLOC**
+ *     - If \a old_size == 0 or \a ptr == NULL, skips copying data and freeing the old block,
+ * behaving like **MP_ALLOC_OP_ALLOC**
  *
  *     **Parameters**
- *     - **context**: The allocator context
- *     - **ptr**: The pointer to the old block
- *     - **old_size**: The size of the old block
- *     - **new_size**: The new size the new block
+ *     - **context**: allocator context
+ *     - **ptr**: pointer to the old block
+ *     - **old_size**: size of old block in bytes
+ *     - **new_size**: size of new block in bytes
  *
  * - **MP_ALLOC_OP_FREE**
  *
@@ -291,27 +313,30 @@ typedef enum {
  *     - If \a ptr == NULL, does nothing
  *
  *     **Parameters**
- *     - **context**: The allocator context
- *     - **ptr**: The block to be freed
- *     - **new_size**: The size of the block
+ *     - **context**: allocator context
+ *     - **ptr**: block to be freed
+ *     - **new_size**: size of block in bytes
  *
- * \return The pointer to the newly allocated memory. May return NULL if allocation failed. Always
- * returns NULL on **MP_ALLOC_OP_FREE**
+ * \return pointer to newly allocated memory, NULL if allocation failed or with **MP_ALLOC_OP_FREE**
  */
 typedef void *(*mp_Alloc_Func)(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                void *ptr);
 
-/// Inteface to wrap functions to allocate memory.
+/**
+ * \brief Inteface to wrap functions to allocate memory.
+ */
 typedef struct {
-    /// Data that is passed to the allocator function.
     /**
+     * \brief Data that is passed to the allocator function.
+     *
      * In case of allocator that works with global memory, this can be specified as NULL.
      */
     void *context;
 
     /**
-     * \brief Function that handles the operations requested by the user of the allocator. See \ref
-     * mp_Alloc_Func.
+     * \brief Function that handles the operations requested by the user of the allocator.
+     *
+     * See \ref mp_Alloc_Func.
      */
     mp_Alloc_Func f;
 } mp_Alloc;
@@ -326,75 +351,150 @@ typedef struct {
  * \{
  */
 
-/// Calls allocator function with **MP_ALLOC_OP_ALLOC**.
 /**
- * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param size (size_t) The number of bytes that will be allocated
- * \return (void *) The pointer to the allocated block of memory, NULL if allocation failed
+ * \brief Allocates a block of memory.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_ALLOC**.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param size (size_t) number of bytes to be allocated
+ * \return (void *) pointer to allocated block of memory, NULL if allocation failed
  */
 #define /* void* */ mp_alloc(/* mp_Alloc */ alloc, /* size_t */ size)                              \
     ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, (size), 0, NULL))
 
-/// Calls allocator function with **MP_ALLOC_OP_REALLOC**.
 /**
- * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param old_ptr (void *) The pointer to the block to be reallocated
- * \param old_size (size_t) The size of the block (in bytes)
- * \param new_size (size_t) The size of the new allocated block (in bytes)
- * \return (void *) The pointer to the newly allocated block of memory, NULL if allocation failed
+ * \brief Reallocates a block of memory.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_REALLOC**.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param old_ptr (void *) pointer to the block to be reallocated
+ * \param old_size (size_t) size of block in bytes
+ * \param new_size (size_t) size of new allocated block in bytes
+ * \return (void *) pointer to newly allocated block of memory, NULL if allocation failed
  */
 #define /* void* */ mp_realloc(/* mp_Alloc */ alloc, /* void* */ old_ptr, /* size_t */ old_size,   \
                                /* size_t */ new_size)                                              \
     ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, (new_size), (old_size), (old_ptr)))
 
-/// Calls allocator function with **MP_ALLOC_OP_FREE**.
 /**
- * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param ptr (void *) The pointer to the block to be freed (does nothing if NULL)
- * \param size (size_t) The size of the block (in bytes)
- * \returns (void *) Always NULL
+ * \brief Frees a block of memory that has been allocated.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_FREE**.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param ptr (void *) pointer to block to be freed (nullable)
+ * \param size (size_t) size of block in bytes
  */
-#define /* void* */ mp_free(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size)              \
-    ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, (size), 0, (ptr)))
+#define mp_free(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size)                          \
+    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, (size), 0, (ptr)))
 
-/// Calls allocator function with **MP_ALLOC_OP_ALLOC** with the size of \a type.
 /**
- * \param alloc (mp_Alloc) The allocator (NO SIDE EFFECTS)
- * \param type (identifier) The type of the allocated data
- * \returns (\a Type *) The pointer to the newly allocated block that has the size of \a type
+ * \brief Allocates a block of memory that can hold a value of \a type.
+ *
+ * Free with \ref mp_deinit.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param type ("Type") type name of data
+ * \returns (Type *) pointer to newly allocated block, NULL if allocation failed
  */
-#define /* Type* */ mp_create(/* mp_Alloc */ alloc, /* "Type" */ type)                             \
-    (mp_alloc((alloc), sizeof(type)))
+#define /* Type* */ mp_make(/* mp_Alloc */ alloc, /* "Type" */ type) mp_alloc((alloc), sizeof(type))
 
-/// Allocates a duplicate of \a data.
 /**
+ * \brief Allocates clone of a block of memory that holds a value of \a type.
+ *
+ * Free with \ref mp_deinit.
+ *
+ * \param alloc (\ref mp_Alloc) allocator
+ * \param type ("Type") type name of data
+ * \param src (Type *) source of data
+ * \return (Type *) pointer to cloned data, NULL if allocation failed
+ */
+#define /* Type* */ mp_clone(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ src)             \
+    mp_dup((alloc), (src), sizeof(type))
+
+/**
+ * \brief Frees a block of memory that holds a value of \a type.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param type ("Type") type name of data
+ * \param ptr (Type *) pointer to block to be freed (nullable)
+ */
+#define mp_deinit(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ ptr)                        \
+    mp_free((alloc), (ptr), sizeof(type))
+
+/**
+ * \brief Allocates a block of memory that can hold an array of \a type.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param type ("Type") type name of data
+ * \param len (size_t) length of allocated array
+ * \returns (Type *) pointer to newly allocated block, NULL if allocation failed
+ */
+#define /* Type* */ mp_make_array(/* mp_Alloc */ alloc, /* "Type" */ type, /* size_t */ len)       \
+    mp_alloc((alloc), sizeof(type) * (len))
+
+/**
+ * \brief Allocates clone of a block of memory that holds an array of \a type.
+ *
+ * Free with \ref mp_deinit_array.
+ *
+ * \param alloc (\ref mp_Alloc) allocator
+ * \param type ("Type") type name of data
+ * \param src (Type *) source of data
+ * \param len (size_t) length of array
+ * \return (Type *) pointer to cloned data, NULL if allocation failed
+ */
+#define mp_clone_array(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ src, /* size_t */ len) \
+    mp_dup((alloc), (src), sizeof(type) * (len))
+
+/**
+ * \brief Frees a block of memory that holds an array of \a type.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param type ("Type") type name of data
+ * \param ptr (Type *) pointer to block to be freed (nullable)
+ * \param len (size_t) length of allocated array
+ */
+#define mp_deinit_array(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ ptr,                  \
+                        /* size_t */ len)                                                          \
+    mp_free((alloc), (ptr), sizeof(type) * (len))
+
+/**
+ * \brief Allocates a duplicate of \a data.
+ *
  * The function allocates a new block of memory with the same size as \a data (i.e. \a size) and
  * copies the data from \a data to the newly allocated block.
  *
- * \param alloc The allocator
- * \param data The pointer to the block to be cloned
- * \param size The size of the block
- * \return The allocated clone of \a data
+ * \param alloc allocator
+ * \param data pointer to the block to be cloned
+ * \param size size of block
+ * \return pointer to allocated clone of \a data
  */
 void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
 
 /// \}
 
-/// Create an \ref mp_Alloc from \a ctx and \a func.
 /**
- * \param ctx (any *) The context passed to the function (automatically casted to void *)
- * \param func (mp_Alloc_Func) The allocator function
- * \return An allocator interface that works with the arguments given.
+ * \brief Create an \ref mp_Alloc from \a ctx and \a func.
+ *
+ * \param ctx (Any *) allocator context (automatically casted to void *)
+ * \param func (\ref mp_Alloc_Func) allocator function
+ * \return allocator interface instance working with arguments given
  */
-#define /* mp_Alloc */ mp_alloc_new(/* any* */ ctx, /* mp_Alloc_Func */ func)                      \
+#define /* mp_Alloc */ mp_alloc_new(/* Any* */ ctx, /* mp_Alloc_Func */ func)                      \
     ((mp_Alloc) {                                                                                  \
         .context = (void *) (ctx),                                                                 \
         .f       = (func),                                                                         \
     })
 
-/// Returns an invalid \ref mp_Alloc.
 /**
- * An invalid \ref mp_Alloc requires that field \a f is NULL.
+ * \brief Returns an invalid \ref mp_Alloc.
+ *
+ * An invalid \ref mp_Alloc requires that field \a f == NULL.
+ *
+ * \return invalid \ref mp_Alloc
  */
 #define /* mp_Alloc */ mp_alloc_invalid()                                                          \
     ((mp_Alloc) {                                                                                  \
@@ -402,15 +502,14 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
         .f       = NULL,                                                                           \
     })
 
-/// Handles reallocation for custom allocators.
 /**
+ * \brief Handles reallocation for custom allocators.
+ *
  * You can call this function in your allocator function as long as alloc and free
  * functionalities are defined.
  *
  * This function already implements realloc operation for an allocator by using its alloc and free
  * operation.
- *
- * If \a new_size == 0, does nothing and returns NULL.
  *
  * # Example
  * \code
@@ -421,11 +520,11 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
  * // ...
  * \endcode
  *
- * \param alloc The allocator
- * \param old_ptr The pointer to the old block
- * \param old_size The size of the old block
- * \param new_size The size of the new block
- * \return The pointer to the new block
+ * \param alloc allocator
+ * \param old_ptr pointer to the old block
+ * \param old_size size of old block in bytes
+ * \param new_size size of new block in bytes
+ * \return pointer to the new block. If \a new_size == 0, does nothing and returns NULL.
  */
 void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size);
 
@@ -475,10 +574,6 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *
  * # Layout
  *
- * Dynamic arrays are structs that have this layout.
- * Any struct which has these fields is a valid dynamic array.
- * Any additional fields after these fields are tolerated.
- *
  * \code
  * struct {
  *     mp_Alloc alloc;
@@ -511,10 +606,11 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
     #define __MP_DARRAY_INIT_CAPACITY 64
 #endif
 
-/// Defines a \ref DynamicArray "dynamic array" struct that holds data of type \a type.
 /**
- * \param type (identifier) The type of the data
- * \param name (identifier) The name of the array struct
+ * \brief Defines a \ref DynamicArray "dynamic array" struct holding data of type \a type.
+ *
+ * \param type ("Type") array data type name
+ * \param name (identifier) name of array struct
  */
 #define mp_da_typedef(/* "Type" */ type, /* identifier */ name)                                    \
     typedef struct {                                                                               \
@@ -545,30 +641,35 @@ typedef struct {
     void    *data;
 } __mp_Dyn_Array;
 
-/// Initializes a new dynamic array managed by \a alloc.
 /**
+ * \brief Initializes \a a managed by \a alloc.
+ *
  * Deinit with \ref mp_da_deinit.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param type (Type) The type of the array
- * \param a (Dyn_Array *) The array (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the array
+ * \param type ("Type") array type name
+ * \param a (Dyn_Array *) array (initialized by this)
+ * \param alloc (\ref mp_Alloc) allocator to manage \a a
  */
-#define mp_da_init(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc)                      \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data)))
+#define mp_da_init(/* "Type" */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc)                    \
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __mp_da_init((a), (alloc), sizeof(*((type *) 0)->data));                                   \
+    } while (0)
 void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 
-/// Initializes a new dynamic array managed by \a alloc and appends items to it.
 /**
+ * \brief Initializes \a a managed by \a alloc and appends items to it.
+ *
  * Deinit with \ref mp_da_deinit.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param type (Type) The type of the array
- * \param a (Dyn_Array *) The array (initialized by this) (NO SIDE EFFECTS)
- * \param alloc (mp_Alloc) The allocator to manage the array
- * \param ... (DataType...) The values to append
+ * \param type ("Type") array type name
+ * \param a (Dyn_Array *) array (initialized by this) (no side effects)
+ * \param alloc (\ref mp_Alloc) allocator to manage \a a
+ * \param ... (DataType...) values to append
  */
 #define mp_da_init_with(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc,                 \
                         /* DataType... */...)                                                      \
@@ -578,99 +679,121 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
         mp_da_append_many((a), __VA_ARGS__);                                                       \
     } while (0)
 
-/// Frees a dynamic array.
 /**
- * \param a (Dyn_Array *) The array (deinitialized by this)
+ * \brief Deinitializes \a a.
+ *
+ * \param a (Dyn_Array *) array (deinitialized by this)
  */
-#define mp_da_deinit(/* Dyn_Array* */ a) ((void) (a)->__mp_dyn_array_marker, __mp_da_deinit(a))
+#define mp_da_deinit(/* Dyn_Array* */ a)                                                           \
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __mp_da_deinit(a);                                                                         \
+    } while (0)
 void __mp_da_deinit(void *a);
 
 void __mp_da_append(void *a, const void *items, size_t items_len);
 
-/// Appends \a item to a dynamic array.
 /**
- * \a a->data becomes NULL if allocation failed.
+ * \brief Appends \a item to \a a.
  *
- * \param a (Dyn_Array *) The array
- * \param item (Type) The item to append to the array
+ * \a a->data == NULL if allocation failed.
+ *
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param item (Type) item to append to \a a
  */
 #define mp_da_append(/* Dyn_Array* */ a, /* Type */ item)                                          \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
-        __typeof__(item) __it = (item);                                                            \
+        __MP_TYPEOF(item) __it = (item);                                                           \
+        __MP_ASSERT_MSG(sizeof(__it) == (a)->size,                                                 \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_append((a), &__it, 1);                                                             \
     } while (0)
 
-/// Appends multiple items to a dynamic array.
 /**
- * \a a->data becomes NULL if allocation failed.
+ * \brief Appends multiple items to \a a.
  *
- * \param a (Dyn_Array *) The array
- * \param ... (Type...) The items to append to the array
+ * \a a->data == NULL if allocation failed.
+ *
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param ... (Type...) items to append to \a a
  */
 #define mp_da_append_many(/* Dyn_Array* */ a, /* Type... */...)                                    \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
-        __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
-        size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
+        __MP_TYPEOF(*(a)->data) __items[] = { __VA_ARGS__ };                                       \
+        size_t __len                      = sizeof(__items) / sizeof(*__items);                    \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_append((a), __items, __len);                                                       \
     } while (0)
 
-/// Appends items in an array to a dynamic array.
 /**
- * \a a->data becomes NULL if allocation failed.
+ * \brief Appends items from \a items to \a a.
  *
- * \param a (Dyn_Array *) The array
- * \param items (Type[]) The array of items to append to the array
- * \param items_len (size_t) The amount of items in the array
+ * \a a->data == NULL if allocation failed.
+ *
+ * \param a (Dyn_Array *) array
+ * \param items (Type *) array of items to append to \a a
+ * \param items_len (size_t) amount of items in \a items
  */
-#define mp_da_append_array(/* Dyn_Array* */ a, /* Type[] */ items, /* size_t */ items_len)         \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_append((a), (items), (items_len)))
+#define mp_da_append_array(/* Dyn_Array* */ a, /* Type* */ items, /* size_t */ items_len)          \
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __MP_TYPEOF(*items) *__items = (items);                                                    \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+                        "The size of each item(s) provided does not match the array's item size"); \
+        __mp_da_append((a), __items, (items_len));                                                 \
+    } while (0)
 
-/// Gets an item at index \a i.
 /**
+ * \brief Gets item at \a i.
+ *
  * No bounds checking, use \ref mp_da_get_s for that.
  *
- * \param a (const Dyn_Array*) The array
- * \param i (size_t) The index to the item
- * \return (Type) The item at index \a i
+ * \param a (const Dyn_Array*) array
+ * \param i (size_t) index to item
+ * \return (Type) item at \a i
  */
 #define /* Type */ mp_da_get(/* const Dyn_Array* */ a, /* size_t */ i)                             \
     ((void) (a)->__mp_dyn_array_marker, (a)->data[i])
 
-/// Gets a pointer to an item at index \a i.
 /**
+ * \brief Gets pointer to item at \a i.
+ *
  * No bounds checking, use \ref mp_da_get_s for that.
  *
- * \param a (const Dyn_Array*) The array
- * \param i (size_t) The index to the item
- * \return (Type *) The pointer to the item at index \a i
+ * \param a (const Dyn_Array*) array
+ * \param i (size_t) index to item
+ * \return (Type *) pointer to item at \a i
  */
 #define /* Type* */ mp_da_getp(/* const Dyn_Array* */ a, /* size_t */ i)                           \
     ((void) (a)->__mp_dyn_array_marker, (a)->data + i)
 
-/// Gets an item at index \a i with bounds-checking.
 /**
+ * \brief Gets item at \a i with bounds-checking.
+ *
  * Asserts that \a i is not out of bounds.
  *
- * The assert won't trigger if `NDEBUG` is defined.
+ * The assert will not trigger if `NDEBUG` is defined.
  *
- * \param a (const Dyn_Array*) The array
- * \param i (size_t) The index to the item
- * \return (Type) The item at index \a i
+ * \param a (const Dyn_Array*) array
+ * \param i (size_t) index to item
+ * \return (Type) item at \a i
  */
 #define /* Type */ mp_da_get_s(/* const Dyn_Array */ a, /* size_t */ i)                            \
     ((void) (a)->__mp_dyn_array_marker, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 
-/// Gets an a pointer to an item at index \a i with bounds-checking.
 /**
+ * \brief Gets pointer to item at \a i with bounds-checking.
+ *
  * Asserts that \a i is not out of bounds.
  *
  * The assert won't trigger if `NDEBUG` is defined.
  *
- * \param a (const Dyn_Array*) The array
- * \param i (size_t) The index to the item
- * \return (Type *) The pointer to the item at index \a i
+ * \param a (const Dyn_Array*) array
+ * \param i (size_t) index to item
+ * \return (Type *) pointer to item at \a i
  */
 #define /* Type* */ mp_da_getp_s(/* const Dyn_Array */ a, /* size_t */ i)                          \
     ((void) (a)->__mp_dyn_array_marker, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
@@ -678,44 +801,52 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 // Generic dynamic array get function
 #define __mp_da_get(type, a, i) (type *) ((char *) (a)->data + (i) * (a)->size)
 
-/// Alias of \ref mp_da_get.
+/**
+ * \brief Alias of \ref mp_da_get.
+ */
 #define mp_get mp_da_get
 
-/// Alias of \ref mp_da_getp.
+/**
+ * \brief Alias of \ref mp_da_getp.
+ */
 #define mp_getp mp_da_getp
 
-/// Pass a dynamic array into a function that accepts pointer and length.
 /**
+ * \brief Passes \a a to a function that accepts array as pointer and length.
+ *
  * Example usage:
  * \code
  * mp_str_concat(mp_da_arg(strings), NULL, mp_heap());
  * \endcode
  *
- * \param a (const? Dyn_Array *) The array (NO SIDE EFFECTS)
+ * \param a (const? Dyn_Array *) array (no side effects)
  */
 #define mp_da_arg(/* const? Dyn_Array* */ a) (a)->data, (a)->len
 
-/// Gets the last item in a dynamic array.
 /**
- * \param a (const Dyn_Array *) The array (NO SIDE EFFECTS)
- * \return (Type) The the last item
+ * \brief Gets the last item in \a a.
+ *
+ * \param a (const Dyn_Array *) array (no side effects)
+ * \return (Type) the last item in \a a
  */
 #define /* Type */ mp_da_last(/* const Dyn_Array* */ a)                                            \
     ((void) (a)->__mp_dyn_array_marker, (a)->data[(a)->len - 1])
 
-/// Deletes the last item in a dynamic array and returns it.
 /**
- * \param a (Dyn_Array *) The array (NO SIDE EFFECTS)
- * \return (Type) The last item
+ * \brief Removes the last item in \a a and returns it.
+ *
+ * \param a (Dyn_Array *) array (no side effects)
+ * \return (Type) the last item in \a a
  */
 #define /* Type */ mp_da_pop(/* Dyn_Array* */ a)                                                   \
     ((void) (a)->__mp_dyn_array_marker, --(a)->len, (a)->data[(a)->len])
 
-/// Sets the length of a dynamic array to 0.
 /**
+ * \brief Sets length of \a a to 0.
+ *
  * This resets the dynamic array to "initial condition" but without actually freeing the data.
  *
- * \param a (Dyn_Array *) The array
+ * \param a (Dyn_Array *) array
  */
 #define mp_da_reset(/* Dyn_Array* */ a)                                                            \
     do {                                                                                           \
@@ -723,8 +854,9 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
         (a)->len = 0;                                                                              \
     } while (0)
 
-/// Grows a dynamic array to be able to hold \a offset more items from the current length.
 /**
+ * \brief Grows \a a to be able to hold \a offset more items from the current length.
+ *
  * Does a calculation to determine the new capacity and then calls \ref mp_da_reserve if
  * allocation is needed, which happens when length + offset is greater than the capacity.
  *
@@ -735,133 +867,171 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * If \a a->cap is not large enough, reserves for double of \a a->cap.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
- * \param offset (size_t) The amount to grow
+ * \param a (Dyn_Array *) array
+ * \param offset (size_t) amount to grow
  */
 #define mp_da_grow(/* Dyn_Array* */ a, /* size_t */ offset)                                        \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_grow((a), (offset)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __mp_da_grow((a), (offset));                                                               \
+    } while (0)
 void __mp_da_grow(void *a, size_t offset);
 
-/// Reserve a dynamic array to hold \a offset more items from the current capacity.
 /**
- * Increases \a a->cap by \a offset and reallocates if \a offset is bigger than 0.
+ * \brief Reserve \a a to hold exactly \a offset more items from the current capacity.
  *
- * \a a->data becomes NULL if allocation failed.
+ * Increases \a a->cap by \a offset and reallocates \a a->data if \a offset is greater than 0.
  *
- * \param a (Dyn_Array *) The array
- * \param offset (size_t) The amount to grow
+ * \a a->data == NULL if allocation failed.
+ *
+ * \param a (Dyn_Array *) array
+ * \param offset (size_t) amount to grow
  */
 #define mp_da_reserve(/* Dyn_Array* */ a, /* size_t */ offset)                                     \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_reserve((a), (offset)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __mp_da_reserve((a), (offset));                                                            \
+    } while (0)
 void __mp_da_reserve(void *a, size_t offset);
 
-/// Clones a dynamic array to \a dest to be managed by \a allocator.
 /**
+ * \brief Clones \a src to \a dest managed by \a alloc.
+ *
  * The \a dest array does not inherit the capacity of \a src. Instead it will only
  * allocate for \a src.len + *initial capacity* items.
  *
- * \a dest->data becomes NULL if allocation failed.
+ * \a dest->data == NULL if allocation failed.
  *
- * \param dest (Dyn_Array *) The destination of the clone (initialized by this)
- * \param src (const Dyn_Array *) The source array
- * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \param dest (Dyn_Array *) destination of the clone (initialized by this)
+ * \param src (const Dyn_Array *) source array
+ * \param alloc (\ref mp_Alloc) allocator to manage \a dest
  */
 #define mp_da_clone(/* Dyn_Array* */ dest, /* const Dyn_Array* */ src, /* mp_Alloc */ alloc)       \
-    ((void) (dest)->__mp_dyn_array_marker, (void) (src)->__mp_dyn_array_marker,                    \
-     __mp_da_clone((dest), (src), (alloc)))
+    do {                                                                                           \
+        (void) (dest)->__mp_dyn_array_marker;                                                      \
+        (void) (src)->__mp_dyn_array_marker;                                                       \
+        __mp_da_clone((dest), (src), (alloc));                                                     \
+    } while (0)
 void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc);
 
 void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 
-/// Inserts an item at \a pos.
 /**
- * If \a pos > \a a->len, then it just puts the item at \a a->len.
+ * \brief Inserts item to \a a at \a pos.
+ *
+ * The item will be exactly at \a pos after insertion. Items after it gets moved.
+ *
+ * If \a pos > \a a->len, then just puts the item at \a a->len.
  *
  * \a pos must not be negative.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of the item
- * \param item (Type) The item to insert
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param pos (size_t) insertion position
+ * \param item (Type) item to insert
  */
 #define mp_da_insert(/* Dyn_Array* */ a, /* size_t */ pos, /* Type */ item)                        \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
-        __typeof__(item) __it = (item);                                                            \
+        __MP_TYPEOF(item) __it = (item);                                                           \
+        __MP_ASSERT_MSG(sizeof(__it) == (a)->size,                                                 \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_insert((a), (pos), &__it, 1);                                                      \
     } while (0)
 
-/// Inserts multiple items at \a pos.
 /**
- * If \a pos > \a a->len, then it just puts the item at \a a->len.
+ * \brief Inserts multiple items to \a a at \a pos.
+ *
+ * The first item will be exactly at \a pos after insertion and the succeding items follow. Items
+ * after them gets moved.
+ *
+ * If \a pos > \a a->len, then just puts the items at \a a->len.
  *
  * \a pos must not be negative.
  *
- * \a a->data becomes NULL if allocation failed.
+ * \a a->data == NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of the item
- * \param ... (Type...) The items to insert
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param pos (size_t) insertion position
+ * \param ... (Type...) items to insert
  */
 #define mp_da_insert_many(/* Dyn_Array* */ a, /* size_t */ pos, /* Type... */...)                  \
     do {                                                                                           \
         (void) (a)->__mp_dyn_array_marker;                                                         \
-        __typeof__(*(a)->data) __items[] = { __VA_ARGS__ };                                        \
-        size_t                 __len     = sizeof(__items) / sizeof(*__items);                     \
+        __MP_TYPEOF(*(a)->data) __items[] = { __VA_ARGS__ };                                       \
+        size_t __len                      = sizeof(__items) / sizeof(*__items);                    \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_insert((a), (pos), __items, __len);                                                \
     } while (0)
 
-/// Inserts items in an array at \a pos.
 /**
+ * \brief Inserts items from \a items to \a a at \a pos.
+ *
  * If \a pos > \a a->len, then it just puts the item at \a a->len.
  *
  * \a pos must not be negative.
  *
  * \a a->data becomes NULL if allocation failed.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of the item
- * \param items (Type[]) The array of items to inserts to the array
- * \param items_len (size_t) The amount of items in the array
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param pos (size_t) insertion position
+ * \param items (Type *) array of items to insert to \a a
+ * \param items_len (size_t) amount of items in \a items
  */
-#define mp_da_insert_array(/* Dyn_Array* */ a, /* size_t */ pos, /* Type[] */ items,               \
+#define mp_da_insert_array(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ items,                \
                            /* size_t */ items_len)                                                 \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_insert((a), (pos), (items), (items_len)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __MP_TYPEOF(*items) *__items = (items);                                                    \
+        __MP_ASSERT_MSG(sizeof(*__items) == (a)->size,                                             \
+                        "The size of each item(s) provided does not match the array's item size"); \
+        __mp_da_insert((a), (pos), (items), (items_len));                                          \
+    } while (0)
 
-/// Deletes \a len of items at \a pos.
 /**
+ * \brief Removes \a len of items from \a a at \a pos.
+ *
  * This operation is O(n) in the worst case. This may move items to the deleted slots with items
  * from the slots after it.
  *
  * If you only want to delete one item and do not care about the order of the elements after the
  * delete, use \ref mp_da_quick_delete instead.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of items to delete
- * \param len (size_t) The amount of items to delete
+ * \param a (Dyn_Array *) array
+ * \param pos (size_t) position of the first item to delete
+ * \param len (size_t) amount of items to delete
  */
 #define mp_da_delete(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len)                       \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_move((a), (pos), NULL, (len)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __mp_da_move((a), (pos), NULL, (len));                                                     \
+    } while (0)
 
-/// Deletes a single item at \a pos if you do not care about the order of items.
 /**
+ * \brief Removes a single item from \a a at \a pos if you do not care about the order of items.
+ *
  * This operation is O(1) and a much faster alternative to \ref mp_da_delete if you do not care
  * about the order of items.
  *
  * This works by swapping the item to be deleted with the last item and shrinking the array,
  * effectively making it ignore the last item.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of the item to delete
+ * \param a (Dyn_Array *) array
+ * \param pos (size_t) position of item to delete
  */
 #define mp_da_quick_delete(/* Dyn_Array* */ a, /* size_t */ pos)                                   \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_quick_move((a), (pos), NULL))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __mp_da_quick_move((a), (pos), NULL);                                                      \
+    } while (0)
 
-/// Moves \a len of items at \a pos to \a dest.
 /**
+ * \brief Moves \a len of items from \a a at \a pos to \a dest.
+ *
  * This operation is O(n) in the worst case. This may move items to the deleted slots with items
  * from the slots after it.
  *
@@ -870,17 +1040,25 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a dest must not alias \a a->data.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of items to delete
- * \param len (size_t) The amount of items to delete
- * \param dest (Type *) Where to copy the deleted items (must be at least `len * sizeof(Type)`)
+ * \param a (Dyn_Array *) array (no side effects)
+ * \param pos (size_t) position of the first item to delete
+ * \param len (size_t) amount of items to delete
+ * \param dest (Type *) where to copy deleted items (must be at least \a len * sizeof(Type))
  */
 #define mp_da_move(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)       \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_move((a), (pos), (dest), (len)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __MP_TYPEOF(*dest) *__dest = (dest);                                                       \
+        __MP_ASSERT_MSG(sizeof(*__dest) == (a)->size,                                              \
+                        "The size of each item(s) provided does not match the array's item size"); \
+        __mp_da_move((a), (pos), __dest, (len));                                                   \
+    } while (0)
 void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
 
-/// Moves a single item at \a pos to \a dest if you do not care about the order of items.
 /**
+ * \brief Moves a single item from \a a at \a pos to \a dest if you do not care about the order of
+ * items.
+ *
  * This operation is O(1) and a much faster alternative to \ref mp_da_move if you do not care
  * about the order of items.
  *
@@ -889,12 +1067,18 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
  *
  * \a dest must not alias \a a->data.
  *
- * \param a (Dyn_Array *) The array
- * \param pos (size_t) The position of the item to delete
- * \param dest (Type *) Where to copy the deleted item (must be at least `sizeof(Type)`)
+ * \param a (Dyn_Array *) array
+ * \param pos (size_t) position of item to delete
+ * \param dest (Type *) where to copy the deleted item (must be at least sizeof(Type))
  */
 #define mp_da_quick_move(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ dest)                   \
-    ((void) (a)->__mp_dyn_array_marker, __mp_da_quick_move((a), (pos), (dest)))
+    do {                                                                                           \
+        (void) (a)->__mp_dyn_array_marker;                                                         \
+        __MP_TYPEOF(*dest) *__dest = (dest);                                                       \
+        __MP_ASSERT_MSG(sizeof(*__dest) == (a)->size,                                              \
+                        "The size of each item(s) provided does not match the array's item size"); \
+        __mp_da_quick_move((a), (pos), __dest);                                                    \
+    } while (0)
 void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 
 /// \}
@@ -906,166 +1090,140 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 /**
  * \defgroup String String
  *
- * Holds a pointer to a **null-terminated** string and its size (excluding the
- * null-terminator).
+ * Holds a pointer to a string and its size (excluding the null-terminator if any).
+ *
+ * This object is a "view" to a string data and does not manage or allocate the data itself.
  *
  * \{
  */
 
-/// Holds a pointer to a **null-terminated** string and its size (excluding the null-terminator).
+/**
+ * \brief Holds a pointer to a string and its size (excluding the null-terminator if any).
+ */
 typedef struct {
-    /// The length/size of the string (in bytes, excluding the null-terminator).
+    /// Length/size of the string (in bytes, excluding the null-terminator).
     size_t len;
-    /// The pointer to the first character.
-    char *cstr;
+    /// Pointer to the first character.
+    const char *data;
 } mp_Str;
 
-/// Returns an invalid \ref mp_Str.
 /**
- * An invalid \ref mp_Str requires that field \a cstr is NULL.
+ * \brief Returns invalid \ref mp_Str.
  *
- * \return (mp_Str) An invalid string
+ * An invalid \ref mp_Str requires that field \a data == NULL.
+ *
+ * \return (\ref mp_Str) invalid string
  */
 #define /* mp_Str */ mp_str_invalid()                                                              \
     ((mp_Str) {                                                                                    \
         .len  = 0,                                                                                 \
-        .cstr = NULL,                                                                              \
+        .data = NULL,                                                                              \
     })
 
-/// Tests whether an \ref mp_Str is valid (i.e. field \a cstr is not NULL).
 /**
- * Returns true if \a s is valid.
+ * \brief Tests whether \a str is valid.
  *
- * \param s (mp_Str) The string
- * \return (bool) Whether \a s is valid
+ * See \ref mp_str_invalid.
+ *
+ * \param str (\ref mp_Str) string
+ * \return (bool) whether \a s is valid
  */
-#define /* bool */ mp_str_is_valid(/* mp_Str */ s) ((s).cstr != NULL)
+#define /* bool */ mp_str_is_valid(/* mp_Str */ str) ((str).data != NULL)
 
-/// Creates a `mp_Str` from a **null-terminated** string.
 /**
- * \param str (const char *) The null-terminated string
- * \return (mp_Str) Contains the string and its length
+ * \brief Creates a view to a null-terminated string.
+ *
+ * Calculates string length with strlen.
+ *
+ * \param str (const char *) null-terminated string (no side effects)
+ * \return (\ref mp_Str) view to \a str
  */
-#define /* mp_Str */ mp_str(/* const char* */ str)                                                 \
+#define /* mp_Str */ mp_str(/* const char* */ str) mp_str_s((str), strlen(str))
+
+/**
+ * \brief Creates a view to a string.
+ *
+ * \param str (const char *) string
+ * \param length (size_t) length of \a str
+ * \return (\ref mp_Str) view to \a str
+ */
+#define /* mp_Str */ mp_str_s(/* const char* */ str, /* size_t */ length)                          \
     ((mp_Str) {                                                                                    \
-        .len  = strlen(str),                                                                       \
-        .cstr = (str),                                                                             \
+        .len  = (length),                                                                          \
+        .data = (str),                                                                             \
     })
 
-/// Allocates and returns a new \ref mp_Str from a **null-terminated** string.
 /**
- * Deinit with \ref mp_str_deinit.
- * \ref mp_str is the non-allocating variant of this function.
+ * \brief Shortcut for printing a \ref mp_Utf8_Char_Data, use with `%.*s` format specifier.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param alloc The allocator handling the allocation
- * \param str The null-terminated string
- * \return The new \ref mp_Str
+ * \param str (\ref mp_Str) string (no side effects)
  */
-mp_Str mp_str_new(mp_Alloc alloc, const char *str);
+#define mp_str_print(/* mp_Str */ str) (int) (str).len, (str).data
 
-/// Allocates and returns a new \ref mp_Str from a string.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Passes \a str to a function that accepts string as pointer and length.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param alloc The allocator handling the allocation
- * \param str The string
- * \param len The length of the new string
- * \return The new \ref mp_Str
+ * \param str (mp_Str) string (no side effects)
  */
-mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len);
+#define mp_str_arg(/* mp_Str */ str) (str).data, (str).len
 
-/// Allocates and returns a new \ref mp_Str from formatted input.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Allocates copy of null-terminated \a str with \a alloc and returns a view to it.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param alloc The allocator handling the allocation
- * \param fmt The formatting string
- * \param ... The formatting arguments
- * \return The new \ref mp_Str
+ * \param str null-terminated string
+ * \param alloc allocator for the copy
+ * \return allocated copy of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
+ * allocation failed
  */
-mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+mp_Str mp_str_alloc(const char *str, mp_Alloc alloc);
 
-/// Frees an allocated \ref mp_Str.
 /**
- * Be careful to not use this function on an unallocated \ref mp_Str.
+ * \brief Allocates clone of \a str with \a alloc.
  *
- * \param str The string
- * \param alloc The allocator that allocated the string
+ * \param str string (may or may not be allocated on heap)
+ * \param alloc allocator for the clone
+ * \return allocated clone of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
+ * allocation failed
+ */
+mp_Str mp_str_clone(mp_Str str, mp_Alloc alloc);
+
+/**
+ * \brief Deinitializes \a str, given it was allocated on the heap with \a alloc.
+ *
+ * \param str pointer to string (allocated on heap)
+ * \param alloc allocator that allocated \a str
  */
 void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
 
-/// Allocates and returns a clone of an \ref mp_Str.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Creates a clone of \a str that is null-terminated with \a alloc.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param str The string to be cloned
- * \param alloc The allocator handling the allocation
- * \return The cloned \ref mp_Str
+ * \param str string to clone
+ * \param alloc allocator for the clone
+ * \return null-terminated clone of \a str, NULL if allocation failed
  */
-mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc);
+char *mp_str_null_terminated_from(mp_Str str, mp_Alloc alloc);
 
-/// Concatenate strings from an array with an optional separator.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Deinitializes null-terminated \a str allocated with \a alloc.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
- *
- * \param strs The array of **null-terminated** strings
- * \param strs_len The length of \a strs
- * \param sep The separator (**nullable**)
- * \param alloc The allocator handling the allocation
- * \return The concatenated string
+ * \param str pointer null-terminated string to deinitialize
+ * \param alloc allocator that allocated \a str
  */
-mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc);
+void mp_str_null_terminated_deinit(char **str, mp_Alloc alloc);
 
-/// The same as \ref mp_str_concat but accepts an array of \ref mp_Str.
 /**
- * See \ref mp_str_concat.
+ * \brief Tests whether \a a and \a b are equal.
  *
- * \param strs The array of strings
- * \param strs_len The length of \a strs
- * \param sep The separator (**nullable**)
- * \param alloc The allocator handling the allocation
- * \return The concatenated string
+ * \param a string
+ * \param b string
+ * \return whether \a a and \a b are equal
  */
-mp_Str mp_str_concat_s(const mp_Str *strs, size_t strs_len, const char *sep, mp_Alloc alloc);
+bool mp_str_eq(mp_Str a, mp_Str b);
 
-/// Convert the uppercase letters to lowercase of \a str to a new copy.
-/**
- * Deinit with \ref mp_str_deinit.
- *
- * Uses the standard function `tolower`.
- *
- * \param str The string
- * \param alloc The allocator allocating the copy
- * \return The converted copy
- */
-mp_Str mp_str_to_lower(const mp_Str *str, mp_Alloc alloc);
-
-/// Convert the lowercase letters to uppercase of \a str to a new copy.
-/**
- * Deinit with \ref mp_str_deinit.
- *
- * Uses the standard function `toupper`.
- *
- * \param str The string
- * \param alloc The allocator allocating the copy
- * \return The converted copy
- */
-mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc);
-
-// TODO: String functions
-// - mp_str_eq
+// TODO: String functions:
+// - mp_str_substr
 // - mp_str_starts/ends_with
-// - mp_str_concat
 // - mp_str_split
 // - mp_str_trim
 
@@ -1078,83 +1236,116 @@ mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc);
 /**
  * \defgroup StringBuilder String Builder
  *
- * Holds a **non null-terminated** string that is resizable.
+ * Holds and manage a **non null-terminated** string that is resizable.
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
-
- * To convert \ref mp_Str_Builder to C string, use \ref mp_str_builder_string which
- * returns a **null-terminated** \ref mp_Str.
+ *
+ * Pass references to \ref mp_Sb with \ref mp_Str type, use \ref mp_sb_str to
+ * convert the string.
+ *
+ * To convert to a C-compatible string which is null-terminated, use \ref
+ * mp_str_null_terminated_from which is going to allocate a clone of the string data and use
+ * \ref mp_str_null_terminated_deinit to free it.
+ *
+ * # Initialization
+ *
+ * Initializing an \ref mp_Sb with \ref mp_sb_init_with or \ref mp_sb_init_withf will allocate for
+ * exactly the amount of bytes required. Meanwhile, initializing then appending manually may
+ * allocate for more than required to minimize the amount of future reallocations.
+ *
+ * If you do not plan to append more data to an \ref mp_Sb, initialize with \ref mp_sb_init_with or
+ * \ref mp_sb_init_withf instead to be more memory efficient.
  *
  * \{
  */
 
-__mp_da_struct(char, __mp_Str_Builder);
+__mp_da_struct(char, __mp_Sb);
 
-/// Holds a **non null-terminated** string that is resizable.
 /**
+ * \brief Holds a string that is resizable.
+ *
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
- *
- * To convert \ref mp_Str_Builder to C string, use \ref mp_str_builder_string which
- * returns a **null-terminated** \ref mp_Str.
  */
-typedef struct __mp_Str_Builder mp_Str_Builder;
+typedef struct __mp_Sb mp_Sb;
 
-/// Initializes an \ref mp_Str_Builder to be managed by \a alloc.
 /**
- * Deinit with \ref mp_str_builder_deinit.
+ * \brief Initializes \a sb managed by \a alloc.
  *
- * \param sb The string builder (initialized by this)
- * \param alloc The managing allocator
+ * Deinit with \ref mp_sb_deinit.
+ *
+ * \param sb string builder (initialized by this)
+ * \param alloc managing allocator
  */
-void mp_str_builder_init(mp_Str_Builder *sb, mp_Alloc alloc);
+void mp_sb_init(mp_Sb *sb, mp_Alloc alloc);
 
-/// Frees an \ref mp_Str_Builder.
 /**
- * \param sb The string builder (deinitialized by this)
+ * \brief Initializes \a sb managed by \a alloc and append \a str.
+ *
+ * Deinit with \ref mp_sb_deinit.
+ *
+ * Will only reserve for exactly the length of \a str.
+ *
+ * \a sb->data == NULL if allocation failed.
+ *
+ * \param sb string builder (initialized by this)
+ * \param str initial string
+ * \param alloc managing allocator
  */
-void mp_str_builder_deinit(mp_Str_Builder *sb);
+void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc);
 
-/// Appends a **null-terminated** string to an \ref mp_Str_Builder.
 /**
- * \a sb->data becomes NULL if allocation failed.
+ * \brief Initializes \a sb managed by \a alloc and append a formatted string.
  *
- * \param sb The string builder
- * \param str The **null-terminated** string to be appended
+ * Deinit with \ref mp_sb_deinit.
+ *
+ * Will only reserve for exactly the length of the resulting formatted string.
+ *
+ * \a sb->data == NULL if allocation failed.
+ *
+ * \param sb string builder (initialized by this)
+ * \param alloc managing allocator
+ * \param fmt formatting string
+ * \param ... formatting arguments
  */
-void mp_str_builder_append(mp_Str_Builder *sb, const char *str);
+void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(3);
 
-/// Appends a formatted string to an \ref mp_Str_Builder.
 /**
- * \a sb->data becomes NULL if allocation failed.
+ * \brief Deinitializes \a sb.
  *
- * \param sb The string builder
- * \param fmt The formatting string
- * \param ... The formatting arguments
+ * \param sb string builder (deinitialized by this)
  */
-void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+void mp_sb_deinit(mp_Sb *sb);
 
-/// Copies the buffer of an \ref mp_Str_Builder into a null-terminated \ref mp_Str.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Appends \a str to \a sb.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
+ * \a sb->data == NULL if allocation failed.
  *
- * \param sb The string builder
- * \param alloc The allocator that allocates the \ref mp_Str
- * \return The **null-terminated** copy of \a sb
+ * \param sb string builder
+ * \param str string to be appended
  */
-mp_Str mp_str_builder_string(const mp_Str_Builder *sb, mp_Alloc alloc);
+void mp_sb_append(mp_Sb *sb, mp_Str str);
 
-/// Same as \ref mp_str_builder_string but also deinitializes \a sb.
 /**
- * Deinit with \ref mp_str_deinit.
+ * \brief Appends a formatted string to \a sb.
  *
- * Returns an invalid \ref mp_Str if allocation failed.
+ * \a sb->data == NULL if allocation failed.
  *
- * \param sb The string builder (deinitialized by this)
- * \param alloc The allocator that allocates the \ref mp_Str
- * \return The **null-terminated** copy of \a sb
+ * \param sb string builder
+ * \param fmt formatting string
+ * \param ... formatting arguments
  */
-mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
+void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
+
+/**
+ * \brief Gets a view to \a sb.
+ *
+ * \param sb string builder
+ * \return view to \a sb
+ */
+mp_Str mp_sb_str(const mp_Sb *sb);
+
+// TODO: Sb functions:
+// - mp_sb_concat
 
 /// \}
 
@@ -1165,7 +1356,7 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
 /**
  * \defgroup HashTableString Hash Table (String Key)
  *
- * Hash table with string (**null-terminated**) key.
+ * Hash table with string key (not null-terminated).
  * This uses the FNV-1a hash algorithm to hash the string.
  *
  * Throughout the documentation, a generic hash table (string key) type is written as \a
@@ -1211,6 +1402,59 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
  *
  * It is best to not modify the hash table in the middle of iteration.
  *
+ * # Layout
+ *
+ * ## Hash Table
+ *
+ * \code
+ * struct {
+ *     mp_Alloc    alloc;
+ *     size_t      len;
+ *     size_t      cap;
+ *     size_t      size;
+ *     Entry_Type *data;
+ *     size_t      val_size;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **alloc**: allocator that manages the allocations of the hash table
+ * - **len**: amount of items in the hash table
+ * - **cap**: size of the allocated block holding the data in bytes
+ * - **size**: size of an entry in bytes
+ * - **data**: pointer to the first entry (the entries are continuous in memory)
+ * - **val_size**: size of individual value in bytes (0 for hash sets)
+ *
+ * ## Entry
+ *
+ * \code
+ * struct {
+ *     mp_Str     key;
+ *     Value_Type val;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **key**: key indicating the entry
+ * - **val**: value at the entry
+ *
+ * ## Iterator
+ *
+ * \code
+ * struct {
+ *     const Str_Hash_Table *_h;
+ *     size_t                _i;
+ *     mp_Str                key;
+ *     Value_Type           *val;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **_h**: hash table being iterated on
+ * - **_i**: index of iteration
+ * - **key**: retrieved key
+ * - **val** pointer to the retrieved value at \a key
+ *
  * # Marker
  *
  * String hash tables contain a zero-sized field `__mp_str_ht_marker`. This field is used as a type
@@ -1232,13 +1476,15 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
     #define __MP_HASH_TABLE_INIT_CAPACITY __MP_DARRAY_INIT_CAPACITY
 #endif
 
-/// Defines a \ref HashTableString "string hash table" struct with value of type \a value_type.
 /**
+ * \brief Defines a \ref HashTableString "hash table (string key)" struct with value of type \a
+ * value_type.
+ *
  * This also defines the hash table's iterator type, named by suffixing `Iter`
  * after the hash table's type name.
  *
- * \param value_type (identifier) The type of the value
- * \param name (identifier) The name of the hash table
+ * \param value_type ("Type") value type name
+ * \param name (identifier) hash table name
  */
 #define mp_ht_typedef(/* "Type" */ value_type, /* identifier */ name)                              \
     typedef struct {                                                                               \
@@ -1258,7 +1504,7 @@ mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc);
         const name *_h;                                                                            \
         size_t      _i;                                                                            \
         mp_Str      key;                                                                           \
-        value_type  val;                                                                           \
+        value_type *val;                                                                           \
         char        __mp_str_ht_iter_marker[];                                                     \
     } name##_Iter
 
@@ -1294,106 +1540,124 @@ typedef struct {
     const __mp_Hash_Table *_h;
     size_t                 _i;
     mp_Str                 key;
-    char                   val[];
+    void                  *val;
 } __mp_Str_Ht_Iter;
 
-/// Initializes a new string hash table managed by \a allocator.
 /**
+ * \brief Initializes \a ht managed by \a alloc.
+ *
  * Deinit with \ref mp_ht_deinit.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * \a ht->data == NULL if allocation failed.
  *
- * \param type (identifier) The type of the hash table
- * \param ht (Str_Hash_Table *) The hash table (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the hash table
+ * \param type ("Type") hash table type name
+ * \param ht (Str_Hash_Table *) hash table (initialized by this)
+ * \param alloc (\ref mp_Alloc) allocator to manage \a ht
  */
 #define mp_ht_init(/* "Type" */ type, /* Str_Hash_Table* */ ht, /* mp_Alloc */ alloc)              \
-    ((void) (ht)->__mp_str_ht_marker,                                                              \
-     __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val)))
+    do {                                                                                           \
+        (void) (ht)->__mp_str_ht_marker;                                                           \
+        __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data),                                   \
+                     sizeof((*((type *) 0)->data).val));                                           \
+    } while (0)
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
 
-/// Frees a string hash table.
 /**
- * \param ht (Str_Hash_Table *) The hash table (deinitialized by this)
+ * \brief Deinitializes \a ht.
+ *
+ * \param ht (Str_Hash_Table *) hash table (deinitialized by this)
  */
-#define mp_ht_deinit(/* Str_Hash_Table* */ ht) ((void) (ht)->__mp_str_ht_marker, __mp_ht_deinit(ht))
+#define mp_ht_deinit(/* Str_Hash_Table* */ ht)                                                     \
+    do {                                                                                           \
+        (void) (ht)->__mp_str_ht_marker;                                                           \
+        __mp_ht_deinit(ht);                                                                        \
+    } while (0)
 void __mp_ht_deinit(void *ht);
 
-/// Gets a pointer to an item at key \a k.
 /**
- * \a ret becomes NULL if it could not retrieve the item.
+ * \brief Gets pointer to item at \a k.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param k (const char *) The key (NON-NULL)
- * \return (void *) The retrieved value
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param k (const char *) key (non-null)
+ * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_ht_get(/* const Str_Hash_Table* */ ht, /* const char* */ k)                 \
-    ((void) (ht)->__mp_str_ht_marker, mp_ht_get_s((ht), mp_str(k)))
+    mp_ht_get_s((ht), mp_str(k))
 
-/// The same as \ref mp_ht_get but accepts \ref mp_Str.
 /**
+ * \brief Same as \ref mp_ht_get but accepts \ref mp_Str.
+ *
  * See \ref mp_ht_get.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param k (mp_Str) The key
- * \return (void *) The retrieved value
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param k (\ref mp_Str) key
+ * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_ht_get_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                    \
     ((void) (ht)->__mp_str_ht_marker, __mp_ht_get((ht), (k)))
 void *__mp_ht_get(const void *ht, mp_Str k);
 
-/// Sets the value at key \a k to \a v.
 /**
- * When the item at \a k has not been initialized before, the key is cloned.
+ * \brief Sets the value at \a k to \a v.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * When the entry at \a k has not been initialized before, the key is cloned.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param k (const char *) The key
- * \param v (Type) The value to be stored
+ * \a ht->data == NULL if allocation failed.
+ *
+ * \param ht (Str_Hash_Table *) hash table (no side effects)
+ * \param k (const char *) key
+ * \param v (Type) value to be stored
  */
 #define mp_ht_set(/* Str_Hash_Table* */ ht, /* const char* */ k, /* Type */ v)                     \
     mp_ht_set_s((ht), mp_str(k), (v))
 
-/// The same as \ref mp_ht_set but accepts \ref mp_Str.
 /**
+ * \brief Same as \ref mp_ht_set but accepts \ref mp_Str.
+ *
  * See \ref mp_ht_set.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param k (mp_Str) The key
- * \param v (Type) The value to be stored
+ * \param ht (Str_Hash_Table *) hash table (no side effects)
+ * \param k (\ref mp_Str) key
+ * \param v (Type) value to be stored
  */
 #define mp_ht_set_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                        \
     do {                                                                                           \
         (void) (ht)->__mp_str_ht_marker;                                                           \
-        __typeof__(v) __it = (v);                                                                  \
+        __MP_TYPEOF(v) __it = (v);                                                                 \
+        __MP_ASSERT_MSG((ht)->val_size > 0, "Did you mean to use `mp_hs_set` instead?");           \
+        __MP_ASSERT_MSG(                                                                           \
+            sizeof(__it) == (ht)->val_size,                                                        \
+            "The size of the value provided does not match the hash table's value size");          \
         __mp_ht_set((ht), (k), &__it);                                                             \
     } while (0)
 void __mp_ht_set(void *ht, mp_Str k, void *v);
 
-/// Tests whether an item at key \a k exists in the given string hash table.
 /**
- * \param ht (const Str_Hash_Table *) The hash table
- * \param k (const char *) The key
- * \return (bool) Whether an item at key \a k exists
+ * \brief Tests whether \a k exists in \a ht.
+ *
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param k (const char *) key
+ * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_ht_exists(/* const Str_Hash_Table* */ ht, /* const char * */ k)              \
-    ((void) (ht)->__mp_str_ht_marker, __mp_ht_exists((ht), mp_str(k)))
+    __mp_ht_exists((ht), mp_str(k))
 
-/// The same as \ref mp_ht_exists but accepts \ref mp_Str.
 /**
+ * \brief Same as \ref mp_ht_exists but accepts \ref mp_Str.
+ *
  * See \ref mp_ht_exists.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param k (mp_Str) The key
- * \return (bool) Whether an item at key \a k exists
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param k (\ref mp_Str) key
+ * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_ht_exists_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                  \
     ((void) (ht)->__mp_str_ht_marker, __mp_ht_exists((ht), (k)))
 bool __mp_ht_exists(const void *ht, mp_Str k);
 
-/// Grows a string hash table to be able to hold \a offset more items from the current length.
 /**
+ * \brief Grows \a ht to be able to hold \a offset more items from the current length.
+ *
  * Does a calculation to determine the new capacity. The increase of the new capacity may not be
  * equal to \a offset.
  *
@@ -1401,135 +1665,165 @@ bool __mp_ht_exists(const void *ht, mp_Str k);
  *
  * If \a ht->cap is not large enough, reserves for double of \a ht->cap.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * \a ht->data == NULL if allocation failed.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param offset (size_t) The amount to grow
+ * \param ht (Str_Hash_Table *) hash table
+ * \param offset (size_t) amount to grow
  */
 #define mp_ht_grow(/* Str_Hash_Table* */ ht, /* size_t */ offset)                                  \
-    ((void) (ht)->__mp_str_ht_marker, __mp_ht_grow((ht), (offset)))
+    do {                                                                                           \
+        (void) (ht)->__mp_str_ht_marker;                                                           \
+        __mp_ht_grow((ht), (offset));                                                              \
+    } while (0)
 void __mp_ht_grow(void *ht, size_t offset);
 
 // Invalidates and frees the string keys
 void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size);
 
-/// Sets the length of a string hash table to 0 and frees its keys.
 /**
- * This resets the hash table to "initial condition" but without actually freeing the data.
+ * \brief Sets the length of \a ht to 0 and frees its keys.
  *
- * \param ht (Str_Hash_Table *) The hash table
+ * This resets \a ht to "initial condition" but without actually freeing the data.
+ *
+ * \param ht (Str_Hash_Table *) hash table
  */
-#define mp_ht_reset(/* Str_Hash_Table* */ ht) ((void) (ht)->__mp_str_ht_marker, __mp_ht_reset(ht))
+#define mp_ht_reset(/* Str_Hash_Table* */ ht)                                                      \
+    do {                                                                                           \
+        (void) (ht)->__mp_str_ht_marker;                                                           \
+        __mp_ht_reset(ht);                                                                         \
+    } while (0)
 void __mp_ht_reset(void *ht);
 
-/// Deletes an item at key \a k.
 /**
+ * \brief Deletes an entry at \a k from \a ht.
+ *
  * This decreases \a ht->len but does not actually shrink the hash table, but it just
- * marks the spot as "deleted", which may be overridden by subsequent set operations.
+ * marks the entry as "deleted", which may be overridden by subsequent set operations.
  *
  * Does nothing if it cannot find \a k.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param k (const char *) The key
+ * \param ht (Str_Hash_Table *) hash table
+ * \param k (const char *) key
  */
-#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k)                                \
-    ((void) (ht)->__mp_str_ht_marker, mp_ht_delete_s((ht), mp_str(k)))
+#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
 
-/// The same as \ref mp_ht_delete but accepts to \ref mp_Str.
 /**
+ * \brief Same as \ref mp_ht_delete but accepts to \ref mp_Str.
+ *
  * See \ref mp_ht_delete.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param k (mp_Str) The key
+ * \param ht (Str_Hash_Table *) hash table
+ * \param k (\ref mp_Str) key
  */
 #define mp_ht_delete_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k)                                   \
-    ((void) (ht)->__mp_str_ht_marker, __mp_ht_delete((ht), (k)))
+    do {                                                                                           \
+        (void) (ht)->__mp_str_ht_marker;                                                           \
+        __mp_ht_delete((ht), (k));                                                                 \
+    } while (0)
 void __mp_ht_delete(void *ht, mp_Str k);
 
-/// Clones a string hash table to \a dest to be managed by \a allocator.
 /**
- * \a dest inherits all fields of \a src.
- * \a dest->data becomes NULL if allocation failed.
+ * \brief Clones \a src to \a dest managed by \a alloc.
  *
- * \param dest (Str_Hash_Table *) Stores the cloned hash table (initialized by this)
- * \param src (const Str_Hash_Table *) The hash table to be cloned
- * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \a dest inherits all fields of \a src.
+ * \a dest->data == NULL if allocation failed.
+ *
+ * \param dest (Str_Hash_Table *) destination of the clone (initialized by this)
+ * \param src (const Str_Hash_Table *) source hash table
+ * \param alloc (\ref mp_Alloc) allocator to manage \a dest
  */
 #define mp_ht_clone(/* Str_Hash_Table* */ dest, /* const Str_Hash_Table* */ src,                   \
                     /* mp_Alloc */ alloc)                                                          \
-    ((void) (dest)->__mp_str_ht_marker, (void) (src)->__mp_str_ht_marker,                          \
-     __mp_ht_clone((dest), (src), (alloc)))
+    do {                                                                                           \
+        (void) (dest)->__mp_str_ht_marker;                                                         \
+        (void) (src)->__mp_str_ht_marker;                                                          \
+        __mp_ht_clone((dest), (src), (alloc));                                                     \
+    } while (0)
 void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
 
 /**
  * \brief A \ref DynamicArray "dynamic array" of \ref mp_Str to hold the keys of \ref
- * HashTableString "string hash tables".
+ * HashTableString "hash tables (string key)".
  */
 typedef struct __mp_Ht_Keys mp_Ht_Keys;
 
 __mp_da_struct(mp_Str, __mp_Ht_Keys);
 
-/// Deinitializes an \ref mp_Ht_Keys.
 /**
- * \param keys The key array (deinitialized by this)
+ * \brief Deinitializes \a keys.
+ *
+ * \param keys key array (deinitialized by this)
  */
 void mp_ht_keys_deinit(mp_Ht_Keys *keys);
 
-/// Extracts the keys from a string hash table to an array.
 /**
+ * \brief Extracts the keys from \a ht to \a keys.
+ *
  * \a keys **must be initialized** with \ref mp_da_init first.
  *
  * Each key will be cloned using the allocator of \a keys, so free \a keys with \ref
  * mp_ht_keys_deinit.
  *
- * \a keys->data becomes NULL if allocation failed.
+ * \a keys->data == NULL if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param keys (mp_Ht_Keys *) The array to put the keys into
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param keys (\ref mp_Ht_Keys *) destination of keys (must be initialized first)
  */
 #define mp_ht_keys(/* const Str_Hash_Table* */ ht, /* mp_Ht_Keys* */ keys)                         \
-    ((void) (ht)->__mp_str_ht_marker, __mp_ht_keys((ht), (keys)))
+    do {                                                                                           \
+        (void) (ht)->__mp_str_ht_marker;                                                           \
+        __mp_ht_keys((ht), (keys));                                                                \
+    } while (0)
 void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
 
-/// Extracts the keys from a string hash table to an array.
 /**
+ * \brief Extracts the values from \a ht to \a values.
+ *
  * \a values is a \ref DynamicArray "dynamic array" and its data type **must match** the
  * value type of \a ht.
  *
- * \a values must be initialized with \ref mp_da_init first.
+ * \a values **must be initialized** with \ref mp_da_init first.
  *
- * \a values->data becomes NULL if allocation failed.
+ * \a values->data == NULL if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
- * \param ht (const Str_Hash_Table *) The hash table
- * \param values (Dyn_Array *) The array to put the values into
+ * \param ht (const Str_Hash_Table *) hash table
+ * \param values (Dyn_Array *) destination of values (must be initialized first)
  */
 #define mp_ht_values(/* const Str_Hash_Table* */ ht, /* Dyn_Array* */ values)                      \
-    ((void) (ht)->__mp_str_ht_marker, __mp_ht_values((ht), (values)))
+    do {                                                                                           \
+        (void) (ht)->__mp_str_ht_marker;                                                           \
+        __mp_ht_values((ht), (values));                                                            \
+    } while (0)
 void __mp_ht_values(const void *ht, void *values);
 
-/// Initializes an iterator on a string hash table.
 /**
+ * \brief Initializes \a it to iterate on \a ht.
+ *
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (Str_Hash_Table_Iter *) The iterator (initialized by this)
- * \param ht (const Str_Hash_Table *) The hash table to iterate
+ * \param it (Str_Hash_Table_Iter *) iterator (initialized by this)
+ * \param ht (const Str_Hash_Table *) hash table to iterate
  */
 #define mp_ht_iter_init(/* Str_Hash_Table_Iter* */ it, /* const Str_Hash_Table* */ ht)             \
-    ((void) (it)->__mp_str_ht_iter_marker, __mp_ht_iter_init((it), (ht)))
+    do {                                                                                           \
+        (void) (it)->__mp_str_ht_iter_marker;                                                      \
+        __mp_ht_iter_init((it), (ht));                                                             \
+    } while (0)
 void __mp_ht_iter_init(void *it, const void *ht);
 
-/// Get the next element in the iterator.
 /**
+ * \brief Get the next element of \a it.
+ *
  * To use hash table iterators, see \ref HashTableString.
  *
- * \param it (Str_Hash_Table_Iter *) The iterator
- * \return (bool) Whether it is valid to access the data
+ * \param it (Str_Hash_Table_Iter *) iterator
+ * \return (bool) whether it is valid to access the value
  */
 #define /* bool */ mp_ht_iter_next(/* Str_Hash_Table_Iter* */ it)                                  \
     ((void) (it)->__mp_str_ht_iter_marker, __mp_ht_iter_next(it))
@@ -1541,8 +1835,8 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
 /**
  * \defgroup HashSetString Hash Set (String)
  *
- * Hash set with string (**null-terminated**) key.
- * Represented by a \ref HashTableString "string hash table" with opaque value.
+ * Hash set with string key.
+ * Represented by a \ref HashTableString "hash table (string key)" with opaque value.
  *
  * See \ref HashTableString for details about the actual representation.
  *
@@ -1555,10 +1849,10 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * mp_hs_deinit(&set);
  * \endcode
  *
- * The primary usage of this is for setting keys. The value can be whatever but using NULL is
- * preferred.
+ * The primary usage of this is for setting keys. Use \ref mp_hs_set to set an element, do not use
+ * \ref mp_ht_set.
  * \code
- * mp_ht_set(&set, "foo", NULL);
+ * mp_hs_set(&set, "foo");
  * \endcode
  *
  * Getting the pointer to the value is a valid way to assess if the key spot is already occupied.
@@ -1573,38 +1867,77 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * \{
  */
 
-/// String hash set, essentially just \ref HashTableString "string hash table" with dummy value.
+/**
+ * \brief String hash set, essentially just a \ref HashTableString "hash table (string key)" with
+ * dummy value.
+ */
 typedef struct __mp_Str_Set mp_Str_Set;
 
 __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
 
-/// Initializes a new string hash set managed by \a allocator.
 /**
+ * \brief Initializes \a hs managed by \a alloc.
+ *
  * Deinit with \ref mp_hs_deinit.
  *
- * \a hs->data becomes NULL if allocation failed.
+ * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Str_Set *) The hash set (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the hash set
+ * \param hs (\ref mp_Str_Set *) hash set (initialized by this)
+ * \param alloc (mp_Alloc) allocator to manage \a hs
  */
 #define mp_hs_init(/* mp_Str_Set* */ hs, /* mp_Alloc */ alloc)                                     \
-    ((void) (hs)->__mp_str_ht_marker,                                                              \
-     __mp_ht_init((hs), (alloc), sizeof(*((mp_Str_Set *) 0)->data), 0))
+    do {                                                                                           \
+        (void) (hs)->__mp_str_ht_marker;                                                           \
+        __mp_ht_init((hs), (alloc), sizeof(*((mp_Str_Set *) 0)->data), 0);                         \
+    } while (0)
 
-/// Frees a string hash set.
 /**
- * \param hs (mp_Str_Set *) The hash set (deinitialized by this)
+ * \brief Deinitializes \a hs.
+ *
+ * \param hs (\ref mp_Str_Set *) hash set (deinitialized by this)
  */
-#define mp_hs_deinit(/* mp_Str_Set* */ hs) ((void) (hs)->__mp_str_ht_marker, __mp_ht_deinit(hs))
+#define mp_hs_deinit(/* mp_Str_Set* */ hs)                                                         \
+    do {                                                                                           \
+        (void) (hs)->__mp_str_ht_marker;                                                           \
+        __mp_ht_deinit(hs);                                                                        \
+    } while (0)
 
-/// Iterator for \ref HashSetString "string hash sets".
+/**
+ * \brief Sets the key \a k.
+ *
+ * When the key has not been set, \a k is cloned.
+ *
+ * \a hs->data == NULL if allocation failed.
+ *
+ * \param hs (\ref mp_Str_Set *) hash set
+ * \param k (const char *) key
+ */
+#define mp_hs_set(/* mp_Str_Set* */ hs, /* const char* */ k) mp_hs_set_s((hs), mp_str(k))
+
+/**
+ * \brief Same as \ref mp_hs_set but accepts \ref mp_Str.
+ *
+ * See \ref mp_hs_set.
+ *
+ * \param hs (\ref mp_Str_Set *) hash set
+ * \param k (\ref mp_Str) key
+ */
+#define mp_hs_set_s(/* mp_Str_Set* */ hs, /* mp_Str */ k)                                          \
+    do {                                                                                           \
+        (void) (hs)->__mp_str_ht_marker;                                                           \
+        __mp_ht_set((hs), (k), NULL);                                                              \
+    } while (0)
+
+/**
+ * \brief Iterator for \ref HashSetString "hash sets (string key)".
+ */
 typedef struct __mp_Str_Set_Iter mp_Str_Set_Iter;
 
 struct __mp_Str_Set_Iter {
     const __mp_Hash_Table *_h;
     size_t                 _i;
     mp_Str                 key;
-    char                   val;
+    void                  *val;
     char                   __mp_str_ht_iter_marker[];
 };
 
@@ -1666,6 +1999,72 @@ struct __mp_Str_Set_Iter {
  *
  * It is best to not modify the hash table in the middle of iteration.
  *
+ * # Layout
+ *
+ * ## Hash Table
+ *
+ * \code
+ * struct {
+ *     mp_Alloc    alloc;
+ *     size_t      len;
+ *     size_t      cap;
+ *     size_t      size;
+ *     Entry_Type *data;
+ *     size_t      val_size;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **alloc**: allocator that manages the allocation of the hash table
+ * - **len**: amount of items in the hash table
+ * - **cap**: size of the allocated block holding the data in bytes
+ * - **size**: size of an entry in bytes
+ * - **data**: pointer to the first entry (the data are continuous in memory)
+ * - **val_size**: size of individual value (0 for hash sets)
+ *
+ * ## Entry
+ *
+ * \code
+ * struct {
+ *     Int_Key    key;
+ *     Value_Type val;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **key**: key indicating the entry
+ * - **val**: value at the entry
+ *
+ * ## Key
+ *
+ * \code
+ * struct {
+ *     size_t key;
+ *     bool   valid;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **key**: key value
+ * - **valid**: whether the key is valid
+ *
+ * ## Iterator
+ *
+ * \code
+ * struct {
+ *     const Int_Hash_Table *_h;
+ *     size_t                _i;
+ *     Int_Key               key;
+ *     Value_Type           *val;
+ * };
+ * \endcode
+ *
+ * **Fields**
+ * - **_h**: hash table being iterated on
+ * - **_i**: index of iteration
+ * - **key**: retrieved key
+ * - **val** pointer to the retrieved value at \a key
+ *
  * # Marker
  *
  * Integer hash tables contain a zero-sized field `__mp_int_ht_marker`. This field is used as a type
@@ -1677,13 +2076,15 @@ struct __mp_Str_Set_Iter {
  * \{
  */
 
-/// Defines an \ref HashTableInt "integer hash table" struct with value of type \a value_type.
 /**
- * This also defines the hash table's iterator type, named by suffixing `Iter`
- * after the hash table's type name.
+ * \brief Defines an \ref HashTableInt "hash table (integer key)" struct with value of type \a
+ * value_type.
  *
- * \param value_type (identifier) The type of the value
- * \param name (identifier) The name of the hash table
+ * This also defines the hash table's iterator type, named by suffixing `Iter` after the
+ * hash table's type name.
+ *
+ * \param value_type ("Type") value type name
+ * \param name (identifier) hash table name
  */
 #define mp_hti_typedef(/* "Type" */ value_type, /* identifier */ name)                             \
     typedef struct {                                                                               \
@@ -1703,7 +2104,7 @@ struct __mp_Str_Set_Iter {
         const name     *_h;                                                                        \
         size_t          _i;                                                                        \
         __mp_Int_Ht_Key key;                                                                       \
-        value_type      val;                                                                       \
+        value_type     *val;                                                                       \
         char            __mp_int_ht_iter_marker[];                                                 \
     } name##_Iter
 
@@ -1735,70 +2136,83 @@ typedef struct {
     const __mp_Hash_Table *_h;
     size_t                 _i;
     __mp_Int_Ht_Key        key;
-    char                   val[];
+    void                  *val;
 } __mp_Int_Ht_Iter;
 
-/// Initializes a new integer hash table managed by \a allocator.
 /**
+ * \brief Initializes \a ht managed by \a alloc.
+ *
  * Deinit with \ref mp_hti_deinit.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * \a ht->data == NULL if allocation failed.
  *
- * \param type (identifier) The type of the hash table
- * \param ht (Int_Hash_Table *) The hash table (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the hash table
+ * \param type ("Type") hash table type name
+ * \param ht (Int_Hash_Table *) hash table (initialized by this)
+ * \param alloc (\ref mp_Alloc) allocator to manage \a ht
  */
 #define mp_hti_init(/* "Type" */ type, /* Int_Hash_Table* */ ht, /* mp_Alloc */ alloc)             \
-    ((void) (ht)->__mp_int_ht_marker,                                                              \
-     __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data), sizeof((*((type *) 0)->data).val)))
+    do {                                                                                           \
+        (void) (ht)->__mp_int_ht_marker;                                                           \
+        __mp_ht_init((ht), (alloc), sizeof(*((type *) 0)->data),                                   \
+                     sizeof((*((type *) 0)->data).val));                                           \
+    } while (0)
 
-/// Frees an integer hash table.
 /**
- * \param ht (Int_Hash_Table *) The hash table (deinitialized by this)
+ * \brief Deinitializes \a ht.
+ *
+ * \param ht (Int_Hash_Table *) hash table (deinitialized by this)
  */
 #define mp_hti_deinit(/* Int_Hash_Table* */ ht)                                                    \
-    ((void) (ht)->__mp_int_ht_marker, __mp_da_deinit(ht))
+    do {                                                                                           \
+        (void) (ht)->__mp_int_ht_marker;                                                           \
+        __mp_da_deinit(ht);                                                                        \
+    } while (0)
 
-/// Gets a pointer to an item at key \a k.
 /**
- * \a ret becomes NULL if it could not retrieve the item.
+ * \brief Gets pointer to item at \a k.
  *
- * \param ht (const Int_Hash_Table *) The hash table
- * \param k (size_t) The key
- * \return (void *) The retrieved value
+ * \param ht (const Int_Hash_Table *) hash table
+ * \param k (size_t) key
+ * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_hti_get(/* const Int_Hash_Table* */ ht, /* size_t */ k)                     \
     ((void) (ht)->__mp_int_ht_marker, __mp_hti_get((ht), (k)))
 void *__mp_hti_get(const void *ht, size_t k);
 
-/// Sets the value at key \a k to \a v.
 /**
- * \a ht->data becomes NULL if allocation failed.
+ * \brief Sets the value at \a k to \a v.
  *
- * \param ht (Int_Hash_Table *) The hash table
- * \param k (size_t) The key
- * \param v (Type) The value to be stored
+ * \a ht->data == NULL if allocation failed.
+ *
+ * \param ht (Int_Hash_Table *) hash table (no side effects)
+ * \param k (size_t) key
+ * \param v (Type) value to be stored
  */
 #define mp_hti_set(/* Int_Hash_Table* */ ht, /* size_t */ k, /* Type */ v)                         \
     do {                                                                                           \
         (void) (ht)->__mp_int_ht_marker;                                                           \
-        __typeof__(v) __it = (v);                                                                  \
+        __MP_TYPEOF(v) __it = (v);                                                                 \
+        __MP_ASSERT_MSG((ht)->val_size > 0, "Did you mean to use `mp_hsi_set` instead?");          \
+        __MP_ASSERT_MSG(sizeof(__it) == (ht)->val_size,                                            \
+                        "The size of each item(s) provided does not match the array's item size"); \
         __mp_hti_set((ht), (k), &__it);                                                            \
     } while (0)
 void __mp_hti_set(void *ht, size_t k, void *v);
 
-/// Tests whether an item at key \a k exists in the given int hash table.
 /**
- * \param ht (const Int_Hash_Table *) The hash table
- * \param k (size_t) The key
- * \return (bool) Whether an item at key \a k exists
+ * \brief Tests whether \a k exists in \a ht.
+ *
+ * \param ht (const Int_Hash_Table *) hash table
+ * \param k (size_t) key
+ * \return (bool) whether \a k exists in \a ht
  */
 #define /* bool */ mp_hti_exists(/* const Int_Hash_Table* */ ht, /* size_t */ k)                   \
     ((void) (ht)->__mp_int_ht_marker, __mp_hti_exists((ht), (k)))
 bool __mp_hti_exists(const void *ht, size_t k);
 
-/// Grows an integer hash table to be able to hold \a offset more items from the current length.
 /**
+ * \brief Grows \a ht to be able to hold \a offset more items from the current length.
+ *
  * Does a calculation to determine the new capacity. The increase of the new capacity may not be
  * equal to \a offset.
  *
@@ -1806,115 +2220,144 @@ bool __mp_hti_exists(const void *ht, size_t k);
  *
  * If \a ht->cap is not large enough, reserves for double of \a ht->cap.
  *
- * \a ht->data becomes NULL if allocation failed.
+ * \a ht->data == NULL if allocation failed.
  *
- * \param ht (Str_Hash_Table *) The hash table
- * \param offset (size_t) The amount to grow
+ * \param ht (Str_Hash_Table *) hash table
+ * \param offset (size_t) amount to grow
  */
 #define mp_hti_grow(/* Int_Hash_Table* */ ht, /* size_t */ offset)                                 \
-    ((void) (ht)->__mp_int_ht_marker, __mp_hti_grow((ht), (offset)))
+    do {                                                                                           \
+        (void) (ht)->__mp_int_ht_marker;                                                           \
+        __mp_hti_grow((ht), (offset));                                                             \
+    } while (0)
 void __mp_hti_grow(void *ht, size_t offset);
 
-/// Sets the length of an integer hash table to 0 and invalidate its keys.
 /**
+ * \brief Sets the length of \a ht to 0 and frees its keys.
+ *
  * This resets the hash table to "initial condition" but without actually freeing the data.
  *
- * \param ht (Int_Hash_Table *) The hash table
+ * \param ht (Int_Hash_Table *) hash table
  */
-#define mp_hti_reset(/* Int_Hash_Table* */ ht) ((void) (ht)->__mp_int_ht_marker, __mp_hti_reset(ht))
+#define mp_hti_reset(/* Int_Hash_Table* */ ht)                                                     \
+    do {                                                                                           \
+        (void) (ht)->__mp_int_ht_marker;                                                           \
+        __mp_hti_reset(ht);                                                                        \
+    } while (0)
 void __mp_hti_reset(void *ht);
 
-/// Deletes an item at key \a k.
 /**
+ * \brief Deletes an entry at \a k from \a ht.
+ *
  * This decreases \a ht->len but does not actually shrink the hash table, but it just
- * marks the spot as "deleted", which may be overridden by subsequent set operations.
+ * marks the entry as "deleted", which may be overridden by subsequent set operations.
  *
  * Does nothing if it cannot find \a k.
  *
- * \param ht (Int_Hash_Table *) The hash table
- * \param k (size_t) The key
+ * \param ht (Int_Hash_Table *) hash table
+ * \param k (size_t) key
  */
 #define mp_hti_delete(/* Int_Hash_Table* */ ht, /* size_t */ k)                                    \
-    ((void) (ht)->__mp_int_ht_marker, __mp_hti_delete((ht), (k)))
+    do {                                                                                           \
+        (void) (ht)->__mp_int_ht_marker;                                                           \
+        __mp_hti_delete((ht), (k));                                                                \
+    } while (0)
 void __mp_hti_delete(void *ht, size_t k);
 
-/// Clones an integer hash table to \a dest to be managed by \a allocator.
 /**
- * \a dest inherits all fields of \a src.
- * \a dest->data becomes NULL if allocation failed.
+ * \brief Clones \a src to \a dest managed by \a alloc.
  *
- * \param dest (Str_Hash_Table *) Stores the cloned hash table (initialized by this)
- * \param src (const Str_Hash_Table *) The hash table to be cloned
- * \param alloc (mp_Alloc) The allocator to manage \a dest
+ * \a dest inherits all fields of \a src.
+ * \a dest->data == NULL if allocation failed.
+ *
+ * \param dest (Str_Hash_Table *) destination of the clone (initialized by this)
+ * \param src (const Str_Hash_Table *) source hash table
+ * \param alloc (\ref mp_Alloc) allocator to manage \a dest
  */
 #define mp_hti_clone(/* Int_Hash_Table* */ dest, /* const Int_Hash_Table* */ src,                  \
                      /* mp_Alloc */ alloc)                                                         \
-    ((void) (dest)->__mp_int_ht_marker, (void) (src)->__mp_int_ht_marker,                          \
-     __mp_hti_clone((dest), (src), (alloc)))
+    do {                                                                                           \
+        (void) (dest)->__mp_int_ht_marker;                                                         \
+        (void) (src)->__mp_int_ht_marker;                                                          \
+        __mp_hti_clone((dest), (src), (alloc));                                                    \
+    } while (0)
 void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc);
 
 /**
  * \brief A \ref DynamicArray "dynamic array" of size_t to hold the keys of \ref
- * HashTableInt "integer hash tables".
+ * HashTableInt "hash tables (integer key)".
  */
 typedef struct __mp_Hti_Keys mp_Hti_Keys;
 
 __mp_da_struct(size_t, __mp_Hti_Keys);
 
-/// Extracts the keys from an integer hash table to an array.
 /**
+ * \brief Extracts the keys from \a ht to \a keys.
+ *
  * \a keys **must be initialized** with \ref mp_da_init first.
  *
  * Deinit \a keys with \ref mp_da_deinit.
  *
- * \a keys->data becomes NULL if allocation failed.
+ * \a keys->data == NULL if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
- * \param ht (const Int_Hash_Table *) The hash table
- * \param keys (mp_Hti_Keys *) The array to put the keys into
+ * \param ht (const Int_Hash_Table *) hash table
+ * \param keys (\ref mp_Hti_Keys *) destination of keys (must be initialized first)
  */
 #define mp_hti_keys(/* const IntHashTable* */ ht, /* mp_Hti_Keys* */ keys)                         \
-    ((void) (ht)->__mp_int_ht_marker, __mp_hti_keys((ht), (keys)))
+    do {                                                                                           \
+        (void) (ht)->__mp_int_ht_marker;                                                           \
+        __mp_hti_keys((ht), (keys));                                                               \
+    } while (0)
 void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
 
-/// Extracts the keys from an integer hash table to an array.
 /**
+ * \brief Extracts the values from \a ht to \a values.
+ *
  * \a values is a \ref DynamicArray "dynamic array" and its data type **must match** the
  * value type of \a ht.
  *
- * \a values must be initialized with \ref mp_da_init first.
+ * \a values **must be initialized** with \ref mp_da_init first.
  *
- * \a values->data becomes NULL if allocation failed.
+ * \a values->data == NULL if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
  *
- * \param ht (const Int_Hash_Table *) The hash table
- * \param values (Dyn_Array *) The array to put the values into
+ * \param ht (const Int_Hash_Table *) hash table
+ * \param values (Dyn_Array *) destination of values (must be initialized first)
  */
 #define mp_hti_values(/* const Int_Hash_Table* */ ht, /* Dyn_Array* */ values)                     \
-    ((void) (ht)->__mp_int_ht_marker, __mp_hti_values((ht), (values)))
+    do {                                                                                           \
+        (void) (ht)->__mp_int_ht_marker;                                                           \
+        __mp_hti_values((ht), (values));                                                           \
+    } while (0)
 void __mp_hti_values(const void *ht, void *values);
 
-/// Initializes an iterator on an integer hash table.
 /**
+ * \brief Initializes \a it to iterate on \a ht.
+ *
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (Int_Hash_Table_Iter *) The iterator (initialized by this)
- * \param ht (const Int_Hash_Table *) The hash table to iterate
+ * \param it (Int_Hash_Table_Iter *) iterator (initialized by this)
+ * \param ht (const Int_Hash_Table *) hash table to iterate
  */
 #define mp_hti_iter_init(/* Int_Hash_Table_Iter* */ it, /* const Int_Hash_Table* */ ht)            \
-    ((void) (it)->__mp_int_ht_iter_marker, __mp_hti_iter_init((it), (ht)))
+    do {                                                                                           \
+        (void) (it)->__mp_int_ht_iter_marker;                                                      \
+        __mp_hti_iter_init((it), (ht));                                                            \
+    } while (0)
 void __mp_hti_iter_init(void *it, const void *ht);
 
-/// Get the next element in the iterator.
 /**
+ * \brief Get the next element of \a it.
+ *
  * To use hash table iterators, see \ref HashTableInt.
  *
- * \param it (Int_Hash_Table_Iter *) The iterator
- * \return (bool) Whether it is valid to access the data
+ * \param it (Int_Hash_Table_Iter *) iterator
+ * \return (bool) whether it is valid to access the value
  */
 #define /* bool */ mp_hti_iter_next(/* Int_Hash_Table_Iter* */ it)                                 \
     ((void) (it)->__mp_int_ht_iter_marker, __mp_hti_iter_next(it))
@@ -1923,7 +2366,7 @@ bool __mp_hti_iter_next(void *it);
 /** \defgroup HashSetInt Hash Set (Integer)
  *
  * Hash set with integer key.
- * Represented by a \ref HashTableInt "integer hash table" with opaque value.
+ * Represented by a \ref HashTableInt "hash table (integer key)" with opaque value.
  *
  * See \ref HashTableInt for details about the actual representation.
  *
@@ -1936,10 +2379,10 @@ bool __mp_hti_iter_next(void *it);
  * mp_hsi_deinit(&set);
  * \endcode
  *
- * The primary usage of this is for setting keys. The value can be whatever but using NULL is
- * preferred.
+ * The primary usage of this is for setting keys. Use \ref mp_hsi_set to set an element, do not use
+ * \ref mp_hti_set.
  * \code
- * mp_hti_set(&set, 0, NULL);
+ * mp_hsi_set(&set, 0);
  * \endcode
  *
  * Getting the pointer to the value is a valid way to assess if the key spot is already occupied.
@@ -1954,38 +2397,65 @@ bool __mp_hti_iter_next(void *it);
  * \{
  */
 
-/// Integer hash set, essentially just \ref HashTableInt "integer hash table" with dummy value.
+/**
+ * \brief Integer hash set, essentially just a \ref HashTableInt "hash table (integer key)" with
+ * dummy value.
+ */
 typedef struct __mp_Int_Set mp_Int_Set;
 
 __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 
-/// Initializes a new integer hash set managed by \a allocator.
 /**
+ * \brief Initializes \a hs managed by \a alloc.
+ *
  * Deinit with \ref mp_hsi_deinit.
  *
- * \a hs->data becomes NULL if allocation failed.
+ * \a hs->data == NULL if allocation failed.
  *
- * \param hs (mp_Int_Set *) The hash set (initialized by this)
- * \param alloc (mp_Alloc) The allocator to manage the hash set
+ * \param hs (\ref mp_Int_Set *) hash set (initialized by this)
+ * \param alloc (mp_Alloc) allocator to manage \a hs
  */
 #define mp_hsi_init(/* mp_Int_Set* */ hs, /* mp_Alloc */ alloc)                                    \
-    ((void) (hs)->__mp_int_ht_marker,                                                              \
-     __mp_ht_init((hs), (alloc), sizeof(*((mp_Int_Set *) 0)->data), 0))
+    do {                                                                                           \
+        (void) (hs)->__mp_int_ht_marker;                                                           \
+        __mp_ht_init((hs), (alloc), sizeof(*((mp_Int_Set *) 0)->data), 0);                         \
+    } while (0)
 
-/// Frees an integer hash set.
 /**
- * \param hs (mp_Int_Set *) The hash set (deinitialized by this)
+ * \brief Deinitializes \a hs.
+ *
+ * \param hs (\ref mp_Int_Set *) hash set (deinitialized by this)
  */
-#define mp_hsi_deinit(/* mp_Int_Set* */ hs) ((void) (hs)->__mp_int_ht_marker, __mp_ht_deinit(hs))
+#define mp_hsi_deinit(/* mp_Int_Set* */ hs)                                                        \
+    do {                                                                                           \
+        (void) (hs)->__mp_int_ht_marker;                                                           \
+        __mp_ht_deinit(hs);                                                                        \
+    } while (0)
 
-/// Iterator for \ref HashSetInt "integer hash sets".
+/**
+ * \brief Sets the key \a k.
+ *
+ * \a hs->data == NULL if allocation failed.
+ *
+ * \param hs (\ref mp_Int_Set *) hash set
+ * \param k (size_t) key
+ */
+#define mp_hsi_set(/* mp_Int_Set* */ hs, /* size_t */ k)                                           \
+    do {                                                                                           \
+        (void) (hs)->__mp_int_ht_marker;                                                           \
+        __mp_hti_set((hs), (k), NULL);                                                             \
+    } while (0)
+
+/**
+ * \brief Iterator for \ref HashSetInt "hash sets (integer key)".
+ */
 typedef struct __mp_Int_Set_Iter mp_Int_Set_Iter;
 
 struct __mp_Int_Set_Iter {
     const __mp_Hash_Table *_h;
     size_t                 _i;
     __mp_Int_Ht_Key        key;
-    char                   val;
+    void                  *val;
     char                   __mp_int_ht_iter_marker[];
 };
 
@@ -2006,7 +2476,6 @@ struct __mp_Int_Set_Iter {
  *
  * \{
  */
-
 
 /**
  * \defgroup GrowingArenaAllocator Growing Arena Allocator
@@ -2029,124 +2498,140 @@ struct __mp_Int_Set_Iter {
  * \{
  */
 
-// Default size of a single region in bytes.
 /*
+ * Default size of a single region in bytes.
+ *
  * The value will be aligned to the nearest multiple of `sizeof(uintptr_t)`.
  */
 #ifndef __MP_REGION_DEFAULT_SIZE
     #define __MP_REGION_DEFAULT_SIZE (64 * 1024)
 #endif
 
-/// Forward declaration of \ref mp_Region.
+/**
+ * \brief Forward declaration of \ref mp_Region.
+ */
 typedef struct mp_Region mp_Region;
 
-/// Linked list element that holds certain size of allocated memory managed by \ref mp_Arena.
+/**
+ * \brief Linked list element that holds certain size of allocated memory managed by \ref mp_Arena.
+ */
 struct mp_Region {
-    /// The next region in linked list if any.
+    /// Next region in linked list if any.
     mp_Region *next;
-    /// The amount of data (in bytes) used.
+    /// Amount of data used in bytes.
     size_t len;
-    /// The amount of data (in bytes) allocated.
+    /// Amount of data allocated in bytes.
     size_t cap;
-    /// The data (aligned to the `sizeof(uintptr_t)`).
+    /// Data aligned to `sizeof(uintptr_t)`.
     uintptr_t data[];
 };
 
-/// Allocates a new region with \a cap bytes of size using \a alloc.
 /**
+ * \brief Allocates a region with \a cap bytes of size using \a alloc.
+ *
  * \a cap will be **rounded up** to the nearest multiple of `sizeof(uintptr_t)`.
  *
  * Deinit with \ref mp_region_deinit.
  *
- * \param alloc The backing allocator used to allocate the memory
- * \param cap How many bytes to allocates
- * \return The pointer to the allocated region
+ * \param alloc backing allocator
+ * \param cap how many bytes to allocate
+ * \return pointer to the allocated region
  */
 mp_Region *mp_region_new(mp_Alloc alloc, size_t cap);
 
-/// Frees a region.
 /**
- * \param r The region to free (deinitialized by this)
- * \param alloc The backing allocator that allocated the memory
+ * \brief Deinitializes a region.
+ *
+ * \param r region (deinitialized by this)
+ * \param alloc backing allocator of \a r
  */
 void mp_region_deinit(mp_Region *r, mp_Alloc alloc);
 
-/// The internal context of growing arena allocators, manages regions in a linked list.
+/**
+ * \brief The internal context of growing arena allocators, manages regions in a linked list.
+ */
 typedef struct {
-    /// The first element of the region linked list.
+    /// First element of the region linked list.
     mp_Region *begin;
-    /// The last element of the region linked list.
+    /// Last element of the region linked list.
     mp_Region *end;
-    /// The amount of data used (in bytes, aligned to `sizeof(uintptr_t)`).
+    /// Amount of data used in bytes, aligned to `sizeof(uintptr_t)`.
     size_t len;
-    /// The backing allocator, allocator used to allocate the regions.
+    /// Backing allocator, allocator used to allocate the regions.
     mp_Alloc alloc;
-    /// The default size of regions allocated by this arena.
+    /// Default size of regions allocated by this arena in bytes.
     size_t _def_size;
 } mp_Arena;
 
-/// Creates a new, unallocated arena using \a alloc as the backing allocator.
 /**
+ * \brief Initializes \a a using \a alloc as the backing allocator.
+ *
  * The arena will not allocate anything until the first operation that allocates.
  *
  * Deinit with \ref mp_arena_deinit.
  *
- * \param a (mp_Arena *) The arena (initialized by this)
- * \param alloc (mp_Alloc) The backing allocator
+ * \param a (\ref mp_Arena *) arena (initialized by this)
+ * \param alloc (\ref mp_Alloc) backing allocator
  */
 #define mp_arena_init(/* mp_Arena* */ a, /* mp_Alloc */ alloc)                                     \
     mp_arena_init_s((a), (alloc), __MP_REGION_DEFAULT_SIZE)
 
-/// The same as \ref mp_arena_init but accepts a custom default size for regions.
 /**
+ * \brief Same as \ref mp_arena_init but accepts default size for regions.
+ *
  * See \ref mp_arena_init.
  *
- * Regions will be allocated with \a def_size size.
+ * Regions will be allocated with \a def_size bytes of size.
  *
- * \param a The arena (initialized by this)
- * \param alloc The backing allocator
- * \param def_size The size of regions
+ * \param a arena (initialized by this)
+ * \param alloc backing allocator
+ * \param def_size size of regions in bytes
  */
 void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size);
 
-/// Sets an arena length to 0, but does not free allocated regions.
 /**
+ * \brief Sets the length of \a a to 0, but does not free allocated regions.
+ *
  * This resets the arena to "initial condition" but without actually freeing the data.
  *
- * \param a The arena
+ * \param a arena
  */
 void mp_arena_reset(mp_Arena *a);
 
-/// Frees an arena and its regions.
 /**
- * The free will be performed using the arena's backing allocator.
+ * \brief Deinitializes \a a and its regions.
  *
- * \param a The arena (deinitialized by this)
+ * The freeing will be performed using the arena's backing allocator.
+ *
+ * \param a arena (deinitialized by this)
  */
 void mp_arena_deinit(mp_Arena *a);
 
-/// Returns an allocator that works with \ref mp_Arena.
 /**
- * \param a The arena
- * \return The allocator interface
+ * \brief Returns an allocator that works with \a a.
+ *
+ * \param a arena
+ * \return allocator interface
  */
 mp_Alloc mp_arena_alloc(mp_Arena *a);
 
-/// Gets the position after the last element.
 /**
+ * \brief Gets the position after the last element.
+ *
  * Used in conjunction with \ref mp_arena_rewind.
  *
- * \param a The arena
- * \return The pointer (as number) to the end of the last element
+ * \param a arena
+ * \return pointer (as number) to the end of the last element
  */
 uintptr_t mp_arena_mark(const mp_Arena *a);
 
-/// Sets the pointer to the end of the last element to \a mark.
 /**
+ * \brief Sets the pointer to the end of the last element to \a mark.
+ *
  * \a mark can be obtained via \ref mp_arena_mark.
  *
- * \param a The arena
- * \param mark The mark
+ * \param a arena
+ * \param mark marker (pointer to the end of the last element)
  */
 void mp_arena_rewind(mp_Arena *a, uintptr_t mark);
 
@@ -2173,74 +2658,80 @@ void mp_arena_rewind(mp_Arena *a, uintptr_t mark);
  * \{
  */
 
-/// The internal context of static arena allocators.
+/**
+ * \brief The internal context of static arena allocators.
+ */
 typedef struct {
-    /// The arena buffer (of size \a cap).
+    /// Arena buffer of size \a cap.
     uintptr_t *buf;
-    /// The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    /// Amount of data in bytes used, aligned to `sizeof(uintptr_t)`.
     size_t len;
-    /// The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    /// Amount of data in bytes allocated, aligned to `sizeof(uintptr_t)`.
     size_t cap;
-    /// The backing allocator, allocator used to allocate \a buf.
+    /// Backing allocator, allocator used to allocate \a buf.
     mp_Alloc alloc;
 } mp_Sarena;
 
-/// Initializes and allocates a static arena of size \a cap in bytes.
 /**
+ * \brief Initializes \a a and allocates the buffer of size \a cap bytes.
+ *
  * \a cap will be **rounded up** to the nearest multiple of `sizeof(uintptr_t)`.
  *
- * The arena's buffer will be immediately allocated.
+ * The arena's buffer is immediately allocated.
  *
- * \a a->buf is NULL if allocation failed.
+ * \a a->buf == NULL if allocation failed.
  *
  * Deinit with \ref mp_sarena_deinit.
  *
- * \param a The arena (initialized by this)
- * \param alloc The backing allocator
- * \param cap How many bytes to allocate
+ * \param a arena (initialized by this)
+ * \param alloc backing allocator
+ * \param cap how many bytes to allocate
  */
 void mp_sarena_init(mp_Sarena *a, mp_Alloc alloc, size_t cap);
 
-/// Sets an arena length to 0, but does not free the allocated buffer.
 /**
+ * \brief Sets the length of \a a to 0, but does not free the allocated buffer.
+ *
  * This resets the arena to "initial condition" but without actually freeing the data.
  *
- * \param a The arena
+ * \param a arena
  */
 void mp_sarena_reset(mp_Sarena *a);
 
-/// Frees an arena and its buffer.
 /**
+ * \brief Deinitializes \a a and its buffer.
+ *
  * The free will be performed using the arena's backing allocator.
  *
- * \param a The arena (deinitialized by this)
+ * \param a arena (deinitialized by this)
  */
 void mp_sarena_deinit(mp_Sarena *a);
 
-/// Returns an allocator that works with \ref mp_Sarena.
 /**
- * Returns an invalid allocator if \a a->buf is NULL.
+ * \brief Returns an allocator that works with \a a.
  *
- * \param a The arena
- * \return The allocator interface
+ * \param a arena
+ * \return allocator interface, \ref mp_alloc_invalid "invalid allocator" if \a a->buf is NULL
  */
 mp_Alloc mp_sarena_alloc(mp_Sarena *a);
 
-/// Gets the position after the last element.
 /**
+ * \brief Gets the position after the last element.
+ *
  * Used in conjunction with \ref mp_sarena_rewind.
  *
- * \param a The arena
- * \return The pointer (as number) to the end of the last element
+ * \param a arena
+ * \return pointer (as number) to the end of the last element
  */
 uintptr_t mp_sarena_mark(const mp_Sarena *a);
 
-/// Sets the pointer to the end of the last element to \a mark.
 /**
+ * \brief Sets the pointer to the end of the last element to \a mark.
+ *
  * \a mark can be obtained via \ref mp_sarena_mark.
  *
- * \param a The arena
- * \param mark The mark
+ * \param a arena
+ * \param mark marker (pointer to the end of the last element)
  */
 void mp_sarena_rewind(mp_Sarena *a, uintptr_t mark);
 
@@ -2266,31 +2757,35 @@ void mp_sarena_rewind(mp_Sarena *a, uintptr_t mark);
  * \{
  */
 
-/// The internal context of temp allocators.
+/**
+ * \brief The internal context of temp allocators.
+ */
 typedef struct {
-    /// The arena buffer (of size \a cap).
+    /// Arena buffer of size \a cap bytes.
     uintptr_t *buf;
-    /// The amount of data (in bytes) used (aligned to `sizeof(uintptr_t)`).
+    /// Amount of data in bytes used, aligned to `sizeof(uintptr_t)`.
     size_t len;
-    /// The amount of data (in bytes) allocated (aligned to `sizeof(uintptr_t)`).
+    /// Amount of data in bytes allocated, aligned to `sizeof(uintptr_t)`.
     size_t cap;
 } mp_Temp;
 
-/// Shortcut for defining and initializing a temp allocator.
 /**
- * Will initialize an \ref mp_Temp 1024 bytes in size.
+ * \brief Shortcut for defining and initializing a temp allocator.
+ *
+ * Will initialize a \ref mp_Temp "temp allocator" 1024 bytes in size.
  *
  * Defines `temp_alloc` variable for the current scope.
  */
 #define mp_talloc() mp_talloc_s(1024)
 
-/// Shortcut for defining and initializing a temp allocator \a size bytes in size.
 /**
- * Will initialize an \ref mp_Temp \a size bytes in size.
+ * \brief Shortcut for defining and initializing a temp allocator \a size bytes in size.
+ *
+ * Will initialize a \ref mp_Temp "temp allocator" \a size bytes in size.
  *
  * Defines `temp_alloc` variable for the current scope.
  *
- * \param size (size_t) The size of the temp buffer (in bytes)
+ * \param size (size_t) size of buffer in bytes
  */
 #define mp_talloc_s(/* size_t */ size)                                                             \
     char    __mp_tempbuf[(size)];                                                                  \
@@ -2298,49 +2793,54 @@ typedef struct {
     mp_temp_init(&__mp_temp, __mp_tempbuf, (size));                                                \
     mp_Alloc temp_alloc = mp_temp_alloc(&__mp_temp);
 
-/// Initializes a temp allocator with \a buf of size \a cap (in bytes).
 /**
- * \a cap should be an multiple of `sizeof(uintptr_t)`.
- * If not, the actual \a cap will **round down** to the nearest multiple.
+ * \brief Initializes \a t with \a buf of size \a cap bytes.
  *
- * \param t The temp arena (initialized by this)
- * \param buf The buffer
- * \param cap The size of \a buf (in bytes)
+ * \a cap should be an multiple of `sizeof(uintptr_t)`.
+ * If not, the actual \a cap will **round up** to the nearest multiple.
+ *
+ * \param t temp arena (initialized by this)
+ * \param buf buffer
+ * \param cap size of \a buf in bytes
  */
 void mp_temp_init(mp_Temp *t, char *buf, size_t cap);
 
-/// Sets an arena length to 0, but does not deinitialize the buffer.
 /**
+ * \brief Sets the length of \a t to 0, but does not deinitialize the buffer.
+ *
  * This resets the arena to "initial condition" but without actually freeing the data.
  *
- * \param t The temp arena
+ * \param t temp arena
  */
 void mp_temp_reset(mp_Temp *t);
 
-/// Returns an allocator that works with \ref mp_Temp.
 /**
- * \param t The temp arena
- * \return The allocator interface
+ * \brief Returns an allocator that works with \a t.
+ *
+ * \param t temp arena
+ * \return allocator interface, \ref mp_alloc_invalid "invalid allocator" if \a a->buf is NULL
  */
 mp_Alloc mp_temp_alloc(mp_Temp *t);
 
-/// Gets the position after the last element.
 /**
+ * \brief Gets the position after the last element.
+ *
  * Used in conjunction with \ref mp_temp_rewind.
  *
- * \param a The temp arena
- * \return The pointer (as number) to the end of the last element
+ * \param t temp arena
+ * \return pointer (as number) to the end of the last element
  */
-uintptr_t mp_temp_mark(const mp_Sarena *a);
+uintptr_t mp_temp_mark(const mp_Temp *t);
 
-/// Sets the pointer to the end of the last element to \a mark.
 /**
+ * \brief Sets the pointer to the end of the last element to \a mark.
+ *
  * \a mark can be obtained via \ref mp_temp_mark.
  *
- * \param a The temp arena
- * \param mark The mark
+ * \param t temp arena
+ * \param mark marker (pointer to the end of the last element)
  */
-void mp_temp_rewind(mp_Sarena *a, uintptr_t mark);
+void mp_temp_rewind(mp_Temp *t, uintptr_t mark);
 
 /// \}
 
@@ -2356,14 +2856,17 @@ void mp_temp_rewind(mp_Sarena *a, uintptr_t mark);
  * \{
  */
 
-/// Returns an allocator that works with the heap.
 /**
- * \return The allocator interface
+ * \brief Alias to \ref mp_heap_alloc.
+ */
+#define mp_heap() mp_heap_alloc()
+
+/**
+ * \brief Returns an allocator that works with the heap.
+ *
+ * \return allocator interface
  */
 mp_Alloc mp_heap_alloc(void);
-
-/// Alias to \ref mp_heap_alloc.
-#define mp_heap() mp_heap_alloc()
 
 /// \}
 
@@ -2381,62 +2884,76 @@ mp_Alloc mp_heap_alloc(void);
  * \{
  */
 
-/// Value for invalid Unicode codepoint.
-#define MP_UTF8_INVALID_CODEPOINT ((unsigned int) -1)
-
-/// Stores a pointer to a character and its UTF-8 metadata.
-typedef struct {
-    /// The size of the character (in bytes, at most 4 bytes).
-    unsigned char size;
-    /// The Unicode codepoint of the character (\ref MP_UTF8_INVALID_CODEPOINT when invalid).
-    unsigned int codepoint;
-    /// The pointer to the start of the character.
-    const char *c;
-} mp_Utf8_Char;
-
-/// Returns an invalid \ref mp_Utf8_Char.
 /**
- * An invalid \ref mp_Utf8_Char requires that field \a codepoint is \ref MP_UTF8_INVALID_CODEPOINT.
+ * \brief Value for invalid Unicode codepoint.
+ */
+#define MP_UTF8_INVALID_CODEPOINT ((uint32_t) -1)
+
+/**
+ * \brief Stores a pointer to a character and its UTF-8 metadata.
+ */
+typedef struct {
+    /// Size of the character in bytes, at most 4 bytes.
+    uint8_t size;
+    /// Unicode codepoint of the character (\ref MP_UTF8_INVALID_CODEPOINT when invalid).
+    uint32_t codepoint;
+    /// Pointer to the start of the character.
+    const char *c;
+} mp_Utf8_Char_Data;
+
+/**
+ * \brief Returns an invalid \ref mp_Utf8_Char_Data.
  *
- * An invalid \ref mp_Utf8_Char only means that it is not a valid UTF-8 character, but the
+ * An invalid \ref mp_Utf8_Char_Data requires that field \a codepoint is \ref
+ * MP_UTF8_INVALID_CODEPOINT.
+ *
+ * An invalid \ref mp_Utf8_Char_Data only means that it is not a valid UTF-8 character, but the
  * underlying bytes may still exist and are accessible. Invalid does not always mean inacessible, so
  * `c` and `size` may still be usable.
  *
- * \param ch (const char *) The start of the error character (nullable)
- * \param sz (unsigned char) The size of the error character (should be zero if \a ch is NULL)
- * \return (mp_Utf8_Char) An invalid character
+ * \param ch (const char *) start of the error character (nullable)
+ * \param sz (uint8_t) size of the error character (should be zero if \a ch is NULL)
+ * \return (\ref mp_Utf8_Char_Data) invalid character
  */
-#define /* mp_Utf8_Char */ mp_utf8_char_invalid(/* const char* */ ch, /* unsigned char */ sz)      \
-    ((mp_Utf8_Char) {                                                                              \
+#define /* mp_Utf8_Char_Data */ mp_utf8_char_invalid(/* const char* */ ch, /* uint8_t */ sz)       \
+    ((mp_Utf8_Char_Data) {                                                                         \
         .size      = (sz),                                                                         \
-        .codepoint = (unsigned int) -1,                                                            \
+        .codepoint = (uint32_t) -1,                                                                \
         .c         = (ch),                                                                         \
     })
 
-/// Shortcut for printing a \ref mp_Utf8_Char, use with `%.*s` format specifier.
-#define mp_utf8_char_print(ch) (ch).size, (ch).c
-
-/// Tests whether an \ref mp_Utf8_Char is a valid UTF-8 character.
 /**
- * An invalid \ref mp_Utf8_Char requires that field \a codepoint is the maximum possible value of
- * `unsigned int`.
+ * \brief Shortcut for printing a \ref mp_Utf8_Char_Data, use with `%.*s` format specifier.
+ *
+ * \param ch (\ref mp_Utf8_Char_Data) character data
+ */
+#define mp_utf8_char_print(/* mp_Utf8_Char_Data */ ch) (ch).size, (ch).c
+
+/**
+ * \brief Tests whether \a ch is a valid UTF-8 character.
+ *
+ * An invalid \ref mp_Utf8_Char_Data requires that field \a codepoint is the maximum possible value
+ * of `uint32_t`.
  *
  * The bytes may still be accessible, test with \ref mp_utf8_char_is_accessible.
  *
- * \param c (mp_Utf8_Char) The character
- * \return (bool) Whether \a c is a valid UTF-8 character.
+ * \param ch (\ref mp_Utf8_Char_Data) character data
+ * \return (bool) whether \a ch is a valid UTF-8 character.
  */
-#define /* bool */ mp_utf8_char_is_valid(/* mp_Utf8_Char */ c) ((c).codepoint != (unsigned int) -1)
+#define /* bool */ mp_utf8_char_is_valid(/* mp_Utf8_Char_Data */ ch)                               \
+    ((ch).codepoint != (uint32_t) -1)
 
-/// Tests whether an \ref mp_Utf8_Char is accessible.
 /**
- * \param ch (mp_Utf8_Char) The charactr
- * \return (bool) Whether \a c is accessible
+ * \brief Tests whether an \a ch is accessible.
+ *
+ * \param ch (\ref mp_Utf8_Char_Data) character data
+ * \return (bool) whether \a ch is accessible
  */
-#define /* bool */ mp_utf8_char_is_accessible(/* mp_Utf8_Char */ ch) ((ch).c != NULL)
+#define /* bool */ mp_utf8_char_is_accessible(/* mp_Utf8_Char_Data */ ch) ((ch).c != NULL)
 
-/// Takes the first valid UTF-8 character or an error character from a string.
 /**
+ * \brief Takes the first valid UTF-8 character or an error character from a string.
+ *
  * After calling this function, \a str will point to the character after the retrieved character and
  * \a size is decremented according to the size of the retrieved character.
  *
@@ -2448,77 +2965,86 @@ typedef struct {
  * gets the required amount of bytes, or one of the bytes is not a valid byte. For more details see
  * <https://en.wikipedia.org/wiki/UTF-8#Error_handling>.
  *
- * \param str The pointer to the string
- * \param size The pointer to the size of \a str (in bytes)
- * \return The metadata about the character
+ * \param str pointer to string
+ * \param size pointer to size of \a str in bytes
+ * \return metadata of retrieved character
  */
-mp_Utf8_Char mp_utf8_take(const char **str, size_t *size);
+mp_Utf8_Char_Data mp_utf8_take(const char **str, size_t *size);
 
-/// Gets a \ref mp_Utf8_Char from a **null-terminated** string.
 /**
+ * \brief Gets a \ref mp_Utf8_Char_Data "character data" from \a c (null-terminated).
+ *
  * This function will only read the first UTF-8 character from \a c.
  *
- * Returns invalid \ref mp_Utf8_Char if \a c is not a valid UTF-8 character.
- *
- * \param c The string (**null-terminated**)
- * \return The character metadata
+ * \param c null-terminated string
+ * \return character data, \ref mp_utf8_char_invalid "invalid character data" if \a c is not a valid
+ * UTF-8 character.
  */
-mp_Utf8_Char mp_utf8_char(const char *c);
+mp_Utf8_Char_Data mp_utf8_char(const char *c);
 
-/// Gets a \ref mp_Utf8_Char from a string.
 /**
+ * \brief Gets a \ref mp_Utf8_Char_Data "character data" from \a c.
+ *
  * See \ref mp_utf8_char.
  *
- * \param c The string
- * \param size The size of \a str (in bytes)
- * \return The character metadata
+ * \param c string
+ * \param size size of \a str in bytes
+ * \return character data, \ref mp_utf8_char_invalid "invalid character data" if \a c is not a valid
+ * UTF-8 character.
  */
-mp_Utf8_Char mp_utf8_char_s(const char *c, size_t size);
+mp_Utf8_Char_Data mp_utf8_char_s(const char *c, size_t size);
 
-/// Calculate the amount of characters in a **null-terminated** UTF-8 string.
 /**
+ * \brief Calculates the amount of Unicode characters in \a str (null-terminated).
+ *
  * This operation is O(n).
  *
  * Use \ref mp_utf8_len_s for non-null-terminated strings.
  *
- * \param str The string (**null-terminated**)
- * \return The amount of characters in \a str
+ * \param str null-terminated string
+ * \return amount of Unicode characters in \a str
  */
 size_t mp_utf8_len(const char *str);
 
-/// Calculate the amount of characters in a UTF-8 string with size parameter (in bytes).
 /**
- * \param str The string
- * \param size The size of \a str (in bytes)
- * \return The amount of characters in \a str
+ * \brief Calculates the amount of Unicode characters in \a str.
+ *
+ * See \ref mp_utf8_len.
+ *
+ * \param str string
+ * \param size size of \a str in bytes
+ * \return amount of Unicode characters in \a str
  */
 size_t mp_utf8_len_s(const char *str, size_t size);
 
-/// Gets a UTF-8 character from a **null-terminated** string at \a index.
 /**
+ * \brief Gets a UTF-8 character from \a str (null-terminated) at \a index.
+ *
  * This operation is O(n).
  *
- * Returns an invalid \ref mp_Utf8_Char if out of bounds.
- *
- * \param str The string (**null-terminated**)
- * \param index The index
- * \return The character at \a index
+ * \param str null-terminated string
+ * \param index index
+ * \return character data at \a index, \ref mp_utf8_char_invalid "invalid character data" when out
+ * of bounds.
  */
-mp_Utf8_Char mp_utf8_get(const char *str, size_t index);
+mp_Utf8_Char_Data mp_utf8_get(const char *str, size_t index);
 
-/// Gets a UTF-8 character from a string at \a index.
 /**
+ * \brief Gets a UTF-8 character from \a str at \a index.
+ *
  * See \ref mp_utf8_get.
  *
- * \param str The string
- * \param size The size of \a str (in bytes)
- * \param index The index
- * \return The character at \a index
+ * \param str string
+ * \param size size of \a str in bytes
+ * \param index index
+ * \return character data at \a index, \ref mp_utf8_char_invalid "invalid character data" when out
+ * of bounds.
  */
-mp_Utf8_Char mp_utf8_get_s(const char *str, size_t size, size_t index);
+mp_Utf8_Char_Data mp_utf8_get_s(const char *str, size_t size, size_t index);
 
-/// Iterator for UTF-8 strings.
 /**
+ * \brief Iterator for UTF-8 strings.
+ *
  * \a c can be accessed to get the current character's information.
  *
  * # Usage
@@ -2527,52 +3053,56 @@ mp_Utf8_Char mp_utf8_get_s(const char *str, size_t size, size_t index);
  * const char *utf8 = "魈くんは大好きです　⸜(｡˃ ᵕ ˂)⸝♡􏾀";
  * mp_Utf8_Iter iter = mp_utf8_iter_new(utf8);
  * while (mp_utf8_iter_next(&iter)) {
- *     (void) iter.c;      // The current character (mp_Utf8_Char)
+ *     (void) iter.c;      // The current character (mp_Utf8_Char_Data)
  * }
  * \endcode
  *
  * It is best to not modify the string in the middle of iteration.
- *
  */
 typedef struct {
     /// Holds the current character in iteration.
-    mp_Utf8_Char c;
+    mp_Utf8_Char_Data c;
 
     /// The string being iterated on.
     const char *_str;
-    /// The remaining size of the string (in bytes).
+    /// Remaining size of the string in bytes.
     size_t _size;
 } mp_Utf8_Iter;
 
-/// Creates a new \ref mp_Utf8_Iter that iterates over a **null-terminated** string.
 /**
+ * \brief Creates a \ref mp_Utf8_Iter "UTF-8 iterator" that iterates over \a str (null-terminated).
+ *
  * Use \ref mp_utf8_iter_new_s for non-null-terminated strings.
  *
  * See \ref mp_Utf8_Iter for usage.
  *
- * \param str The UTF-8 string (**null-terminated**)
- * \return The iterator
+ * \param str null-terminated UTF-8 string
+ * \return iterator over \a str
  */
 mp_Utf8_Iter mp_utf8_iter_new(const char *str);
 
-/// Creates a new \ref mp_Utf8_Iter that iterates over a string with size parameter (in bytes).
 /**
+ * \brief Creates a \ref mp_Utf8_Iter "UTF-8 iterator" that iterates over \a str.
+ *
+ * Use \ref mp_utf8_iter_new for null-terminated strings.
+ *
  * See \ref mp_Utf8_Iter for usage.
  *
- * \param str The UTF-8 string
- * \param size The size of \a str (in bytes)
- * \return The iterator
+ * \param str UTF-8 string
+ * \param size size of \a str in bytes
+ * \return iterator over \a str
  */
 mp_Utf8_Iter mp_utf8_iter_new_s(const char *str, size_t size);
 
-/// Continues iterating an \ref mp_Utf8_Iter.
 /**
+ * \brief Continues iterating with \a it.
+ *
  * See \ref mp_Utf8_Iter for usage.
  *
  * This function consumes \a it->_str.
  *
- * \param it The iterator
- * \return Whether it is valid to access the data
+ * \param it iterator
+ * \return whether it is valid to access the value
  */
 bool mp_utf8_iter_next(mp_Utf8_Iter *it);
 
@@ -2585,6 +3115,12 @@ bool mp_utf8_iter_next(mp_Utf8_Iter *it);
 /**
  * \defgroup Errors Errors
  *
+ * \{
+ */
+
+// Don't forget `mp_err()` and `mp_err_str()`!
+// Sort this!
+/**
  * Errors from errno. The available error varies by operating systems.
  *
  * Error names for POSIX & Linux are taken from Linux manpage
@@ -2594,13 +3130,7 @@ bool mp_utf8_iter_next(mp_Utf8_Iter *it);
  * <https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants>.
  *
  * For error messages see the definition of \ref mp_err_str.
- *
- * \{
  */
-
-// Don't forget `mp_err()` and `mp_err_str()`!
-// Sort this!
-/// See \ref Errors.
 typedef enum {
     MP_ERR_NONE    = 0,
     MP_ERR_UNKNOWN = 1,
@@ -2762,10 +3292,20 @@ typedef enum {
     __MP_ERR_COUNT,
 } mp_Err;
 
-/// Converts `errno` into \ref mp_Err.
+/**
+ * \brief Converts errno into \ref mp_Err.
+ *
+ * \param errnum errno number
+ * \return \ref mp_Err representation of the errno
+ */
 mp_Err mp_err(int errnum);
 
-/// Returns the message of an error.
+/**
+ * \brief Returns the description of \a e.
+ *
+ * \param e error
+ * \return description \a e
+ */
 const char *mp_err_str(mp_Err e);
 
 /// \}
@@ -2842,7 +3382,6 @@ mp_Err mp_file_delete(const char *file_path);
 
 #ifdef MEMPLUS_IMPLEMENTATION
 
-    #include <ctype.h>
     #include <errno.h>
     #include <stdarg.h>
     #include <stdio.h>
@@ -3007,119 +3546,63 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item) {
     --self->len;
 }
 
-mp_Str mp_str_new(mp_Alloc alloc, const char *str) {
-    return mp_str_new_len(alloc, str, strlen(str));
-}
-
-mp_Str mp_str_new_len(mp_Alloc alloc, const char *str, size_t len) {
-    char *result = mp_alloc(alloc, (size_t) (len + 1));
-    if (result == NULL) {
+mp_Str mp_str_alloc(const char *str, mp_Alloc alloc) {
+    size_t      len  = strlen(str);
+    const char *data = mp_dup(alloc, str, len);
+    if (data == NULL) {
         return mp_str_invalid();
     }
-    int result_len = snprintf(result, (size_t) (len + 1), "%.*s", (int) len, str);
-    __MP_ASSERT((size_t) result_len == len);
-    return (mp_Str) { .len = (size_t) result_len, .cstr = result };
+    return mp_str_s(data, len);
 }
 
-mp_Str mp_str_newf(mp_Alloc alloc, const char *fmt, ...) {
-    va_list args;
-
-    va_start(args, fmt);
-    int len = vsnprintf(NULL, 0, fmt, args);
-    __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
-    va_end(args);
-
-    char *result = mp_alloc(alloc, (size_t) (len + 1));
-    if (result == NULL) {
+mp_Str mp_str_clone(mp_Str str, mp_Alloc alloc) {
+    const char *data = mp_dup(alloc, str.data, str.len);
+    if (data == NULL) {
         return mp_str_invalid();
     }
-
-    va_start(args, fmt);
-    int result_len = vsnprintf(result, (size_t) (len + 1), fmt, args);
-    __MP_ASSERT(result_len == len);
-    va_end(args);
-
-    return (mp_Str) { .len = (size_t) result_len, .cstr = result };
+    return mp_str_s(data, str.len);
 }
 
 void mp_str_deinit(mp_Str *str, mp_Alloc alloc) {
-    mp_free(alloc, str->cstr, str->len + 1);
+    mp_free(alloc, (void *) str->data, str->len);
     __MP_ZERO(str);
 }
 
-mp_Str mp_str_clone(const mp_Str *str, mp_Alloc alloc) {
-    char *ptr = mp_dup(alloc, str->cstr, str->len + 1);
-    if (ptr == NULL) {
-        return mp_str_invalid();
+char *mp_str_null_terminated_from(mp_Str str, mp_Alloc alloc) {
+    char *cstr = mp_alloc(alloc, str.len + 1);
+    if (cstr == NULL) {
+        return NULL;
     }
-    return (mp_Str) { .len = str->len, .cstr = ptr };
+    memcpy(cstr, str.data, str.len);
+    cstr[str.len] = '\0';
+    return cstr;
 }
 
-mp_Str mp_str_concat(const char **strs, size_t strs_len, const char *sep, mp_Alloc alloc) {
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
+void mp_str_null_terminated_deinit(char **str, mp_Alloc alloc) {
+    mp_free(alloc, *str, strlen(*str));
+    __MP_ZERO(str);
+}
 
-    for (size_t i = 0; i < strs_len; ++i) {
-        if (sep != NULL && i > 0) {
-            mp_str_builder_append(&sb, sep);
-        }
-        mp_str_builder_append(&sb, strs[i]);
+bool mp_str_eq(mp_Str a, mp_Str b) {
+    if (a.len != b.len) {
+        return false;
     }
-
-    return mp_str_builder_string_take(&sb, alloc);
+    return memcmp(a.data, b.data, a.len) == 0;
 }
 
-mp_Str mp_str_concat_s(const mp_Str *strs, size_t strs_len, const char *sep, mp_Alloc alloc) {
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
+void mp_sb_init(mp_Sb *sb, mp_Alloc alloc) {
+    mp_da_init(mp_Sb, sb, alloc);
+}
 
-    for (size_t i = 0; i < strs_len; ++i) {
-        if (sep != NULL && i > 0) {
-            mp_str_builder_append(&sb, sep);
-        }
-        mp_str_builder_append(&sb, strs[i].cstr);
+void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc) {
+    mp_sb_init(sb, alloc);
+    mp_da_reserve(sb, str.len);
+    if (sb->data != NULL) {
+        mp_sb_append(sb, str);
     }
-
-    return mp_str_builder_string_take(&sb, alloc);
 }
 
-mp_Str mp_str_to_lower(const mp_Str *str, mp_Alloc alloc) {
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
-    mp_da_reserve(&sb, str->len);
-
-    for (size_t i = 0; i < str->len; ++i) {
-        mp_da_append(&sb, tolower(str->cstr[i]));
-    }
-
-    return mp_str_builder_string_take(&sb, alloc);
-}
-
-mp_Str mp_str_to_upper(const mp_Str *str, mp_Alloc alloc) {
-    mp_Str_Builder sb;
-    mp_str_builder_init(&sb, alloc);
-    mp_da_reserve(&sb, str->len);
-
-    for (size_t i = 0; i < str->len; ++i) {
-        mp_da_append(&sb, toupper(str->cstr[i]));
-    }
-
-    return mp_str_builder_string_take(&sb, alloc);
-}
-
-void mp_str_builder_init(mp_Str_Builder *sb, mp_Alloc alloc) {
-    mp_da_init(mp_Str_Builder, sb, alloc);
-}
-
-void mp_str_builder_deinit(mp_Str_Builder *sb) {
-    mp_da_deinit(sb);
-}
-
-void mp_str_builder_append(mp_Str_Builder *sb, const char *str) {
-    mp_da_append_array(sb, str, strlen(str));
-}
-
-void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) {
+void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
@@ -3127,32 +3610,45 @@ void mp_str_builder_appendf(mp_Str_Builder *sb, const char *fmt, ...) {
     __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
     va_end(args);
 
-    mp_da_grow(sb, (size_t) (len + 1));
+    mp_sb_init(sb, alloc);
+    mp_da_reserve(sb, (size_t) len + 1);
 
     if (sb->data != NULL) {
         va_start(args, fmt);
-        int result_len = vsnprintf(sb->data + sb->len, (size_t) (len + 1), fmt, args);
+        int result_len = vsnprintf(sb->data, (size_t) len + 1, fmt, args);
         va_end(args);
         sb->len += (size_t) result_len;
     }
 }
 
-void mp_str_builder_append_byte(mp_Str_Builder *sb, unsigned char byte) {
-    mp_da_grow(sb, 1);
+void mp_sb_deinit(mp_Sb *sb) {
+    mp_da_deinit(sb);
+}
+
+void mp_sb_append(mp_Sb *sb, mp_Str str) {
+    mp_da_append_array(sb, str.data, str.len);
+}
+
+void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) {
+    va_list args;
+
+    va_start(args, fmt);
+    int len = vsnprintf(NULL, 0, fmt, args);
+    __MP_ASSERT_MSG(len >= 0, "Failed to count string length");
+    va_end(args);
+
+    mp_da_grow(sb, (size_t) len + 1);
+
     if (sb->data != NULL) {
-        sb->data[sb->len] = (char) byte;
-        ++sb->len;
+        va_start(args, fmt);
+        int result_len = vsnprintf(sb->data + sb->len, (size_t) len + 1, fmt, args);
+        va_end(args);
+        sb->len += (size_t) result_len;
     }
 }
 
-mp_Str mp_str_builder_string(const mp_Str_Builder *sb, mp_Alloc alloc) {
-    return mp_str_new_len(alloc, sb->data, sb->len);
-}
-
-mp_Str mp_str_builder_string_take(mp_Str_Builder *sb, mp_Alloc alloc) {
-    mp_Str res = mp_str_new_len(alloc, sb->data, sb->len);
-    mp_str_builder_deinit(sb);
-    return res;
+mp_Str mp_sb_str(const mp_Sb *sb) {
+    return mp_str_s(sb->data, sb->len);
 }
 
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
@@ -3182,7 +3678,7 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
+            if (mp_str_is_valid(e->key) && mp_str_eq(k, e->key)) {
                 return &e->val;
             }
             ++i;
@@ -3206,10 +3702,10 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (!mp_str_is_valid(e->key)) {
-                e->key = mp_str_clone(&k, self->alloc);
+                e->key = mp_str_clone(k, self->alloc);
                 memcpy(&e->val, v, self->val_size);
                 break;
-            } else if (strcmp(e->key.cstr, k.cstr) == 0) {
+            } else if (mp_str_eq(e->key, k)) {
                 memcpy(&e->val, v, self->val_size);
                 --self->len;
                 break;
@@ -3252,7 +3748,7 @@ void __mp_ht_grow(void *ht, size_t offset) {
                     __mp_Str_Ht_Entry *new_e =
                         (__mp_Str_Ht_Entry *) ((char *) new_data + new_i * self->size);
                     if (!mp_str_is_valid(new_e->key)) {
-                        new_e->key = mp_str_clone(&e->key, self->alloc);
+                        new_e->key = mp_str_clone(e->key, self->alloc);
                         memcpy(&new_e->val, &e->val, self->val_size);
                         break;
                     } else {
@@ -3295,7 +3791,7 @@ void __mp_ht_delete(void *ht, mp_Str k) {
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key) && strcmp(k.cstr, e->key.cstr) == 0) {
+            if (mp_str_is_valid(e->key) && mp_str_eq(k, e->key)) {
                 mp_str_deinit(&e->key, self->alloc);
                 __MP_ASSERT(!mp_str_is_valid(e->key));
                 memset(&e->val, 1, sizeof(char));
@@ -3324,8 +3820,8 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
             __mp_Str_Ht_Entry *s_e = __mp_da_get(__mp_Str_Ht_Entry, s, i);
             __mp_Str_Ht_Entry *d_e = __mp_da_get(__mp_Str_Ht_Entry, d, i);
             if (mp_str_is_valid(s_e->key)) {
-                d_e->key = mp_str_clone(&s_e->key, alloc);
-                __MP_ASSERT(d_e->key.cstr != s_e->key.cstr);
+                d_e->key = mp_str_clone(s_e->key, alloc);
+                __MP_ASSERT(d_e->key.data != s_e->key.data);
             }
         }
     } else {
@@ -3348,7 +3844,7 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_ht_iter_init(it, self);
         while (__mp_ht_iter_next(it)) {
-            mp_da_append(keys, mp_str_clone(&it->key, keys->alloc));
+            mp_da_append(keys, mp_str_clone(it->key, keys->alloc));
         }
         mp_free(self->alloc, it, iter_size);
     }
@@ -3385,7 +3881,7 @@ bool __mp_ht_iter_next(void *it) {
         if (mp_str_is_valid(entry->key)) {
             self->key = entry->key;
             if (self->_h->val_size > 0) {
-                memcpy(&self->val, &entry->val, self->_h->val_size);
+                self->val = &entry->val;
             }
             ++self->_i;
             return true;
@@ -3400,8 +3896,8 @@ bool __mp_ht_iter_next(void *it) {
 
 uint64_t __mp_ht_hash_str(const mp_Str *str) {
     uint64_t hash = __MP_FNV_OFFSET;
-    for (const char *p = str->cstr; *p; p++) {
-        hash ^= (uint64_t) (unsigned char) (*p);
+    for (size_t i = 0; i < str->len; ++i) {
+        hash ^= (uint64_t) (unsigned char) (str->data[i]);
         hash *= __MP_FNV_PRIME;
     }
     return hash;
@@ -3590,7 +4086,7 @@ bool __mp_hti_iter_next(void *it) {
         if (entry->key.valid) {
             self->key = entry->key;
             if (self->_h->val_size > 0) {
-                memcpy(&self->val, &entry->val, self->_h->val_size);
+                self->val = &entry->val;
             }
             ++self->_i;
             return true;
@@ -3815,7 +4311,7 @@ void mp_temp_init(mp_Temp *t, char *buf, size_t cap) {
     memset(buf, 0, cap);
     t->buf = (uintptr_t *) buf;
     t->len = 0;
-    t->cap = __MP_ALIGN_DOWN(cap, sizeof(uintptr_t));
+    t->cap = __MP_ALIGN(cap, sizeof(uintptr_t));
 }
 
 void mp_temp_reset(mp_Temp *t) {
@@ -3823,15 +4319,18 @@ void mp_temp_reset(mp_Temp *t) {
 }
 
 mp_Alloc mp_temp_alloc(mp_Temp *t) {
+    if (t->buf == NULL) {
+        return mp_alloc_invalid();
+    }
     return mp_alloc_new(t, mp_sarena_alloc_func);
 }
 
-uintptr_t mp_temp_mark(const mp_Sarena *a) {
-    return mp_sarena_mark(a);
+uintptr_t mp_temp_mark(const mp_Temp *t) {
+    return (uintptr_t) (char *) t->buf + t->len;
 }
 
-void mp_temp_rewind(mp_Sarena *a, uintptr_t mark) {
-    mp_sarena_rewind(a, mark);
+void mp_temp_rewind(mp_Temp *t, uintptr_t mark) {
+    t->len = mark - (uintptr_t) t->buf;
 }
 
 mp_Alloc mp_heap_alloc(void) {
@@ -3870,18 +4369,18 @@ static void *mp_heap_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, 
 }
 
 // Thanks, Wikipedia! <https://en.wikipedia.org/wiki/UTF-8#Description>
-mp_Utf8_Char mp_utf8_take(const char **str, size_t *size) {
+mp_Utf8_Char_Data mp_utf8_take(const char **str, size_t *size) {
     if (!(str != NULL && *str != NULL)) {
         return mp_utf8_char_invalid(NULL, 0);
     }
     if (*size == 0) {
         return mp_utf8_char_invalid(NULL, 0);
     }
-    const char   *ch    = *str;
-    unsigned char first = (unsigned char) ch[0];
+    const char *ch    = *str;
+    uint8_t     first = (uint8_t) ch[0];
 
-    unsigned char char_size           = 0;
-    unsigned char actual_decoded_size = 0;
+    uint8_t char_size           = 0;
+    uint8_t actual_decoded_size = 0;
     if (first <= 0x7F) {
         char_size = 1;
     } else if (first >= 0xC0 && first <= 0xDF) {
@@ -3894,24 +4393,24 @@ mp_Utf8_Char mp_utf8_take(const char **str, size_t *size) {
         goto fail;
     }
 
-    unsigned int codepoint = 0x00;
-    for (unsigned char i = 1; i <= char_size; ++i) {
+    uint32_t codepoint = 0x00;
+    for (uint8_t i = 1; i <= char_size; ++i) {
         if (i > *size) {
             goto fail;
         }
 
-        unsigned char byte  = (unsigned char) ch[i - 1];
-        unsigned char order = char_size - i;
+        uint8_t byte  = (uint8_t) ch[i - 1];
+        uint8_t order = char_size - i;
 
         if (i == 1) {
-            unsigned char second_shift = (char_size == 1) ? char_size : char_size + 1;
-            codepoint |= (unsigned int) ((byte & (0xFF >> second_shift)) << 6 * (char_size - 1));
+            uint8_t second_shift = (char_size == 1) ? char_size : char_size + 1;
+            codepoint |= (uint32_t) ((byte & (0xFF >> second_shift)) << 6 * (char_size - 1));
         } else {
             // not a "continuation byte"
             if (!(byte >= 0x80 && byte <= 0xBF)) {
                 goto fail;
             }
-            codepoint |= (unsigned int) (byte & 0x3F) << 6 * order;
+            codepoint |= (uint32_t) (byte & 0x3F) << 6 * order;
         }
         ++actual_decoded_size;
     }
@@ -3937,7 +4436,7 @@ mp_Utf8_Char mp_utf8_take(const char **str, size_t *size) {
     *str += char_size;
     *size -= char_size;
 
-    return (mp_Utf8_Char) {
+    return (mp_Utf8_Char_Data) {
         .size      = char_size,
         .c         = ch,
         .codepoint = codepoint,
@@ -3952,11 +4451,11 @@ fail:
     return mp_utf8_char_invalid(ch, actual_decoded_size);
 }
 
-mp_Utf8_Char mp_utf8_char(const char *c) {
+mp_Utf8_Char_Data mp_utf8_char(const char *c) {
     return mp_utf8_char_s(c, strlen(c));
 }
 
-mp_Utf8_Char mp_utf8_char_s(const char *c, size_t size) {
+mp_Utf8_Char_Data mp_utf8_char_s(const char *c, size_t size) {
     return mp_utf8_take(&c, &size);
 }
 
@@ -3965,21 +4464,21 @@ size_t mp_utf8_len(const char *str) {
 }
 
 size_t mp_utf8_len_s(const char *str, size_t size) {
-    size_t       len = 0;
-    mp_Utf8_Char c;
+    size_t            len = 0;
+    mp_Utf8_Char_Data c;
     while ((c = mp_utf8_take(&str, &size)).c != NULL) {
         ++len;
     }
     return len;
 }
 
-mp_Utf8_Char mp_utf8_get(const char *str, size_t index) {
+mp_Utf8_Char_Data mp_utf8_get(const char *str, size_t index) {
     return mp_utf8_get_s(str, strlen(str), index);
 }
 
-mp_Utf8_Char mp_utf8_get_s(const char *str, size_t size, size_t index) {
-    size_t       i = 0;
-    mp_Utf8_Char c;
+mp_Utf8_Char_Data mp_utf8_get_s(const char *str, size_t size, size_t index) {
+    size_t            i = 0;
+    mp_Utf8_Char_Data c;
     while ((c = mp_utf8_take(&str, &size)).c != NULL) {
         if (index == i) {
             return c;

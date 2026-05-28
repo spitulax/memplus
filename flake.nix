@@ -19,7 +19,7 @@
           pkgs = pkgsFor.${system};
         in
         rec {
-          default = gcc;
+          default = clang;
           gcc = pkgs.callPackage ./nix/shell.nix { inherit self; comp = pkgs.gcc; };
           clang = pkgs.callPackage ./nix/shell.nix { inherit self; comp = pkgs.clang; };
         }

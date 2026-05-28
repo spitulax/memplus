@@ -5,8 +5,7 @@
 #define MEMPLUS_IMPLEMENTATION
 #include "memplus.h"
 
-#define align(a)      (__MP_DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
-#define align_down(a) (((a) / sizeof(uintptr_t)) * sizeof(uintptr_t))
+#define align(a) (__MP_DIV_ROUNDUP((a), sizeof(uintptr_t)) * sizeof(uintptr_t))
 
 void test(mp_Alloc alloc, mp_Temp *arena) {
     // First allocation
@@ -64,20 +63,22 @@ int main(void) {
     char    buf[1050];
     mp_temp_init(&t_arena, buf, sizeof(buf));
     mp_Alloc t_alloc = mp_temp_alloc(&t_arena);
-    expect_eq(t_arena.cap, (size_t) align_down(1050), "%zu");
+    expect_eq(t_arena.cap, (size_t) align(1050), "%zu");
     test(t_alloc, &t_arena);
 
     {
         mp_talloc();
 
-        int *i = mp_create(temp_alloc, int);
+        int *i = mp_make(temp_alloc, int);
         *i     = 67;
         expect_ne((void *) i, NULL, "%p");
         expect_eq(*i, 67, "%d");
 
-        const char *str = mp_str_newf(temp_alloc, "%d!!!", *i).cstr;
-        expect_ne((void *) str, NULL, "%p");
-        expect_streq(str, "67!!!");
+        mp_Sb sb;
+        mp_sb_init_withf(&sb, temp_alloc, "%d!!!", *i);
+        mp_Str str = mp_sb_str(&sb);
+        expect_ne((void *) str.data, NULL, "%p");
+        expect_streq_mp(str, mp_str("67!!!"));
     }
 
     return 0;
