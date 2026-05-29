@@ -76,7 +76,7 @@ IndentCaseLabels: true
 IndentExportBlock: false
 IndentExternBlock: NoIndent
 IndentGotoLabels: true
-IndentPPDirectives: BeforeHash
+IndentPPDirectives: Leave
 IndentRequiresClause: false
 IndentWidth: 4
 IndentWrappedFunctionNames: false
@@ -97,7 +97,7 @@ LineEnding: LF
 # MacroBlockEnd: "^.*_END$"
 MaxEmptyLinesToKeep: 2
 NamespaceIndentation: Inner
-PPIndentWidth: -1
+# PPIndentWidth: -1
 PackConstructorInitializers: Never
 PointerAlignment: Right
 QualifierAlignment: Custom

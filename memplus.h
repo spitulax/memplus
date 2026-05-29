@@ -146,37 +146,39 @@
 
 // Define custom assert by modidying the definition of `__mp_assert_fail()`
 #if !(defined(__MP_ASSERT) && defined(__MP_ASSERT_MSG))
-    #include <stdio.h>
-    #include <stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-    #define __MP_NEED_ASSERT
+#define __MP_NEED_ASSERT
 __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, const char *func,
                                     size_t line, const char *msg);
 
-    /// \cond
-    #ifdef NDEBUG
-        #define __MP_ASSERT(expr)
-        #define __MP_ASSERT_MSG(expr, msg)
-    #else
-        #define __MP_ASSERT(expr)                                                                  \
-            ((expr) ? (void) 0 : __mp_assert_fail(#expr, __FILE__, __func__, __LINE__, ""))
+/// \cond
+#ifdef NDEBUG
+#define __MP_ASSERT(expr)
+#define __MP_ASSERT_MSG(expr, msg)
 
-        #define __MP_ASSERT_MSG(expr, msg)                                                         \
-            ((expr) ? (void) 0 : __mp_assert_fail(#expr, __FILE__, __func__, __LINE__, (msg)))
-    #endif
-    /// \endcond
+#else
+#define __MP_ASSERT(expr)                                                                          \
+    ((expr) ? (void) 0 : __mp_assert_fail(#expr, __FILE__, __func__, __LINE__, ""))
+#define __MP_ASSERT_MSG(expr, msg)                                                                 \
+    ((expr) ? (void) 0 : __mp_assert_fail(#expr, __FILE__, __func__, __LINE__, (msg)))
+
+#endif
+/// \endcond
 
 #endif
 
 // Assumed have the same behavior as stdlib's `calloc(..., 1)`.
 #ifndef __MP_ALLOC
-    #include <stdlib.h>
-    #define __MP_ALLOC(size) calloc((size), 1)
+#include <stdlib.h>
+#define __MP_ALLOC(size) calloc((size), 1)
 #endif
+
 // Must have the same signature and behavior as stdlib's `free`.
 #ifndef __MP_FREE
-    #include <stdlib.h>
-    #define __MP_FREE free
+#include <stdlib.h>
+#define __MP_FREE free
 #endif
 
 /**
@@ -191,10 +193,9 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
 #define __MP_ZERO(ptr)            memset((ptr), 0, sizeof(*(ptr)))
 #define __MP_BOUNDS_CHECK(i, len) __MP_ASSERT_MSG((i) < (len), "Array index out of bounds")
 #if defined(__GNUC__) || defined(__clang__)
-    #define __MP_PRINTF_FORMAT(fmt_index)                                                          \
-        __attribute__((format(printf, (fmt_index), (fmt_index) + 1)))
+#define __MP_PRINTF_FORMAT(fmt_index) __attribute__((format(printf, (fmt_index), (fmt_index) + 1)))
 #else
-    #define __MP_PRINTF_FORMAT(fmt_index)
+#define __MP_PRINTF_FORMAT(fmt_index)
 #endif
 
 /**
@@ -601,7 +602,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
 
 // Starting capacity of a dynamic array.
 #ifndef __MP_DARRAY_INIT_CAPACITY
-    #define __MP_DARRAY_INIT_CAPACITY 64
+#define __MP_DARRAY_INIT_CAPACITY 64
 #endif
 
 /**
@@ -1494,12 +1495,12 @@ mp_Str mp_sb_str(const mp_Sb *sb);
 
 // Percentage of elements in a hash table before it resizes.
 #ifndef __MP_HASH_TABLE_MAX_LOAD
-    #define __MP_HASH_TABLE_MAX_LOAD 0.75
+#define __MP_HASH_TABLE_MAX_LOAD 0.75
 #endif
 
 // Starting capacity of a hash table.
 #ifndef __MP_HASH_TABLE_INIT_CAPACITY
-    #define __MP_HASH_TABLE_INIT_CAPACITY __MP_DARRAY_INIT_CAPACITY
+#define __MP_HASH_TABLE_INIT_CAPACITY __MP_DARRAY_INIT_CAPACITY
 #endif
 
 /**
@@ -2538,7 +2539,7 @@ struct __mp_Int_Set_Iter {
  * The value will be aligned to the nearest multiple of `sizeof(uintptr_t)`.
  */
 #ifndef __MP_REGION_DEFAULT_SIZE
-    #define __MP_REGION_DEFAULT_SIZE (64 * 1024)
+#define __MP_REGION_DEFAULT_SIZE (64 * 1024)
 #endif
 
 /**
@@ -3420,26 +3421,26 @@ mp_Err mp_file_delete(const char *file_path);
 
 #ifdef MEMPLUS_IMPLEMENTATION
 
-    #include <errno.h>
-    #include <stdarg.h>
-    #include <stdio.h>
-    #include <string.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 
-    #define __MP_UNREACHABLE()      __MP_ASSERT_MSG(0, "Unreachable")
-    #define __MP_TODO(msg)          __MP_ASSERT_MSG(0, "todo: " msg)
-    #define __MP_DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
-    #define __MP_ALIGN(a, inc)      (__MP_DIV_ROUNDUP((a), (inc)) * (inc))
-    #define __MP_ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
-    #define __MP_MAX(a, b)          ((a) > (b) ? (a) : (b))
-    #define __MP_MIN(a, b)          ((a) < (b) ? (a) : (b))
-    #define __MP_ASSERT_OVERLAP(a, a_len, b, b_len)                                                \
-        do {                                                                                       \
-            uintptr_t _a = (uintptr_t) a;                                                          \
-            uintptr_t _b = (uintptr_t) b;                                                          \
-            if (__MP_MAX((_a), (_b)) < __MP_MIN((_a) + (a_len), (_b) + (b_len))) {                 \
-                __MP_ASSERT_MSG(0, "Memory overlaps");                                             \
-            }                                                                                      \
-        } while (0)
+#define __MP_UNREACHABLE()      __MP_ASSERT_MSG(0, "Unreachable")
+#define __MP_TODO(msg)          __MP_ASSERT_MSG(0, "todo: " msg)
+#define __MP_DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
+#define __MP_ALIGN(a, inc)      (__MP_DIV_ROUNDUP((a), (inc)) * (inc))
+#define __MP_ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
+#define __MP_MAX(a, b)          ((a) > (b) ? (a) : (b))
+#define __MP_MIN(a, b)          ((a) < (b) ? (a) : (b))
+#define __MP_ASSERT_OVERLAP(a, a_len, b, b_len)                                                    \
+    do {                                                                                           \
+        uintptr_t _a = (uintptr_t) a;                                                              \
+        uintptr_t _b = (uintptr_t) b;                                                              \
+        if (__MP_MAX((_a), (_b)) < __MP_MIN((_a) + (a_len), (_b) + (b_len))) {                     \
+            __MP_ASSERT_MSG(0, "Memory overlaps");                                                 \
+        }                                                                                          \
+    } while (0)
 
 static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                  void *ptr);
@@ -3448,13 +3449,13 @@ static void *mp_sarena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size
 static void *mp_heap_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, size_t old_size,
                                 void *ptr);
 
-    #ifdef __MP_NEED_ASSERT
+#ifdef __MP_NEED_ASSERT
 __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, const char *func,
                                     size_t line, const char *msg) {
     fprintf(stderr, "%s:%s():%zu: [memplus] %s. `%s` failed.\n", file, func, line, msg, assertion);
     abort();
 }
-    #endif
+#endif
 
 void *mp_dup(mp_Alloc alloc, const void *data, size_t size) {
     void *buf = mp_alloc(alloc, size);
