@@ -88,6 +88,8 @@
 // Windows
 #elif defined(_WIN32)
     #define __MP_SYSTEM_WINDOWS
+    #include <tchar.h>
+    #include <windows.h>
 
 #else
     #error "Unsupported system."
@@ -642,8 +644,6 @@ typedef struct {
  * \brief Initializes \a a managed by \a alloc.
  *
  * Deinit with \ref mp_da_deinit.
- *
- * \a a->data == NULL if allocation failed.
  *
  * \param type ("Type") array type name
  * \param a (Dyn_Array *) array (initialized by this)
@@ -1200,8 +1200,8 @@ typedef struct {
  *
  * \param str null-terminated string
  * \param alloc allocator for the copy
- * \return allocated copy of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
- * allocation failed
+ * \return view to allocated copy of \a str (not null-terminated), \ref mp_str_invalid "invalid
+ * string" if allocation failed
  */
 mp_Str mp_str_alloc(const char *str, mp_Alloc alloc);
 
@@ -1248,6 +1248,21 @@ void mp_str_null_terminated_deinit(char **str, mp_Alloc alloc);
  * \return whether \a a and \a b are equal
  */
 bool mp_str_eq(mp_Str a, mp_Str b);
+
+#ifdef __MP_SYSTEM_WINDOWS
+/**
+ * \brief Allocates copy of null-terminated TCHAR \a str as UTF-8 string with \a alloc and returns a
+ * view to it.
+ *
+ * Converts \a str into non-null-terminated UTF-8 string.
+ *
+ * \param str null-terminated TCHAR string
+ * \param alloc allocator for the copy
+ * \return view to allocated UTF-8 copy of \a str (not null-terminated), \ref mp_str_invalid
+ * "invalid string" if allocation failed
+ */
+mp_Str mp_str_from_tchar(const TCHAR *str, mp_Alloc alloc);
+#endif
 
 // TODO: String functions:
 // - mp_str_substr
@@ -3357,7 +3372,49 @@ const char *mp_err_str(mp_Err e);
  * \{
  */
 
-// MAYBE: mp_Path?
+#ifdef __MP_SYSTEM_WINDOWS
+    #define __MP_PATH_SEP '\\'
+#else
+    #define __MP_PATH_SEP '/'
+#endif
+
+/**
+ * \defgroup Path File Path
+ *
+ * \{
+ */
+
+__mp_da_struct(mp_Str, __mp_Path_Components);
+
+typedef struct __mp_Path_Components mp_Path_Components;
+
+typedef struct {
+    mp_Path_Components comps;
+    bool               absolute;
+    char               drive;    // DOCS: always uppercase, implies absolute, '\' for UNC
+} mp_Path;
+
+void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc);
+
+bool mp_path_init_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc);
+
+bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc);
+
+void mp_path_deinit(mp_Path *path);
+
+bool mp_path_append(mp_Path *path, mp_Str str_path);
+
+bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
+
+bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
+
+void mp_path_canonicalize(mp_Path *path);
+
+void mp_path_relativize(mp_Path *path, const mp_Path *base);
+
+mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc);
+
+/// \}
 
 // TODO: File functions
 // - File iterator (custom separator)
@@ -3425,6 +3482,11 @@ mp_Err mp_file_delete(const char *file_path);
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifdef __MP_SYSTEM_POSIX
+#include <limits.h>
+#include <unistd.h>
+#endif
 
 #define __MP_UNREACHABLE()      __MP_ASSERT_MSG(0, "Unreachable")
 #define __MP_TODO(msg)          __MP_ASSERT_MSG(0, "todo: " msg)
@@ -3638,6 +3700,38 @@ bool mp_str_eq(mp_Str a, mp_Str b) {
     }
     return memcmp(a.data, b.data, a.len) == 0;
 }
+
+#ifdef __MP_SYSTEM_WINDOWS
+mp_Str mp_str_from_tchar(const TCHAR *str, mp_Alloc alloc) {
+    size_t len = _tcslen(str);
+    if (len == 0) {
+        return mp_str_invalid();
+    }
+
+    #ifdef UNICODE
+    {
+        int size = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, NULL, 0, NULL, NULL);
+        if (size == 0) {
+            return mp_str_invalid();
+        }
+        char *buf = mp_make_array(alloc, char, size);
+        if (buf == NULL) {
+            return mp_str_invalid();
+        }
+        size = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, buf, size, NULL, NULL);
+        if (size == 0) {
+            return mp_str_invalid();
+        }
+
+        return mp_str_s(buf, size);
+    }
+    #else
+    {
+        return mp_str_clone(mp_str_s(str, len), alloc);
+    }
+    #endif
+}
+#endif
 
 void mp_sb_init(mp_Sb *sb, mp_Alloc alloc) {
     mp_da_init(mp_Sb, sb, alloc);
@@ -4896,6 +4990,154 @@ const char *mp_err_str(mp_Err e) {
     }
 
     __MP_UNREACHABLE();
+}
+
+void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc) {
+    __MP_ZERO(path);
+    mp_da_init(mp_Path_Components, &path->comps, alloc);
+    if (absolute != 0) {
+        path->absolute = true;
+        path->drive    = absolute;
+    }
+}
+
+bool mp_path_init_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc) {
+    return mp_path_init_parse_sep(path, str_path, __MP_PATH_SEP, alloc);
+}
+
+bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc) {
+    mp_path_init(path, false, alloc);
+
+    const char *it_start = str_path.data;
+    const char *it_end   = it_start + str_path.len;
+
+    #ifdef __MP_SYSTEM_WINDOWS
+    {
+        if (it_start[0] == '\\' && it_start[1] == '\\') {
+            path->absolute = true;
+            path->drive    = it_start[0];
+            it_start += 2;
+        } else if (it_start[1] == ':') {
+            path->absolute = true;
+            path->drive    = it_start[0];
+            it_start += 3;
+        }
+    }
+    #else
+    {
+        if (it_start[0] == '/') {
+            path->absolute = true;
+            ++it_start;
+        }
+    }
+    #endif
+
+    size_t comp_len = 0;
+    size_t comps    = 0;
+    for (const char *it = it_start; it < it_end + 1; ++it) {
+        if (*it == sep || it == it_end) {
+            if (comp_len == 0) {
+                continue;
+            }
+            ++comps;
+            comp_len = 0;
+        } else {
+            ++comp_len;
+        }
+    }
+
+    mp_da_reserve(&path->comps, comps);
+    if (path->comps.data == NULL) {
+        return false;
+    }
+
+    comp_len               = 0;
+    const char *comp_start = it_start;
+    for (const char *it = it_start; it < it_end + 1; ++it) {
+        if (*it == sep || it == it_end) {
+            if (comp_len == 0) {
+                comp_start = it + 1;
+                continue;
+            }
+
+            mp_Str comp = mp_str_clone(mp_str_s(comp_start, comp_len), path->comps.alloc);
+            if (!mp_str_is_valid(comp)) {
+                return false;
+            }
+            mp_da_append(&path->comps, comp);
+            if (path->comps.data == NULL) {
+                return false;
+            }
+            comp_start = it + 1;
+            comp_len   = 0;
+        } else {
+            ++comp_len;
+        }
+    }
+
+    return true;
+}
+
+void mp_path_deinit(mp_Path *path) {
+    for (size_t i = 0; i < path->comps.len; ++i) {
+        mp_str_deinit(mp_getp(&path->comps, i), path->comps.alloc);
+    }
+    mp_da_deinit(&path->comps);
+    __MP_ZERO(path);
+}
+
+void mp_path_canonicalize(mp_Path *path) {
+    (void) path;
+    __MP_TODO("mp_path_canonicalize");
+}
+
+void mp_path_relativize(mp_Path *path, const mp_Path *base) {
+    (void) path;
+    (void) base;
+    __MP_TODO("mp_path_relativize");
+}
+
+mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
+    #if defined(__MP_SYSTEM_POSIX)
+    {
+        char cwd[PATH_MAX] = { 0 };
+        if (getcwd(cwd, PATH_MAX) == NULL) {
+            return mp_err(errno);
+        }
+        if (!mp_path_init_parse(ret, mp_str(cwd), alloc)) {
+            return MP_ERR_CANNOT_ALLOC;
+        }
+    }
+    #elif defined(__MP_SYSTEM_WINDOWS)
+    {
+        DWORD len = GetCurrentDirectory(0, NULL);
+        if (len == 0) {
+            return mp_err(GetLastError());
+        }
+
+        TCHAR *cwd = mp_make_array(alloc, TCHAR, len);
+        if (cwd == NULL) {
+            return MP_ERR_CANNOT_ALLOC;
+        }
+
+        if (!GetCurrentDirectory(len, cwd)) {
+            return mp_err(GetLastError());
+        }
+
+        mp_Str cwd_mp = mp_str_from_tchar(cwd, alloc);
+
+        if (!mp_path_init_parse(ret, cwd_mp, alloc)) {
+            return MP_ERR_CANNOT_ALLOC;
+        }
+
+        mp_str_deinit(&cwd_mp, alloc);
+        mp_deinit_array(alloc, TCHAR, cwd, len);
+    }
+    #else
+        #error "mp_get_current_dir: Unsupported system."
+    #endif
+
+    return MP_ERR_NONE;
 }
 
 mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
