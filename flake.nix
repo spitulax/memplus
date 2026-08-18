@@ -21,7 +21,7 @@
         rec {
           default = clang;
           gcc = pkgs.callPackage ./nix/shell.nix { inherit self; comp = pkgs.gcc; };
-          clang = pkgs.callPackage ./nix/shell.nix { inherit self; comp = pkgs.llvmPackages_22.clang; };
+          clang = pkgs.callPackage ./nix/shell.nix { inherit self; comp = pkgs.llvmPackages_latest.clang; };
         }
       );
     };
