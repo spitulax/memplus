@@ -602,6 +602,14 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * \{
  */
 
+/**
+ * \brief Calculates the length of a **non-decayed** array.
+ *
+ * \param arr (const Any *) non-decayed array
+ * \return (size_t) the length of \a arr
+ */
+#define /* size_t */ mp_arr_len(/* const Any* */ arr) (sizeof(arr) / sizeof(*(arr)))
+
 // Starting capacity of a dynamic array.
 #ifndef __MP_DARRAY_INIT_CAPACITY
 #define __MP_DARRAY_INIT_CAPACITY 64
@@ -3406,7 +3414,7 @@ bool mp_path_append(mp_Path *path, mp_Str str_path);
 
 bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
 
-bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
+bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep);
 
 void mp_path_canonicalize(mp_Path *path);
 
@@ -5008,6 +5016,38 @@ bool mp_path_init_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc) {
 bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc) {
     mp_path_init(path, false, alloc);
 
+    if (!mp_path_append_parse_sep(path, str_path, sep)) {
+        return false;
+    }
+
+    return true;
+}
+
+void mp_path_deinit(mp_Path *path) {
+    for (size_t i = 0; i < path->comps.len; ++i) {
+        mp_str_deinit(mp_getp(&path->comps, i), path->comps.alloc);
+    }
+    mp_da_deinit(&path->comps);
+    __MP_ZERO(path);
+}
+
+bool mp_path_append(mp_Path *path, mp_Str str_path) {
+    mp_Str comp = mp_str_clone(str_path, path->comps.alloc);
+    if (!mp_str_is_valid(comp)) {
+        return false;
+    }
+    mp_da_append(&path->comps, comp);
+    if (path->comps.data == NULL) {
+        return false;
+    }
+    return true;
+}
+
+bool mp_path_append_parse(mp_Path *path, mp_Str str_path) {
+    return mp_path_append_parse_sep(path, str_path, __MP_PATH_SEP);
+}
+
+bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep) {
     const char *it_start = str_path.data;
     const char *it_end   = it_start + str_path.len;
 
@@ -5060,12 +5100,7 @@ bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc a
                 continue;
             }
 
-            mp_Str comp = mp_str_clone(mp_str_s(comp_start, comp_len), path->comps.alloc);
-            if (!mp_str_is_valid(comp)) {
-                return false;
-            }
-            mp_da_append(&path->comps, comp);
-            if (path->comps.data == NULL) {
+            if (!mp_path_append(path, mp_str_s(comp_start, comp_len))) {
                 return false;
             }
             comp_start = it + 1;
@@ -5078,17 +5113,16 @@ bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc a
     return true;
 }
 
-void mp_path_deinit(mp_Path *path) {
-    for (size_t i = 0; i < path->comps.len; ++i) {
-        mp_str_deinit(mp_getp(&path->comps, i), path->comps.alloc);
-    }
-    mp_da_deinit(&path->comps);
-    __MP_ZERO(path);
-}
-
 void mp_path_canonicalize(mp_Path *path) {
     (void) path;
     __MP_TODO("mp_path_canonicalize");
+    #if defined(__MP_SYSTEM_POSIX)
+    {}
+    #elif defined(__MP_SYSTEM_WINDOWS)
+    {}
+    #else
+        #error "mp_path_canonicalize: Unsupported system."
+    #endif
 }
 
 void mp_path_relativize(mp_Path *path, const mp_Path *base) {
@@ -5100,13 +5134,15 @@ void mp_path_relativize(mp_Path *path, const mp_Path *base) {
 mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
     #if defined(__MP_SYSTEM_POSIX)
     {
-        char cwd[PATH_MAX] = { 0 };
-        if (getcwd(cwd, PATH_MAX) == NULL) {
+        char *cwd;
+        if ((cwd = getcwd(NULL, 0)) == NULL) {
             return mp_err(errno);
         }
         if (!mp_path_init_parse(ret, mp_str(cwd), alloc)) {
+            free(cwd);
             return MP_ERR_CANNOT_ALLOC;
         }
+        free(cwd);
     }
     #elif defined(__MP_SYSTEM_WINDOWS)
     {

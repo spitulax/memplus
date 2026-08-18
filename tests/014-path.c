@@ -41,68 +41,79 @@ typedef struct {
     char         expected_absolute;
 } Path_Test;
 
-const Path_Test path_tests[] = {
-    (Path_Test) {
-                 .path_str_posix    = "foo",
-                 .path_str_win      = "foo",
-                 .expected_comps    = (const char *[]) { "foo", NULL },
-                 .expected_absolute = 0,
-                 },
-    (Path_Test) {
-                 .path_str_posix    = "foo/bar",
-                 .path_str_win      = "foo\\bar",
-                 .expected_comps    = (const char *[]) { "foo", "bar", NULL },
-                 .expected_absolute = 0,
-                 },
-    (Path_Test) {
-                 .path_str_posix    = "foo/bar/",
-                 .path_str_win      = "foo\\bar\\",
-                 .expected_comps    = (const char *[]) { "foo", "bar", NULL },
-                 .expected_absolute = 0,
-                 },
-    (Path_Test) {
-                 .path_str_posix    = "/foo/bar",
-                 .path_str_win      = "C:\\foo\\bar",
-                 .expected_comps    = (const char *[]) { "foo", "bar", NULL },
-                 .expected_absolute = 'C',
-                 },
-    (Path_Test) {
-                 .path_str_posix    = "//foo//bar",
-                 .path_str_win      = "C:\\\\foo\\\\bar",
-                 .expected_comps    = (const char *[]) { "foo", "bar", NULL },
-                 .expected_absolute = 'C',
-                 },
-    (Path_Test) {
-                 .path_str_posix    = "foo//bar////baz",
-                 .path_str_win      = "foo\\\\bar\\\\\\\\baz",
-                 .expected_comps    = (const char *[]) { "foo", "bar", "baz", NULL },
-                 .expected_absolute = 0,
-                 },
-};
-
 int main(void) {
+    const Path_Test path_tests[] = {
+        (Path_Test) {
+                     .path_str_posix    = "foo",
+                     .path_str_win      = "foo",
+                     .expected_comps    = (const char *[]) { "foo", NULL },
+                     .expected_absolute = 0,
+                     },
+        (Path_Test) {
+                     .path_str_posix    = "foo/bar",
+                     .path_str_win      = "foo\\bar",
+                     .expected_comps    = (const char *[]) { "foo", "bar", NULL },
+                     .expected_absolute = 0,
+                     },
+        (Path_Test) {
+                     .path_str_posix    = "foo/bar/",
+                     .path_str_win      = "foo\\bar\\",
+                     .expected_comps    = (const char *[]) { "foo", "bar", NULL },
+                     .expected_absolute = 0,
+                     },
+        (Path_Test) {
+                     .path_str_posix    = "/foo/bar",
+                     .path_str_win      = "C:\\foo\\bar",
+                     .expected_comps    = (const char *[]) { "foo", "bar", NULL },
+                     .expected_absolute = 'C',
+                     },
+        (Path_Test) {
+                     .path_str_posix    = "//foo//bar",
+                     .path_str_win      = "C:\\\\foo\\\\bar",
+                     .expected_comps    = (const char *[]) { "foo", "bar", NULL },
+                     .expected_absolute = 'C',
+                     },
+        (Path_Test) {
+                     .path_str_posix    = "foo//bar////baz",
+                     .path_str_win      = "foo\\\\bar\\\\\\\\baz",
+                     .expected_comps    = (const char *[]) { "foo", "bar", "baz", NULL },
+                     .expected_absolute = 0,
+                     },
+    };
+
     {
         mp_Path path;
         mp_path_init(&path, false, mp_heap());
-        // mp_path_init_from_array(&path, false, (const char *[]) { "014-path" }, 1, mp_heap());
-        // expect_eq(path.comps.len, (size_t) 2, "%zu");
-        // expect_eq(path.comps.cap, (size_t) 2, "%zu");
-        // expect_streq_mp_s(mp_get(&path.comps, 0), "014-path");
-        // expect_streq_mp_s(mp_get(&path.comps, 1), "foo.txt");
 
         // TODO: Use the path for filesystem functions
 
         mp_path_deinit(&path);
     }
 
-    // {
-    // size_t path_tests_len = sizeof(path_tests) / sizeof(*path_tests);
-    // for (size_t i = 0; i < path_tests_len; ++i) {
-    //     mp_Path path;
-    //     mp_path_init_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc)
-    //     logf("%s", path_tests[i].path_str_posix);
-    // }
-    // }
+    {
+        for (size_t i = 0; i < mp_arr_len(path_tests); ++i) {
+            const Path_Test *t = &path_tests[i];
+
+            mp_Path path;
+            #ifdef __MP_SYSTEM_WINDOWS
+            mp_path_init_parse(&path, mp_str(t->path_str_win), mp_heap());
+            #else
+            mp_path_init_parse(&path, mp_str(t->path_str_posix), mp_heap());
+            #endif
+
+            expect_eq(path.absolute, (bool) t->expected_absolute, "%d");
+            #ifdef __MP_SYSTEM_WINDOWS
+            expect_eq(path.drive, t->expected_absolute, "%c");
+            #endif
+
+            for (size_t j = 0; j < path.comps.len; ++j) {
+                const char *expected = t->expected_comps[j];
+                expect_streq_mp_s(mp_get(&path.comps, j), expected);
+            }
+
+            mp_path_deinit(&path);
+        }
+    }
 
     return 0;
 

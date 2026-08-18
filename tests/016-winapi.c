@@ -4,8 +4,8 @@
 
 #ifdef __MP_SYSTEM_WINDOWS
 
-    #include <tchar.h>
-    #include <windows.h>
+#include <tchar.h>
+#include <windows.h>
 
 int main(void) {
     TCHAR *tstr   = _T("Хэлло, Ворлд!");
