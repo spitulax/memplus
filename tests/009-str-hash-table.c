@@ -111,7 +111,7 @@ int main(void) {
     expect_eq(vals.cap, ht.len, "%zu");
 
     for (size_t i = 0; i < keys.len; ++i) {
-        mp_Str key = mp_get(&keys, i);
+        mp_String key = mp_get(&keys, i);
         // TODO: use `mp_str_substr`
         char *null_term_key =
             mp_str_null_terminated_from(mp_str_s(key.data + 4, key.len - 4), temp_alloc);
@@ -132,7 +132,7 @@ int main(void) {
     mp_ht_iter_init(&it, &ht);
     while (mp_ht_iter_next(&it)) {
         __Ht_Int_Entry *o = ht.data + (it.__ht_it_i - 1);
-        expect_streq_mp(it.key, o->key);
+        expect_streq_mp(it.key, mp_str_v(o->key));
         expect_eq(*it.val, o->val, "%d");
     }
 

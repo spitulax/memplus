@@ -12,17 +12,17 @@ int main(void) {
     expect_streq_mp(sv, mp_str("Hello"));
     expect_eq(sv.len, (size_t) 5, "%zu");
 
-    mp_Str s1 = mp_str_alloc("Hello, World!", alloc);
-    expect_streq_mp(s1, mp_str("Hello, World!"));
+    mp_String s1 = mp_string_alloc("Hello, World!", alloc);
+    expect_streq_mp(mp_str_v(s1), mp_str("Hello, World!"));
     expect_eq(s1.len, (size_t) 13, "%zu");
 
-    char *s1c = mp_str_null_terminated_from(s1, alloc);
+    char *s1c = mp_str_null_terminated_from(mp_str_v(s1), alloc);
     expect_eq(strlen(s1c), s1.len, "%zu");
     expect_streq(s1c, "Hello, World!");
     mp_str_null_terminated_deinit(&s1c, alloc);
 
-    mp_Str s2 = mp_str_clone(s1, alloc);
-    expect_streq_mp(s2, mp_str("Hello, World!"));
+    mp_String s2 = mp_string_clone(&s1, alloc);
+    expect_streq_mp(mp_str_v(s2), mp_str("Hello, World!"));
     expect_ne((void *) s1.data, (void *) s2.data, "%p");
     expect_eq(s2.len, (size_t) 13, "%zu");
 
@@ -31,8 +31,8 @@ int main(void) {
     expect_streq_mp(sv, mp_str("hello"));
     expect_eq(sv.len, (size_t) 5, "%zu");
 
-    mp_str_deinit(&s2, alloc);
-    mp_str_deinit(&s1, alloc);
+    mp_string_deinit(&s2, alloc);
+    mp_string_deinit(&s1, alloc);
 
     return 0;
 

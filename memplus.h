@@ -1126,13 +1126,29 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 
 /**
  * \brief Holds a pointer to a string and its size (excluding the null-terminator if any).
+ *
+ * \ref mp_Str only holds a view to a buffer, but \ref mp_String owns the buffer.
+ */
+typedef struct {
+    /// Length/size of the string (in bytes, excluding the null-terminator if any).
+    size_t len;
+    /// Pointer to the first character.
+    const char *data;
+} mp_Str;
+
+/**
+ * \brief Manages an allocated **null-terminated** string.
+ *
+ * \ref mp_Str only holds a view to a buffer, but \ref mp_String owns the buffer.
+ *
+ * This struct is not suitable for modifiable string, use \ref mp_Sb instead.
  */
 typedef struct {
     /// Length/size of the string (in bytes, excluding the null-terminator).
     size_t len;
     /// Pointer to the first character.
     const char *data;
-} mp_Str;
+} mp_String;
 
 /**
  * \brief Returns invalid \ref mp_Str.
@@ -1148,14 +1164,27 @@ typedef struct {
     })
 
 /**
+ * \brief Returns invalid \ref mp_String.
+ *
+ * An invalid \ref mp_String requires that field \a data == NULL.
+ *
+ * \return (\ref mp_String) invalid string
+ */
+#define /* mp_String */ mp_string_invalid()                                                        \
+    ((mp_String) {                                                                                 \
+        .len  = 0,                                                                                 \
+        .data = NULL,                                                                              \
+    })
+
+/**
  * \brief Tests whether \a str is valid.
  *
- * See \ref mp_str_invalid.
+ * See \ref mp_str_invalid and \ref mp_string_invalid.
  *
- * \param str (\ref mp_Str) string
+ * \param str (\ref mp_Str | \ref mp_String) string
  * \return (bool) whether \a s is valid
  */
-#define /* bool */ mp_str_is_valid(/* mp_Str */ str) ((str).data != NULL)
+#define /* bool */ mp_str_is_valid(/* mp_Str|mp_String */ str) ((str).data != NULL)
 
 /**
  * \brief Creates a view to a null-terminated string.
@@ -1181,46 +1210,71 @@ typedef struct {
     })
 
 /**
- * \brief Shortcut for printing a \ref mp_Utf8_Char_Data, use with `%.*s` format specifier.
+ * \brief Shortcut for printing an \ref mp_Str or \ref mp_String, use with `%.*s` format specifier.
  *
- * \param str (\ref mp_Str) string (no side effects)
+ * \param str (\ref mp_Str | \ref mp_String) string (no side effects)
  */
-#define mp_str_print(/* mp_Str */ str) (int) (str).len, (str).data
+#define mp_str_print(/* mp_Str|mp_String */ str) (int) (str).len, (str).data
 
 /**
  * \brief Passes \a str to a function that accepts string as pointer and length.
  *
- * \param str (mp_Str) string (no side effects)
+ * \param str (\ref mp_Str | \ref mp_String) string (no side effects)
  */
-#define mp_str_arg(/* mp_Str */ str) (str).data, (str).len
+#define mp_str_arg(/* mp_Str|mp_String */ str) (str).data, (str).len
 
 /**
- * \brief Allocates copy of null-terminated \a str with \a alloc and returns a view to it.
+ * \brief Allocates copy of \a str with \a alloc.
  *
  * \param str null-terminated string
  * \param alloc allocator for the copy
- * \return allocated copy of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
+ * \return allocated copy of \a str (null-terminated), \ref mp_string_invalid "invalid string" if
  * allocation failed
  */
-mp_Str mp_str_alloc(const char *str, mp_Alloc alloc);
+mp_String mp_string_alloc(const char *str, mp_Alloc alloc);
 
 /**
  * \brief Allocates clone of \a str with \a alloc.
  *
  * \param str string (may or may not be allocated on heap)
  * \param alloc allocator for the clone
- * \return allocated clone of \a str (not null-terminated), \ref mp_str_invalid "invalid string" if
+ * \return allocated clone of \a str (null-terminated), \ref mp_string_invalid "invalid string" if
  * allocation failed
  */
-mp_Str mp_str_clone(mp_Str str, mp_Alloc alloc);
+mp_String mp_string_from(mp_Str str, mp_Alloc alloc);
 
 /**
- * \brief Deinitializes \a str, given it was allocated on the heap with \a alloc.
+ * \brief Allocates clone of \a str with \a alloc.
  *
- * \param str pointer to string (allocated on heap)
+ * \param str string
+ * \param alloc allocator for the clone
+ * \return allocated clone of \a str, \ref mp_string_invalid "invalid string" if allocation failed
+ */
+mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc);
+
+// FIXME: Change macros that accept const pointer to not accept by pointer
+
+/**
+ * \brief Creates a view to \ref mp_String.
+ *
+ * \param str (mp_String) string (no side effects)
+ * \return (\ref mp_Str) view to \a str
+ */
+#define /* mp_Str */ mp_str_v(/* mp_String */ str)                                                 \
+    ((mp_Str) {                                                                                    \
+        .data = (str).data,                                                                        \
+        .len  = (str).len,                                                                         \
+    })
+
+/**
+ * \brief Deinitializes \a str.
+ *
+ * \a str must be previously allocated with \a alloc.
+ *
+ * \param str pointer to \a mp_String
  * \param alloc allocator that allocated \a str
  */
-void mp_str_deinit(mp_Str *str, mp_Alloc alloc);
+void mp_string_deinit(mp_String *str, mp_Alloc alloc);
 
 /**
  * \brief Creates a clone of \a str that is null-terminated with \a alloc.
@@ -1459,7 +1513,7 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  *
  * \code
  * struct {
- *     mp_Str     key;
+ *     mp_String  key;
  *     Value_Type val;
  * };
  * \endcode
@@ -1474,7 +1528,7 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  * struct {
  *     const Str_Hash_Table *_h;
  *     size_t                __ht_it_i;
- *     mp_Str                key;
+ *     mp_String             key;
  *     Value_Type           *val;
  * };
  * \endcode
@@ -1514,7 +1568,7 @@ mp_Str mp_sb_str(const mp_Sb *sb);
  */
 #define mp_ht_typedef(/* "Type" */ value_type, /* identifier */ name)                              \
     typedef struct {                                                                               \
-        mp_Str     key;                                                                            \
+        mp_String  key;                                                                            \
         value_type val;                                                                            \
     } __##name##_Entry;                                                                            \
     typedef struct {                                                                               \
@@ -1554,8 +1608,8 @@ typedef struct {
 
 // Generic string hash table entry type.
 typedef struct {
-    mp_Str key;
-    char   val[];
+    mp_String key;
+    char      val[];
 } __mp_Str_Ht_Entry;
 
 // Generic string hash table iterator type.
@@ -1731,7 +1785,7 @@ void __mp_ht_reset(void *ht);
 #define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
 
 /**
- * \brief Same as \ref mp_ht_delete but accepts to \ref mp_Str.
+ * \brief Same as \ref mp_ht_delete but accepts \ref mp_Str.
  *
  * See \ref mp_ht_delete.
  *
@@ -1773,7 +1827,7 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc);
  */
 typedef struct __mp_Ht_Keys mp_Ht_Keys;
 
-__mp_da_struct(mp_Str, __mp_Ht_Keys);
+__mp_da_struct(mp_String, __mp_Ht_Keys);
 
 /**
  * \brief Deinitializes \a keys.
@@ -3550,25 +3604,44 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item) {
     --self->len;
 }
 
-mp_Str mp_str_alloc(const char *str, mp_Alloc alloc) {
+mp_String mp_string_alloc(const char *str, mp_Alloc alloc) {
     size_t      len  = strlen(str);
-    const char *data = mp_dup(alloc, str, len);
+    const char *data = mp_dup(alloc, str, len + 1);
     if (data == NULL) {
-        return mp_str_invalid();
+        return mp_string_invalid();
     }
-    return mp_str_s(data, len);
+    return (mp_String) {
+        .data = data,
+        .len  = len,
+    };
 }
 
-mp_Str mp_str_clone(mp_Str str, mp_Alloc alloc) {
-    const char *data = mp_dup(alloc, str.data, str.len);
+mp_String mp_string_from(mp_Str str, mp_Alloc alloc) {
+    char *data = mp_alloc(alloc, str.len + 1);
     if (data == NULL) {
-        return mp_str_invalid();
+        return mp_string_invalid();
     }
-    return mp_str_s(data, str.len);
+    memcpy(data, str.data, str.len);
+    data[str.len] = '\0';
+    return (mp_String) {
+        .data = data,
+        .len  = str.len,
+    };
 }
 
-void mp_str_deinit(mp_Str *str, mp_Alloc alloc) {
-    mp_free(alloc, (void *) str->data, str->len);
+mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc) {
+    const char *data = mp_dup(alloc, str->data, str->len + 1);
+    if (data == NULL) {
+        return mp_string_invalid();
+    }
+    return (mp_String) {
+        .data = data,
+        .len  = str->len,
+    };
+}
+
+void mp_string_deinit(mp_String *str, mp_Alloc alloc) {
+    mp_free(alloc, (void *) str->data, str->len + 1);
     __MP_ZERO(str);
 }
 
@@ -3666,7 +3739,7 @@ void __mp_ht_deinit(void *ht) {
     for (size_t i = 0; i < self->cap; i++) {
         __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
         if (mp_str_is_valid(e->key)) {
-            mp_str_deinit(&e->key, self->alloc);
+            mp_string_deinit(&e->key, self->alloc);
         }
     }
     __mp_da_deinit(self);
@@ -3682,7 +3755,7 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key) && mp_str_eq(k, e->key)) {
+            if (mp_str_is_valid(e->key) && mp_str_eq(k, mp_str_v(e->key))) {
                 return &e->val;
             }
             ++i;
@@ -3706,12 +3779,12 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (!mp_str_is_valid(e->key)) {
-                e->key = mp_str_clone(k, self->alloc);
+                e->key = mp_string_from(k, self->alloc);
                 if (v != NULL) {
                     memcpy(&e->val, v, self->__ht_val_size);
                 }
                 break;
-            } else if (mp_str_eq(e->key, k)) {
+            } else if (mp_str_eq(mp_str_v(e->key), k)) {
                 if (v != NULL) {
                     memcpy(&e->val, v, self->__ht_val_size);
                 }
@@ -3750,13 +3823,13 @@ void __mp_ht_grow(void *ht, size_t offset) {
         for (size_t i = 0; i < old_cap; ++i) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (mp_str_is_valid(e->key)) {
-                uint64_t hash  = __mp_ht_hash_str(&e->key);
+                uint64_t hash  = __mp_ht_hash_str(&mp_str_v(e->key));
                 size_t   new_i = (size_t) (hash % (uint64_t) (self->cap - 1));
                 for (;;) {
                     __mp_Str_Ht_Entry *new_e =
                         (__mp_Str_Ht_Entry *) ((char *) new_data + new_i * self->__da_item_size);
                     if (!mp_str_is_valid(new_e->key)) {
-                        new_e->key = mp_str_clone(e->key, self->alloc);
+                        new_e->key = mp_string_clone(&e->key, self->alloc);
                         memcpy(&new_e->val, &e->val, self->__ht_val_size);
                         break;
                     } else {
@@ -3779,7 +3852,7 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
     for (size_t i = 0; i < cap; ++i) {
         __mp_Str_Ht_Entry *e = (__mp_Str_Ht_Entry *) ((char *) entries + i * size);
         if (mp_str_is_valid(e->key)) {
-            mp_str_deinit(&e->key, alloc);
+            mp_string_deinit(&e->key, alloc);
             __MP_ASSERT(!mp_str_is_valid(e->key));
         }
     }
@@ -3799,8 +3872,8 @@ void __mp_ht_delete(void *ht, mp_Str k) {
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key) && mp_str_eq(k, e->key)) {
-                mp_str_deinit(&e->key, self->alloc);
+            if (mp_str_is_valid(e->key) && mp_str_eq(k, mp_str_v(e->key))) {
+                mp_string_deinit(&e->key, self->alloc);
                 __MP_ASSERT(!mp_str_is_valid(e->key));
                 memset(&e->val, 1, sizeof(char));
                 --self->len;
@@ -3827,7 +3900,7 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
             __mp_Str_Ht_Entry *s_e = __mp_da_get(__mp_Str_Ht_Entry, s, i);
             __mp_Str_Ht_Entry *d_e = __mp_da_get(__mp_Str_Ht_Entry, d, i);
             if (mp_str_is_valid(s_e->key)) {
-                d_e->key = mp_str_clone(s_e->key, alloc);
+                d_e->key = mp_string_clone(&s_e->key, alloc);
                 __MP_ASSERT(d_e->key.data != s_e->key.data);
             }
         }
@@ -3838,7 +3911,7 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
 
 void mp_ht_keys_deinit(mp_Ht_Keys *keys) {
     for (size_t i = 0; i < keys->len; ++i) {
-        mp_str_deinit(mp_getp(keys, i), keys->alloc);
+        mp_string_deinit(mp_getp(keys, i), keys->alloc);
     }
     mp_da_deinit(keys);
 }
@@ -3851,7 +3924,7 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_ht_iter_init(it, self);
         while (__mp_ht_iter_next(it)) {
-            mp_da_append(keys, mp_str_clone(it->key, keys->alloc));
+            mp_da_append(keys, mp_string_from(it->key, keys->alloc));
         }
         mp_free(self->alloc, it, iter_size);
     }
@@ -3887,7 +3960,7 @@ bool __mp_ht_iter_next(void *it) {
     while (self->__ht_it_i < self->_h->cap) {
         __mp_Str_Ht_Entry *entry = __mp_da_get(__mp_Str_Ht_Entry, self->_h, self->__ht_it_i);
         if (mp_str_is_valid(entry->key)) {
-            self->key = entry->key;
+            self->key = mp_str_v(entry->key);
             if (self->_h->__ht_val_size > 0) {
                 self->val = &entry->val;
             }
