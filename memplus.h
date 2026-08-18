@@ -3446,7 +3446,7 @@ const char *mp_err_str(mp_Err e);
  * \{
  */
 
-__mp_da_struct(mp_Str, __mp_Path_Components);
+__mp_da_struct(mp_String, __mp_Path_Components);
 
 typedef struct __mp_Path_Components mp_Path_Components;
 
@@ -5098,14 +5098,14 @@ bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc a
 
 void mp_path_deinit(mp_Path *path) {
     for (size_t i = 0; i < path->comps.len; ++i) {
-        mp_str_deinit(mp_getp(&path->comps, i), path->comps.alloc);
+        mp_string_deinit(mp_getp(&path->comps, i), path->comps.alloc);
     }
     mp_da_deinit(&path->comps);
     __MP_ZERO(path);
 }
 
 bool mp_path_append(mp_Path *path, mp_Str str_path) {
-    mp_Str comp = mp_str_clone(str_path, path->comps.alloc);
+    mp_String comp = mp_string_from(str_path, path->comps.alloc);
     if (!mp_str_is_valid(comp)) {
         return false;
     }
