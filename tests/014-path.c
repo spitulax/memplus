@@ -2,32 +2,6 @@
 #include "memplus.h"
 #include "test.h"
 
-#define expect_dastr_arrstr_eq(a, b)                                                               \
-    do {                                                                                           \
-        for (size_t __i = 0; __i < (a).len; ++__i) {                                               \
-            if (!mp_str_eq(mp_get(&(a), __i), (b)[__i])) {                                         \
-                elogs("Expected `a == b`, got");                                                   \
-                elogsn("\ta = ");                                                                  \
-                for (size_t __j = 0; __j < (a).len; ++__j) {                                       \
-                    if (__j > 0)                                                                   \
-                        elogsn(" ");                                                               \
-                    mp_Str s = mp_get(&(a), __j);                                                  \
-                    elogfn("`%.*s`", mp_str_print(s));                                             \
-                }                                                                                  \
-                elogsn("\n");                                                                      \
-                elogsn("\tb = ");                                                                  \
-                for (size_t __j = 0; __j < (a).len; ++__j) {                                       \
-                    if (__j > 0)                                                                   \
-                        elogsn(" ");                                                               \
-                    mp_Str s = (b)[__j];                                                           \
-                    elogfn("`%.*s`", mp_str_print(s));                                             \
-                }                                                                                  \
-                elogsn("\n");                                                                      \
-                goto fail;                                                                         \
-            }                                                                                      \
-        }                                                                                          \
-    } while (0)
-
 void copy_to_mp_str_arr(mp_Str *arr, const char **src, size_t len) {
     for (size_t i = 0; i < len; ++i) {
         arr[i] = mp_str(src[i]);
@@ -96,9 +70,9 @@ int main(void) {
 
             mp_Path path;
             #ifdef __MP_SYSTEM_WINDOWS
-            mp_path_init_parse(&path, mp_str(t->path_str_win), mp_heap());
+            expect(mp_path_init_parse(&path, mp_str(t->path_str_win), mp_heap()));
             #else
-            mp_path_init_parse(&path, mp_str(t->path_str_posix), mp_heap());
+            expect(mp_path_init_parse(&path, mp_str(t->path_str_posix), mp_heap()));
             #endif
 
             expect_eq(path.absolute, (bool) t->expected_absolute, "%d");
@@ -113,6 +87,20 @@ int main(void) {
 
             mp_path_deinit(&path);
         }
+    }
+
+    {
+        mp_Path path;
+        expect(mp_path_init_parse(&path, mp_str("."), mp_heap()));
+        expect(mp_path_canonicalize(&path));
+
+        mp_Path cur_dir;
+        expect_erreq(mp_get_current_dir(&cur_dir, mp_heap()), MP_ERR_NONE, mp_err_str);
+
+        expect(mp_path_eq(&path, &cur_dir));
+
+        mp_path_deinit(&cur_dir);
+        mp_path_deinit(&path);
     }
 
     return 0;

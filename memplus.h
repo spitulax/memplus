@@ -31,6 +31,7 @@
  */
 
 // TODO: Alloc location
+// FIXME: Fix Windows implementation
 
 /**
  * \file memplus.h
@@ -62,6 +63,7 @@
 
 /// \cond
 #define _POSIX_C_SOURCE 200809l    // also defines X/Open
+#define _XOPEN_SOURCE   700l
 /// \endcond
 
 #include <stdbool.h>
@@ -1425,6 +1427,8 @@ void mp_sb_deinit(mp_Sb *sb);
  *
  * \a sb->data == NULL if allocation failed.
  *
+ * Use \ref mp_da_append or \ref mp_da_append_many to append by byte instead.
+ *
  * \param sb string builder
  * \param str string to be appended
  */
@@ -1448,6 +1452,9 @@ void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
  * \return view to \a sb
  */
 mp_Str mp_sb_str(const mp_Sb *sb);
+
+// DOCS: "Takes" `sb`, free the result with the allocator used for `sb`
+mp_String mp_sb_string(mp_Sb *sb);
 
 // TODO: Sb functions:
 // - mp_sb_concat
@@ -3462,7 +3469,13 @@ bool mp_path_init_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc);
 
 bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc);
 
+mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc);
+
 void mp_path_deinit(mp_Path *path);
+
+void mp_path_reset(mp_Path *path);
+
+bool mp_path_eq(const mp_Path *a, const mp_Path *b);
 
 bool mp_path_append(mp_Path *path, mp_Str str_path);
 
@@ -3470,9 +3483,9 @@ bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
 
 bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep);
 
-void mp_path_canonicalize(mp_Path *path);
+bool mp_path_canonicalize(mp_Path *path);
 
-void mp_path_relativize(mp_Path *path, const mp_Path *base);
+bool mp_path_relativize(mp_Path *path, const mp_Path *base);
 
 mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc);
 
@@ -3873,6 +3886,19 @@ void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) {
 
 mp_Str mp_sb_str(const mp_Sb *sb) {
     return mp_str_s(sb->data, sb->len);
+}
+
+mp_String mp_sb_string(mp_Sb *sb) {
+    mp_da_append(sb, (char) '\0');
+    if (sb->data == NULL) {
+        return mp_string_invalid();
+    }
+    mp_String ret = (mp_String) {
+        .data = sb->data,
+        .len  = sb->len - 1,
+    };
+    __MP_ZERO(sb);
+    return ret;
 }
 
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
@@ -5096,12 +5122,75 @@ bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc a
     return true;
 }
 
+mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc) {
+    mp_Sb sb;
+    mp_sb_init(&sb, alloc);
+
+    #if defined(__MP_SYSTEM_POSIX)
+    {
+        if (path->absolute) {
+            mp_da_append(&sb, (char) '/');
+        }
+
+        for (size_t i = 0; i < path->comps.len; ++i) {
+            if (i > 0) {
+                mp_da_append(&sb, (char) '/');
+            }
+            mp_sb_append(&sb, mp_str_v(mp_get(&path->comps, i)));
+        }
+    }
+    #elif defined(__MP_SYSTEM_WINDOWS)
+    {
+        if (path->absolute) {
+            mp_da_append(&sb, path->drive);
+            mp_sb_append(&sb, mp_str(":\\"));
+        }
+
+        for (size_t i = 0; i < path->comps.len; ++i) {
+            if (i > 0) {
+                mp_da_append(&sb, (char) '\\');
+            }
+            mp_sb_append(&sb, mp_str_v(mp_get(&path->comps, i)));
+        }
+    }
+    #else
+    #error "mp_path_str: Unsupported system."
+    #endif
+
+    if (sb.data == NULL) {
+        return mp_string_invalid();
+    }
+
+    return mp_sb_string(&sb);
+}
+
 void mp_path_deinit(mp_Path *path) {
     for (size_t i = 0; i < path->comps.len; ++i) {
         mp_string_deinit(mp_getp(&path->comps, i), path->comps.alloc);
     }
     mp_da_deinit(&path->comps);
     __MP_ZERO(path);
+}
+
+void mp_path_reset(mp_Path *path) {
+    for (size_t i = 0; i < path->comps.len; ++i) {
+        mp_string_deinit(mp_getp(&path->comps, i), path->comps.alloc);
+    }
+    mp_da_reset(&path->comps);
+}
+
+bool mp_path_eq(const mp_Path *a, const mp_Path *b) {
+    if (a->absolute != b->absolute || a->drive != b->drive || a->comps.len != b->comps.len) {
+        return false;
+    }
+
+    for (size_t i = 0; i < a->comps.len; ++i) {
+        if (!mp_str_eq(mp_str_v(mp_get(&a->comps, i)), mp_str_v(mp_get(&b->comps, i)))) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool mp_path_append(mp_Path *path, mp_Str str_path) {
@@ -5186,19 +5275,34 @@ bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep) {
     return true;
 }
 
-void mp_path_canonicalize(mp_Path *path) {
-    (void) path;
-    __MP_TODO("mp_path_canonicalize");
+bool mp_path_canonicalize(mp_Path *path) {
+    bool ret = true;
+
+    // TODO: Precalculate required capacity
+
     #if defined(__MP_SYSTEM_POSIX)
-    {}
+    {
+        mp_String path_str      = mp_path_string(path, path->comps.alloc);
+        char     *resolved_path = realpath(path_str.data, NULL);
+        mp_path_reset(path);
+        if (!mp_path_append_parse_sep(path, mp_str(resolved_path), '/')) {
+            ret = false;
+            goto defer;
+        }
+
+    defer:
+        free(resolved_path);
+        mp_string_deinit(&path_str, path->comps.alloc);
+        return ret;
+    }
     #elif defined(__MP_SYSTEM_WINDOWS)
-    {}
+    { __MP_TODO("mp_path_canonicalize: Windows support."); }
     #else
         #error "mp_path_canonicalize: Unsupported system."
     #endif
 }
 
-void mp_path_relativize(mp_Path *path, const mp_Path *base) {
+bool mp_path_relativize(mp_Path *path, const mp_Path *base) {
     (void) path;
     (void) base;
     __MP_TODO("mp_path_relativize");
