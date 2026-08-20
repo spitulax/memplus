@@ -1317,7 +1317,7 @@ bool mp_str_eq(mp_Str a, mp_Str b);
 /**
  * \defgroup StringBuilder String Builder
  *
- * Holds and manage a **non null-terminated** string that is resizable.
+ * Holds and manages a **non null-terminated** string that is resizable.
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
  *
  * Pass references to \ref mp_Sb with \ref mp_Str type, use \ref mp_sb_str to
@@ -1401,6 +1401,8 @@ void mp_sb_deinit(mp_Sb *sb);
  *
  * \a sb->data == NULL if allocation failed.
  *
+ * Use \ref mp_da_append or \ref mp_da_append_many to append by byte instead.
+ *
  * \param sb string builder
  * \param str string to be appended
  */
@@ -1420,10 +1422,41 @@ void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) __MP_PRINTF_FORMAT(2);
 /**
  * \brief Gets a view to \a sb.
  *
+ * To get a null-terminated string, use \ref mp_sb_string or \ref mp_sb_clone_to_string
+ *
  * \param sb string builder
  * \return view to \a sb
  */
 mp_Str mp_sb_str(const mp_Sb *sb);
+
+/**
+ * \brief Converts an \ref mp_Sb to \ref mp_String and deinitialize the builder.
+ *
+ * This function may not allocate if the buffer of \a sb is enough to fit an additional
+ * null-terminator. If it does allocate and the allocation failed, it will return \ref
+ * mp_string_invalid "invalid string".
+ *
+ * Free the resulting \ref mp_String with the allocator used for \a sb.
+ *
+ * If \a sb is still required, use \ref mp_sb_clone_to_string.
+ *
+ * \param sb string builder
+ * \return \ref mp_String containing the data of \a sb, \ref mp_string_invalid "invalid string" if
+ * allocation failed
+ */
+mp_String mp_sb_string(mp_Sb *sb);
+
+/**
+ * \brief Clones an \ref mp_Sb to \ref mp_String.
+ *
+ * If \a sb is not required after this, better use \ref mp_sb_string instead.
+ *
+ * \param sb string builder
+ * \param alloc allocator for the clone
+ * \return \ref mp_String clone of \a sb, \ref mp_string_invalid "invalid string" if allocation
+ * failed
+ */
+mp_String mp_sb_clone_to_string(mp_Sb *sb, mp_Alloc alloc);
 
 // TODO: Sb functions:
 // - mp_sb_concat
@@ -3726,6 +3759,34 @@ void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) {
 
 mp_Str mp_sb_str(const mp_Sb *sb) {
     return mp_str_s(sb->data, sb->len);
+}
+
+mp_String mp_sb_string(mp_Sb *sb) {
+    mp_da_append(sb, (char) '\0');
+    if (sb->data == NULL) {
+        return mp_string_invalid();
+    }
+    mp_String ret = (mp_String) {
+        .data = sb->data,
+        // TODO: The buffer may be longer, but after we remove passing length to free function it
+        // will not matter.
+        .len = sb->len - 1,
+    };
+    __MP_ZERO(sb);
+    return ret;
+}
+
+mp_String mp_sb_clone_to_string(mp_Sb *sb, mp_Alloc alloc) {
+    char *cloned = mp_make_array(alloc, char, sb->len + 1);
+    if (cloned == NULL) {
+        return mp_string_invalid();
+    }
+    memcpy(cloned, sb->data, sb->len);
+    cloned[sb->len] = '\0';
+    return (mp_String) {
+        .data = cloned,
+        .len  = sb->len,
+    };
 }
 
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
