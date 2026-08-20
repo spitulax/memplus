@@ -1117,9 +1117,12 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
 /**
  * \defgroup String String
  *
- * Holds a pointer to a string and its size (excluding the null-terminator if any).
+ * There are two data types in this group, \ref mp_Str and \ref mp_String. The former is a view to a
+ * buffer of string, meanwhile the latter owns a buffer of string.
  *
- * This object is a "view" to a string data and does not manage or allocate the data itself.
+ * \ref mp_String can be safely casted to C-style string by accessing the field \a data since the
+ * buffer is guaranteed to be null-terminated. However, \ref mp_Str may not be so, since the
+ * underlying buffer is not necessarily null-terminated.
  *
  * \{
  */
@@ -1128,6 +1131,9 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
  * \brief Holds a pointer to a string and its size (excluding the null-terminator if any).
  *
  * \ref mp_Str only holds a view to a buffer, but \ref mp_String owns the buffer.
+ *
+ * \ref mp_Str cannot be safely casted to C-style string, since the underlying buffer is not
+ * necessarily null-terminated.
  */
 typedef struct {
     /// Length/size of the string (in bytes, excluding the null-terminator if any).
@@ -1141,12 +1147,17 @@ typedef struct {
  *
  * \ref mp_Str only holds a view to a buffer, but \ref mp_String owns the buffer.
  *
- * This struct is not suitable for modifiable string, use \ref mp_Sb instead.
+ * To create a view to an \ref mp_String, use \ref mp_str_v.
+ *
+ * \ref mp_String can be safely casted to C-style string by accessing the field \a data since the
+ * buffer is guaranteed to be null-terminated.
+ *
+ * This struct is not suitable for resizable string, use \ref mp_Sb instead.
  */
 typedef struct {
     /// Length/size of the string (in bytes, excluding the null-terminator).
     size_t len;
-    /// Pointer to the first character.
+    /// Pointer to the first character. Access this field to pass this type as C-style string.
     const char *data;
 } mp_String;
 
@@ -1252,7 +1263,7 @@ mp_String mp_string_from(mp_Str str, mp_Alloc alloc);
  */
 mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc);
 
-// FIXME: Change macros that accept const pointer to not accept by pointer
+// FIXME: Change all or some macros that accept const pointer to not accept by pointer
 
 /**
  * \brief Creates a view to \ref mp_String.
@@ -1275,23 +1286,6 @@ mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc);
  * \param alloc allocator that allocated \a str
  */
 void mp_string_deinit(mp_String *str, mp_Alloc alloc);
-
-/**
- * \brief Creates a clone of \a str that is null-terminated with \a alloc.
- *
- * \param str string to clone
- * \param alloc allocator for the clone
- * \return null-terminated clone of \a str, NULL if allocation failed
- */
-char *mp_str_null_terminated_from(mp_Str str, mp_Alloc alloc);
-
-/**
- * \brief Deinitializes null-terminated \a str allocated with \a alloc.
- *
- * \param str pointer null-terminated string to deinitialize
- * \param alloc allocator that allocated \a str
- */
-void mp_str_null_terminated_deinit(char **str, mp_Alloc alloc);
 
 /**
  * \brief Tests whether \a a and \a b are equal.
@@ -1320,12 +1314,10 @@ bool mp_str_eq(mp_Str a, mp_Str b);
  * Holds and manages a **non null-terminated** string that is resizable.
  * The underlying data type is a \ref DynamicArray "dynamic array" of char.
  *
- * Pass references to \ref mp_Sb with \ref mp_Str type, use \ref mp_sb_str to
- * convert the string.
+ * To create a view to an \ref mp_Sb, use \ref mp_sb_str.
  *
- * To convert to a C-compatible string which is null-terminated, use \ref
- * mp_str_null_terminated_from which is going to allocate a clone of the string data and use
- * \ref mp_str_null_terminated_deinit to free it.
+ * To convert to a C-compatible string that is null-terminated, use \ref mp_sb_string or \ref
+ * mp_sb_clone_to_string.
  *
  * # Initialization
  *
@@ -3675,21 +3667,6 @@ mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc) {
 
 void mp_string_deinit(mp_String *str, mp_Alloc alloc) {
     mp_free(alloc, (void *) str->data, str->len + 1);
-    __MP_ZERO(str);
-}
-
-char *mp_str_null_terminated_from(mp_Str str, mp_Alloc alloc) {
-    char *cstr = mp_alloc(alloc, str.len + 1);
-    if (cstr == NULL) {
-        return NULL;
-    }
-    memcpy(cstr, str.data, str.len);
-    cstr[str.len] = '\0';
-    return cstr;
-}
-
-void mp_str_null_terminated_deinit(char **str, mp_Alloc alloc) {
-    mp_free(alloc, *str, strlen(*str));
     __MP_ZERO(str);
 }
 
