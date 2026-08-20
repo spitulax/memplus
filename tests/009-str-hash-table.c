@@ -113,9 +113,8 @@ int main(void) {
     for (size_t i = 0; i < keys.len; ++i) {
         mp_String key = mp_get(&keys, i);
         // TODO: use `mp_str_substr`
-        char *null_term_key =
-            mp_str_null_terminated_from(mp_str_s(key.data + 4, key.len - 4), temp_alloc);
-        int val_from_key = atoi(null_term_key);
+        mp_String string_key   = mp_string_from(mp_str_s(key.data + 4, key.len - 4), temp_alloc);
+        int       val_from_key = atoi(string_key.data);
         expect_eq(val_from_key, mp_get(&vals, i), "%d");
     }
 

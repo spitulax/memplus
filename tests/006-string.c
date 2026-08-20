@@ -13,13 +13,13 @@ int main(void) {
     expect_eq(sv.len, (size_t) 5, "%zu");
 
     mp_String s1 = mp_string_alloc("Hello, World!", alloc);
-    expect_streq_mp(mp_str_v(s1), mp_str("Hello, World!"));
+    expect_streq_mp(s1, mp_str("Hello, World!"));
     expect_eq(s1.len, (size_t) 13, "%zu");
 
-    char *s1c = mp_str_null_terminated_from(mp_str_v(s1), alloc);
-    expect_eq(strlen(s1c), s1.len, "%zu");
-    expect_streq(s1c, "Hello, World!");
-    mp_str_null_terminated_deinit(&s1c, alloc);
+    mp_String s1c = mp_string_from(mp_str_v(s1), alloc);
+    expect_eq(s1c.len, s1.len, "%zu");
+    expect_streq_mp(s1c, mp_str("Hello, World!"));
+    mp_string_deinit(&s1c, alloc);
 
     mp_String s2 = mp_string_clone(&s1, alloc);
     expect_streq_mp(mp_str_v(s2), mp_str("Hello, World!"));
