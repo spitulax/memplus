@@ -3318,7 +3318,7 @@ bool mp_utf8_iter_next(mp_Utf8_Iter *it);
  * For error messages see the definition of \ref mp_err_str.
  */
 typedef enum {
-    MP_ERR_NONE    = 0,
+    MP_OK          = 0,
     MP_ERR_UNKNOWN = 1,
 
     MP_ERR_INVALID_WIDE_CHAR,    // EILSEQ
@@ -4705,7 +4705,7 @@ bool mp_utf8_iter_next(mp_Utf8_Iter *it) {
 mp_Err mp_err(int errnum) {
     // Sort this! (by MP_ERR_*)
     switch (errnum) {
-        case 0:      return MP_ERR_NONE;
+        case 0:      return MP_OK;
         case EILSEQ: return MP_ERR_INVALID_WIDE_CHAR;
         case EDOM:   return MP_ERR_OUT_OF_DOMAIN;
         case ERANGE: return MP_ERR_RESULT_TOO_LARGE;
@@ -4871,7 +4871,7 @@ mp_Err mp_err(int errnum) {
 const char *mp_err_str(mp_Err e) {
     // Sort this!
     switch (e) {
-        case MP_ERR_NONE:              return "Success";
+        case MP_OK:                    return "Success";
         case MP_ERR_UNKNOWN:           return "Unknown error";
 
         case MP_ERR_INVALID_WIDE_CHAR: return "Invalid or incomplete multibyte or wide character";
