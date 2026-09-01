@@ -323,7 +323,6 @@ typedef enum {
  *     **Parameters**
  *     - **context**: allocator context
  *     - **ptr**: block to be freed
- *     - **new_size**: size of block in bytes
  *
  * \return pointer to newly allocated memory, NULL if allocation failed or with **MP_ALLOC_OP_FREE**
  */
@@ -431,10 +430,9 @@ typedef struct {
  *
  * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param ptr (void *) pointer to block to be freed (nullable)
- * \param size (size_t) size of block in bytes
  */
-#define mp_free(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size)                          \
-    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, (size), 0, (ptr)))
+#define mp_free(/* mp_Alloc */ alloc, /* void* */ ptr)                                             \
+    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, 0, 0, (ptr)))
 
 /**
  * \brief Frees a block of memory that has been allocated with alignment.
@@ -445,12 +443,11 @@ typedef struct {
  *
  * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param ptr (void *) pointer to block to be freed (nullable)
- * \param size (size_t) size of block in bytes
  * \param alignment (size_t) alignment
  */
-#define mp_free_align(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size,                    \
-                      /* size_t */ alignment)                                                      \
-    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, mp_align((size), (alignment)), 0, (ptr)))
+#define mp_free_align(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ alignment)               \
+    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, mp_align((size), (alignment)), 0, 0,      \
+                      (ptr)))
 
 /**
  * \brief Allocates a block of memory that can hold a value of \a type.
@@ -480,14 +477,14 @@ typedef struct {
  * \brief Frees a block of memory that holds a value of \a type.
  *
  * \param alloc (\ref mp_Alloc) allocator (no side effects)
- * \param type ("Type") type name of data
- * \param ptr (Type *) pointer to block to be freed (nullable)
+ * \param ptr (void *) pointer to block to be freed (nullable)
  */
-#define mp_deinit(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ ptr)                        \
-    mp_free((alloc), (ptr), sizeof(type))
+#define mp_deinit(/* mp_Alloc */ alloc, /* void* */ ptr) mp_free((alloc), (ptr))
 
 /**
  * \brief Allocates a block of memory that can hold an array of \a type.
+ *
+ * Free with \ref mp_deinit.
  *
  * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param type ("Type") type name of data
@@ -500,7 +497,7 @@ typedef struct {
 /**
  * \brief Allocates clone of a block of memory that holds an array of \a type.
  *
- * Free with \ref mp_deinit_array.
+ * Free with \ref mp_deinit.
  *
  * \param alloc (\ref mp_Alloc) allocator
  * \param type ("Type") type name of data
@@ -510,18 +507,6 @@ typedef struct {
  */
 #define mp_clone_array(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ src, /* size_t */ len) \
     mp_dup((alloc), (src), sizeof(type) * (len))
-
-/**
- * \brief Frees a block of memory that holds an array of \a type.
- *
- * \param alloc (\ref mp_Alloc) allocator (no side effects)
- * \param type ("Type") type name of data
- * \param ptr (Type *) pointer to block to be freed (nullable)
- * \param len (size_t) length of allocated array
- */
-#define mp_deinit_array(/* mp_Alloc */ alloc, /* "Type" */ type, /* Type* */ ptr,                  \
-                        /* size_t */ len)                                                          \
-    mp_free((alloc), (ptr), sizeof(type) * (len))
 
 /**
  * \brief Allocates a duplicate of \a data.
@@ -3587,7 +3572,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
     }
     __MP_ASSERT_OVERLAP(old_ptr, old_size, new_ptr, new_size);
     memcpy(new_ptr, old_ptr, old_size);
-    mp_free(alloc, old_ptr, old_size);
+    mp_free(alloc, old_ptr);
     return new_ptr;
 }
 
@@ -3603,7 +3588,7 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size) {
 
 void __mp_da_deinit(void *a) {
     __mp_Dyn_Array *self = a;
-    mp_free(self->alloc, self->data, self->cap * self->__da_item_size);
+    mp_free(self->alloc, self->data);
     __MP_ZERO(self);
 }
 
@@ -3737,7 +3722,7 @@ mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc) {
 }
 
 void mp_string_deinit(mp_String *str, mp_Alloc alloc) {
-    mp_free(alloc, (void *) str->data, str->len + 1);
+    mp_free(alloc, (void *) str->data);
     __MP_ZERO(str);
 }
 
@@ -3951,7 +3936,7 @@ void __mp_ht_grow(void *ht, size_t offset) {
             }
         }
         __mp_ht_free_entries(self->data, self->alloc, old_cap, self->__da_item_size);
-        mp_free(self->alloc, self->data, old_cap * self->__da_item_size);
+        mp_free(self->alloc, self->data);
         self->data = new_data;
     }
     self->len += offset;
@@ -4035,7 +4020,7 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
         while (__mp_ht_iter_next(it)) {
             mp_da_append(keys, mp_string_from(it->key, keys->alloc));
         }
-        mp_free(self->alloc, it, iter_size);
+        mp_free(self->alloc, it);
     }
 }
 
@@ -4053,7 +4038,7 @@ void __mp_ht_values(const void *ht, void *values) {
                    vals->__da_item_size);
             ++vals->len;
         }
-        mp_free(self->alloc, it, iter_size);
+        mp_free(self->alloc, it);
     }
 }
 
@@ -4187,7 +4172,7 @@ void __mp_hti_grow(void *ht, size_t offset) {
                 }
             }
         }
-        mp_free(self->alloc, self->data, old_cap * self->__da_item_size);
+        mp_free(self->alloc, self->data);
         self->data = new_data;
     }
     self->len += offset;
@@ -4245,7 +4230,7 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys) {
         while (__mp_hti_iter_next(it)) {
             mp_da_append(keys, it->key.key);
         }
-        mp_free(self->alloc, it, iter_size);
+        mp_free(self->alloc, it);
     }
 }
 
@@ -4263,7 +4248,7 @@ void __mp_hti_values(const void *ht, void *values) {
                    vals->__da_item_size);
             ++vals->len;
         }
-        mp_free(self->alloc, it, iter_size);
+        mp_free(self->alloc, it);
     }
 }
 
@@ -4301,7 +4286,7 @@ mp_Region *mp_region_new(mp_Alloc alloc, size_t cap) {
 }
 
 void mp_region_deinit(mp_Region *r, mp_Alloc alloc) {
-    mp_free(alloc, r, r->cap);
+    mp_free(alloc, r);
 }
 
 void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size) {
@@ -4415,6 +4400,7 @@ static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size,
         } break;
         case MP_ALLOC_OP_FREE: {
             (void) old_size;
+            (void) new_size;
 
             return NULL;
         } break;
@@ -4438,7 +4424,7 @@ void mp_sarena_reset(mp_Sarena *a) {
 }
 
 void mp_sarena_deinit(mp_Sarena *a) {
-    mp_free(a->alloc, a->buf, a->cap * sizeof(*(a)->buf));
+    mp_free(a->alloc, a->buf);
     __MP_ZERO(a);
 }
 
@@ -4494,6 +4480,7 @@ static void *mp_sarena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size
         } break;
         case MP_ALLOC_OP_FREE: {
             (void) old_size;
+            (void) new_size;
 
             return NULL;
         } break;
@@ -4551,6 +4538,7 @@ static void *mp_heap_alloc_func(mp_Alloc_Op op, void *context, size_t new_size, 
         } break;
         case MP_ALLOC_OP_FREE: {
             (void) old_size;
+            (void) new_size;
             if (ptr == NULL) {
                 return NULL;
             }
