@@ -28,6 +28,7 @@ int main(void) {
     expect_eq(array.cap, (size_t) __MP_DARRAY_INIT_CAPACITY * 2, "%zu");
 
     // Pop test
+    expect_eq(mp_da_last(&array), (int32_t) __MP_DARRAY_INIT_CAPACITY, "%d");
     expect_eq(mp_da_pop(&array), (int32_t) __MP_DARRAY_INIT_CAPACITY, "%d");
     expect_eq(array.len, (size_t) __MP_DARRAY_INIT_CAPACITY, "%zu");
 

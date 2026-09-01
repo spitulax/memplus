@@ -52,7 +52,8 @@
  * 8.  $ UTF-8
  * 9.  $ ERRORS
  * 10. $ FILESYSTEM
- * 11. $ IMPLEMENTATION
+ * 11. $ MISCELLANEOUS
+ * 12. $ IMPLEMENTATION
  */
 
 #ifndef __MEMPLUS_H
@@ -874,18 +875,6 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 #define mp_getp mp_da_getp
 
 /**
- * \brief Passes \a a to a function that accepts array as pointer and length.
- *
- * Example usage:
- * \code
- * mp_str_concat(mp_da_arg(strings), NULL, mp_heap());
- * \endcode
- *
- * \param a (const? Dyn_Array *) array (no side effects)
- */
-#define mp_da_arg(/* const? Dyn_Array* */ a) (a)->data, (a)->len
-
-/**
  * \brief Gets the last item in \a a.
  *
  * \param a (const Dyn_Array *) array (no side effects)
@@ -1282,13 +1271,6 @@ typedef struct {
  * \param str (\ref mp_Str | \ref mp_String) string (no side effects)
  */
 #define mp_str_print(/* mp_Str|mp_String */ str) (int) (str).len, (str).data
-
-/**
- * \brief Passes \a str to a function that accepts string as pointer and length.
- *
- * \param str (\ref mp_Str | \ref mp_String) string (no side effects)
- */
-#define mp_str_arg(/* mp_Str|mp_String */ str) (str).data, (str).len
 
 /**
  * \brief Allocates copy of \a str with \a alloc.
@@ -3504,6 +3486,31 @@ const char *mp_err_str(mp_Err e);
 // - mp_file_create_dir
 // - mp_file_delete_dir_recursive
 // - Directory iterator
+
+/// \}
+
+/***********
+ * $ MISCELLANEOUS
+ ***********/
+
+/**
+ * \defgroup Miscellaneous Miscellaneous
+ *
+ * Miscellaneous functions that are applicable to more than one part of the library.
+ *
+ * \{
+ */
+
+/**
+ * \brief Passes \a a to a function that accepts array as pointer and length.
+ *
+ * DOCS: Example usage here once there is a function that fits
+ *
+ * Works for any type that has fields \a data and \a len.
+ *
+ * \param a (const? Any *) array (no side effects)
+ */
+#define mp_arg(/* const? Any* */ a) (a)->data, (a)->len
 
 /// \}
 
