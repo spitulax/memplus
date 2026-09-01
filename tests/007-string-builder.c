@@ -28,14 +28,14 @@ int main(void) {
 
     mp_sb_deinit(&sb);
 
-    mp_sb_init_with(&sb, mp_str("hello"), alloc);
+    mp_sb_with(&sb, mp_str("hello"), alloc);
     expect_eq(sb.len, (size_t) 5, "%zu");
     expect_eq(sb.cap, (size_t) 5, "%zu");
     expect_streq_mp_s(sb, "hello");
 
     mp_sb_deinit(&sb);
 
-    mp_sb_init_withf(&sb, alloc, "hello %d", 13);
+    mp_sb_withf(&sb, alloc, "hello %d", 13);
     expect_eq(sb.len, (size_t) 8, "%zu");
     expect_eq(sb.cap, (size_t) 9, "%zu");
     expect_streq_mp_s(sb, "hello 13");

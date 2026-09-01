@@ -619,7 +619,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * mp_da_typedef(int, Da_Int);
  * \endcode
  *
- * Declare an array then use \ref mp_da_init or \ref mp_da_init_with and pass an allocator to manage
+ * Declare an array then use \ref mp_da_init or \ref mp_da_with and pass an allocator to manage
  * the array. \ref mp_da_init does not allocate the data immediately. But only once you append
  * something to the array.
  *
@@ -632,7 +632,7 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  *
  * \code
  * Da_Int array;
- * mp_da_init_with(Da_Int, &array, alloc, 0, 1, 2);
+ * mp_da_with(Da_Int, &array, alloc, 0, 1, 2);
  * \endcode
  *
  * By default, arrays start allocating memory for a certain number of elements, and if
@@ -733,8 +733,8 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
  * \param alloc (\ref mp_Alloc) allocator to manage \a a
  * \param ... (DataType...) values to append
  */
-#define mp_da_init_with(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc,                 \
-                        /* DataType... */...)                                                      \
+#define mp_da_with(/* Type */ type, /* Dyn_Array* */ a, /* mp_Alloc */ alloc,                      \
+                   /* DataType... */...)                                                           \
     do {                                                                                           \
         (void) (a)->__da_item_size;                                                                \
         mp_da_init(type, (a), (alloc));                                                            \
@@ -1377,12 +1377,12 @@ bool mp_str_eq(mp_Str a, mp_Str b);
  *
  * # Initialization
  *
- * Initializing an \ref mp_Sb with \ref mp_sb_init_with or \ref mp_sb_init_withf will allocate for
+ * Initializing an \ref mp_Sb with \ref mp_sb_with or \ref mp_sb_withf will allocate for
  * exactly the amount of bytes required. Meanwhile, initializing then appending manually may
  * allocate for more than required to minimize the amount of future reallocations.
  *
- * If you do not plan to append more data to an \ref mp_Sb, initialize with \ref mp_sb_init_with or
- * \ref mp_sb_init_withf instead to be more memory efficient.
+ * If you do not plan to append more data to an \ref mp_Sb, initialize with \ref mp_sb_with or
+ * \ref mp_sb_withf instead to be more memory efficient.
  *
  * \{
  */
@@ -1421,7 +1421,7 @@ void mp_sb_init(mp_Sb *sb, mp_Alloc alloc);
  * \param str initial string
  * \param alloc managing allocator
  */
-void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc);
+void mp_sb_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc);
 
 /**
  * \brief Initializes \a sb managed by \a alloc and append a formatted string.
@@ -1437,7 +1437,7 @@ void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc);
  * \param fmt formatting string
  * \param ... formatting arguments
  */
-void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(3);
+void mp_sb_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FORMAT(3);
 
 /**
  * \brief Deinitializes \a sb.
@@ -3737,7 +3737,7 @@ void mp_sb_init(mp_Sb *sb, mp_Alloc alloc) {
     mp_da_init(mp_Sb, sb, alloc);
 }
 
-void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc) {
+void mp_sb_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc) {
     mp_sb_init(sb, alloc);
     mp_da_reserve(sb, str.len);
     if (mp_is_valid(*sb)) {
@@ -3745,7 +3745,7 @@ void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc) {
     }
 }
 
-void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) {
+void mp_sb_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);

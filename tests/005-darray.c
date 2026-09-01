@@ -126,7 +126,7 @@ int main(void) {
 
     // Quick initialization
     Da_Int32 array4;
-    mp_da_init_with(Da_Int32, &array4, alloc, 1, 2, 3, 4, 5);
+    mp_da_with(Da_Int32, &array4, alloc, 1, 2, 3, 4, 5);
     expect_eq(array4.len, (size_t) 5, "%zu");
     expect_eq(mp_get(&array4, 0), (int32_t) 1, "%d");
     expect_eq(mp_get(&array4, 1), (int32_t) 2, "%d");

@@ -66,7 +66,7 @@ int main(void) {
     // Realloc test
     for (int i = 0; i < __MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
         mp_Sb key;
-        mp_sb_init_withf(&key, temp_alloc, "key_%d", i);
+        mp_sb_withf(&key, temp_alloc, "key_%d", i);
         mp_ht_set_s(&ht, mp_sb_str(&key), i);
     }
 
@@ -82,7 +82,7 @@ int main(void) {
 
     for (int i = 0; i < (int) ht.len; ++i) {
         mp_Sb key;
-        mp_sb_init_withf(&key, temp_alloc, "key_%d", i);
+        mp_sb_withf(&key, temp_alloc, "key_%d", i);
         val = mp_ht_get_s(&ht, mp_sb_str(&key));
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");

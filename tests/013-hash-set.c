@@ -14,7 +14,7 @@ int main(void) {
 
         for (size_t i = 0; i < nums; ++i) {
             mp_Sb key;
-            mp_sb_init_withf(&key, temp_alloc, "key_%zu", i / 2);
+            mp_sb_withf(&key, temp_alloc, "key_%zu", i / 2);
             if (i % 2 == 0) {
                 expect(!mp_ht_exists_s(&str_set, mp_sb_str(&key)));
             } else {

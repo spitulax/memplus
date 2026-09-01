@@ -75,7 +75,7 @@ int main(void) {
         expect_eq(*i, 67, "%d");
 
         mp_Sb sb;
-        mp_sb_init_withf(&sb, temp_alloc, "%d!!!", *i);
+        mp_sb_withf(&sb, temp_alloc, "%d!!!", *i);
         mp_Str str = mp_sb_str(&sb);
         expect_ne((void *) str.data, NULL, "%p");
         expect_streq_mp(str, mp_str("67!!!"));
