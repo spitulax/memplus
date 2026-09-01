@@ -29,7 +29,7 @@ int main(void) {
         size_t count = 0;
         while (mp_ht_iter_next(&str_set_it)) {
             ++count;
-            expect(mp_str_is_valid(str_set_it.key));
+            expect(mp_is_valid(str_set_it.key));
         }
         expect_eq(str_set.len, count, "%zu");
 

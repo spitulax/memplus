@@ -530,6 +530,17 @@ void *mp_dup(mp_Alloc alloc, const void *data, size_t size);
  */
 void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, size_t new_size);
 
+/**
+ * \brief Tests whether \a a is valid.
+ *
+ * Various data types contain a pointer to an allocated buffer named \a data.
+ * This macro checks whether \a a of any type which fits the description above has a valid buffer.
+ *
+ * \param a (Any) data to test
+ * \return (bool) whether \a a is valid
+ */
+#define mp_is_valid(a) ((a).data != NULL)
+
 /// \}
 
 /***********
@@ -660,7 +671,7 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
  *
  * Deinit with \ref mp_da_deinit.
  *
- * \a a becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a a becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param type ("Type") array type name
  * \param a (Dyn_Array *) array (initialized by this) (no side effects)
@@ -690,19 +701,9 @@ void __mp_da_deinit(void *a);
 void __mp_da_append(void *a, const void *items, size_t items_len);
 
 /**
- * \brief Tests whether \a a is valid.
- *
- * An invalid dynamic arrray requires that field \a data == NULL.
- *
- * \param a (Dyn_Array) array
- * \return (bool) whether \a a is valid
- */
-#define /* bool */ mp_da_is_valid(/* Dyn_Array */ a) ((a).data != NULL)
-
-/**
  * \brief Appends \a item to \a a.
  *
- * \a a becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a a becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param a (Dyn_Array *) array (no side effects)
  * \param item (Type) item to append to \a a
@@ -719,7 +720,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /**
  * \brief Appends multiple items to \a a.
  *
- * \a a becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a a becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param a (Dyn_Array *) array (no side effects)
  * \param ... (Type...) items to append to \a a
@@ -737,7 +738,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /**
  * \brief Appends items from \a items to \a a.
  *
- * \a a becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a a becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param a (Dyn_Array *) array
  * \param items (Type *) array of items to append to \a a
@@ -873,7 +874,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  *
  * If \a a->cap is not large enough, reserves for double of \a a->cap.
  *
- * \a a becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a a becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param a (Dyn_Array *) array
  * \param offset (size_t) amount to grow
@@ -890,7 +891,7 @@ void __mp_da_grow(void *a, size_t offset);
  *
  * Increases \a a->cap by \a offset and reallocates \a a->data if \a offset is greater than 0.
  *
- * \a a becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a a becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param a (Dyn_Array *) array
  * \param offset (size_t) amount to grow
@@ -908,7 +909,7 @@ void __mp_da_reserve(void *a, size_t offset);
  * The \a dest array does not inherit the capacity of \a src. Instead it will only
  * allocate for \a src.len + *initial capacity* items.
  *
- * \a dest becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a dest becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \a dest and \a src must not overlap.
  *
@@ -935,7 +936,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a pos must not be negative.
  *
- * \a a becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a a becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param a (Dyn_Array *) array (no side effects)
  * \param pos (size_t) insertion position
@@ -960,7 +961,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
  *
  * \a pos must not be negative.
  *
- * \a a becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a a becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param a (Dyn_Array *) array (no side effects)
  * \param pos (size_t) insertion position
@@ -1198,16 +1199,6 @@ typedef struct {
     })
 
 /**
- * \brief Tests whether \a str is valid.
- *
- * See \ref mp_str_invalid and \ref mp_string_invalid.
- *
- * \param str (\ref mp_Str | \ref mp_String) string
- * \return (bool) whether \a str is valid
- */
-#define /* bool */ mp_str_is_valid(/* mp_Str|mp_String */ str) ((str).data != NULL)
-
-/**
  * \brief Creates a view to a null-terminated string.
  *
  * Calculates string length with strlen.
@@ -1369,7 +1360,7 @@ void mp_sb_init(mp_Sb *sb, mp_Alloc alloc);
  *
  * Will only reserve for exactly the length of \a str.
  *
- * \a sb becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a sb becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param sb string builder (initialized by this)
  * \param str initial string
@@ -1384,7 +1375,7 @@ void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc);
  *
  * Will only reserve for exactly the length of the resulting formatted string.
  *
- * \a sb becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a sb becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param sb string builder (initialized by this)
  * \param alloc managing allocator
@@ -1401,19 +1392,9 @@ void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) __MP_PRIN
 void mp_sb_deinit(mp_Sb *sb);
 
 /**
- * \brief Tests whether \a sb is valid.
- *
- * An invalid \ref mp_Sb requires that field \a data == NULL.
- *
- * \param sb (\ref mp_Sb) hash table
- * \return (bool) whether \a sb is valid
- */
-#define /* bool */ mp_sb_is_valid(/* mp_Sb */ sb) ((sb).data != NULL)
-
-/**
  * \brief Appends \a str to \a sb.
  *
- * \a sb becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a sb becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * Use \ref mp_da_append or \ref mp_da_append_many to append by byte instead.
  *
@@ -1425,7 +1406,7 @@ void mp_sb_append(mp_Sb *sb, mp_Str str);
 /**
  * \brief Appends a formatted string to \a sb.
  *
- * \a sb becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a sb becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param sb string builder
  * \param fmt formatting string
@@ -1699,16 +1680,6 @@ void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
 void __mp_ht_deinit(void *ht);
 
 /**
- * \brief Tests whether \a ht is valid.
- *
- * An invalid hash table requires that field \a data == NULL.
- *
- * \param ht (Str_Hash_Table) hash table
- * \return (bool) whether \a ht is valid
- */
-#define /* bool */ mp_ht_is_valid(/* Str_Hash_Table */ ht) ((ht).data != NULL)
-
-/**
  * \brief Gets pointer to item at \a k.
  *
  * \param ht (const Str_Hash_Table *) hash table
@@ -1736,7 +1707,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
  *
  * When the entry at \a k has not been initialized before, the key is cloned.
  *
- * \a ht becomes \ref mp_ht_is_valid "invalid" if allocation failed.
+ * \a ht becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param ht (Str_Hash_Table *) hash table (no side effects)
  * \param k (const char *) key
@@ -1799,7 +1770,7 @@ bool __mp_ht_exists(const void *ht, mp_Str k);
  *
  * If \a ht->cap is not large enough, reserves for double of \a ht->cap.
  *
- * \a ht becomes \ref mp_ht_is_valid "invalid" if allocation failed.
+ * \a ht becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param ht (Str_Hash_Table *) hash table
  * \param offset (size_t) amount to grow
@@ -1861,7 +1832,7 @@ void __mp_ht_delete(void *ht, mp_Str k);
  *
  * \a dest inherits all fields of \a src.
  *
- * \a dest becomes \ref mp_ht_is_valid "invalid" if allocation failed.
+ * \a dest becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \a dest and \a src must not overlap.
  *
@@ -1901,7 +1872,7 @@ void mp_ht_keys_deinit(mp_Ht_Keys *keys);
  * Each key will be cloned using the allocator of \a keys, so free \a keys with \ref
  * mp_ht_keys_deinit.
  *
- * \a keys becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a keys becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
@@ -1924,7 +1895,7 @@ void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys);
  *
  * \a values **must be initialized** with \ref mp_da_init first.
  *
- * \a values becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a values becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
@@ -2017,7 +1988,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  *
  * Deinit with \ref mp_hs_deinit.
  *
- * \a hs becomes \ref mp_ht_is_valid "invalid" if allocation failed.
+ * \a hs becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param hs (\ref mp_Str_Set *) hash set (initialized by this)
  * \param alloc (mp_Alloc) allocator to manage \a hs
@@ -2044,7 +2015,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  *
  * When the key has not been set, \a k is cloned.
  *
- * \a hs becomes \ref mp_ht_is_valid "invalid" if allocation failed.
+ * \a hs becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param hs (\ref mp_Str_Set *) hash set
  * \param k (const char *) key
@@ -2312,16 +2283,6 @@ typedef struct {
     } while (0)
 
 /**
- * \brief Tests whether \a ht is valid.
- *
- * An invalid hash table requires that field \a data == NULL.
- *
- * \param ht (Int_Hash_Table) hash table
- * \return (bool) whether \a ht is valid
- */
-#define /* bool */ mp_hti_is_valid(/* Int_Hash_Table */ ht) ((ht).data != NULL)
-
-/**
  * \brief Gets pointer to item at \a k.
  *
  * \param ht (const Int_Hash_Table *) hash table
@@ -2335,7 +2296,7 @@ void *__mp_hti_get(const void *ht, size_t k);
 /**
  * \brief Sets the value at \a k to \a v.
  *
- * \a ht becomes \ref mp_hti_is_valid "invalid" if allocation failed.
+ * \a ht becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param ht (Int_Hash_Table *) hash table (no side effects)
  * \param k (size_t) key
@@ -2373,7 +2334,7 @@ bool __mp_hti_exists(const void *ht, size_t k);
  *
  * If \a ht->cap is not large enough, reserves for double of \a ht->cap.
  *
- * \a ht becomes \ref mp_hti_is_valid "invalid" if allocation failed.
+ * \a ht becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param ht (Str_Hash_Table *) hash table
  * \param offset (size_t) amount to grow
@@ -2422,7 +2383,7 @@ void __mp_hti_delete(void *ht, size_t k);
  *
  * \a dest inherits all fields of \a src.
  *
- * \a dest becomes \ref mp_hti_is_valid "invalid" if allocation failed.
+ * \a dest becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \a dest and \a src must not overlap.
  *
@@ -2454,7 +2415,7 @@ __mp_da_struct(size_t, __mp_Hti_Keys);
  *
  * Deinit \a keys with \ref mp_da_deinit.
  *
- * \a keys becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a keys becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
@@ -2477,7 +2438,7 @@ void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys);
  *
  * \a values **must be initialized** with \ref mp_da_init first.
  *
- * \a values becomes \ref mp_da_is_valid "invalid" if allocation failed.
+ * \a values becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * # Note
  * This function allocates a temporary bit of memory using \a ht->alloc.
@@ -2566,7 +2527,7 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
  *
  * Deinit with \ref mp_hsi_deinit.
  *
- * \a hs becomes \ref mp_hti_is_valid "invalid" if allocation failed.
+ * \a hs becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param hs (\ref mp_Int_Set *) hash set (initialized by this)
  * \param alloc (mp_Alloc) allocator to manage \a hs
@@ -2591,7 +2552,7 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
 /**
  * \brief Sets the key \a k.
  *
- * \a hs becomes \ref mp_hti_is_valid "invalid" if allocation failed.
+ * \a hs becomes \ref mp_is_valid "invalid" if allocation failed.
  *
  * \param hs (\ref mp_Int_Set *) hash set
  * \param k (size_t) key
@@ -3581,7 +3542,7 @@ void __mp_da_deinit(void *a) {
 void __mp_da_append(void *a, const void *items, size_t items_len) {
     __mp_Dyn_Array *self = a;
     __mp_da_grow(self, items_len);
-    if (mp_da_is_valid(*self)) {
+    if (mp_is_valid(*self)) {
         memcpy((char *) self->data + self->len * self->__da_item_size, items,
                items_len * self->__da_item_size);
         self->len += items_len;
@@ -3610,7 +3571,7 @@ void __mp_da_reserve(void *a, size_t offset) {
     size_t          new_cap = self->cap + offset;
     self->data              = mp_realloc(self->alloc, self->data, self->cap * self->__da_item_size,
                                          new_cap * self->__da_item_size);
-    if (mp_da_is_valid(*self)) {
+    if (mp_is_valid(*self)) {
         self->cap = new_cap;
     }
 }
@@ -3620,7 +3581,7 @@ void __mp_da_clone(void *dest, const void *src, mp_Alloc alloc) {
     __mp_Dyn_Array       *d = dest;
     __MP_ZERO(d);
     d->data = mp_dup(alloc, s->data, s->cap * s->__da_item_size);
-    if (mp_da_is_valid(*d)) {
+    if (mp_is_valid(*d)) {
         d->alloc          = alloc;
         d->len            = s->len;
         d->cap            = s->len + __MP_DARRAY_INIT_CAPACITY;
@@ -3632,7 +3593,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len) {
     __mp_Dyn_Array *self       = a;
     size_t          actual_pos = (pos > self->len) ? self->len : pos;
     __mp_da_grow(self, items_len);
-    if (mp_da_is_valid(*self)) {
+    if (mp_is_valid(*self)) {
         memmove((char *) self->data + (actual_pos + items_len) * self->__da_item_size,
                 (char *) self->data + actual_pos * self->__da_item_size,
                 (items_len + 1) * self->__da_item_size);
@@ -3726,7 +3687,7 @@ void mp_sb_init(mp_Sb *sb, mp_Alloc alloc) {
 void mp_sb_init_with(mp_Sb *sb, mp_Str str, mp_Alloc alloc) {
     mp_sb_init(sb, alloc);
     mp_da_reserve(sb, str.len);
-    if (mp_sb_is_valid(*sb)) {
+    if (mp_is_valid(*sb)) {
         mp_sb_append(sb, str);
     }
 }
@@ -3742,7 +3703,7 @@ void mp_sb_init_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) {
     mp_sb_init(sb, alloc);
     mp_da_reserve(sb, (size_t) len + 1);
 
-    if (mp_sb_is_valid(*sb)) {
+    if (mp_is_valid(*sb)) {
         va_start(args, fmt);
         int result_len = vsnprintf(sb->data, (size_t) len + 1, fmt, args);
         va_end(args);
@@ -3768,7 +3729,7 @@ void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) {
 
     mp_da_grow(sb, (size_t) len + 1);
 
-    if (mp_sb_is_valid(*sb)) {
+    if (mp_is_valid(*sb)) {
         va_start(args, fmt);
         int result_len = vsnprintf(sb->data + sb->len, (size_t) len + 1, fmt, args);
         va_end(args);
@@ -3782,7 +3743,7 @@ mp_Str mp_sb_str(const mp_Sb *sb) {
 
 mp_String mp_sb_string(mp_Sb *sb) {
     mp_da_append(sb, (char) '\0');
-    if (!mp_sb_is_valid(*sb)) {
+    if (!mp_is_valid(*sb)) {
         return mp_string_invalid();
     }
     mp_String ret = (mp_String) {
@@ -3818,7 +3779,7 @@ void __mp_ht_deinit(void *ht) {
     __mp_Str_Ht *self = ht;
     for (size_t i = 0; i < self->cap; i++) {
         __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-        if (mp_str_is_valid(e->key)) {
+        if (mp_is_valid(e->key)) {
             mp_string_deinit(&e->key, self->alloc);
         }
     }
@@ -3830,19 +3791,19 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
     if (self->cap == 0) {
         return NULL;
     }
-    if (mp_str_is_valid(k)) {
+    if (mp_is_valid(k)) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key) && mp_str_eq(k, mp_str_v(e->key))) {
+            if (mp_is_valid(e->key) && mp_str_eq(k, mp_str_v(e->key))) {
                 return &e->val;
             }
             ++i;
             if (i >= self->cap) {
                 i = 0;
             }
-            if (!mp_str_is_valid(e->key) && *(char *) &e->val != 1) {
+            if (!mp_is_valid(e->key) && *(char *) &e->val != 1) {
                 break;
             }
         }
@@ -3853,12 +3814,12 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
 void __mp_ht_set(void *ht, mp_Str k, void *v) {
     __mp_Str_Ht *self = ht;
     __mp_ht_grow(self, 1);
-    if (mp_ht_is_valid(*self)) {
+    if (mp_is_valid(*self)) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (!mp_str_is_valid(e->key)) {
+            if (!mp_is_valid(e->key)) {
                 e->key = mp_string_from(k, self->alloc);
                 if (v != NULL) {
                     memcpy(&e->val, v, self->__ht_val_size);
@@ -3902,13 +3863,13 @@ void __mp_ht_grow(void *ht, size_t offset) {
         }
         for (size_t i = 0; i < old_cap; ++i) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key)) {
+            if (mp_is_valid(e->key)) {
                 uint64_t hash  = __mp_ht_hash_str(&mp_str_v(e->key));
                 size_t   new_i = (size_t) (hash % (uint64_t) (self->cap - 1));
                 for (;;) {
                     __mp_Str_Ht_Entry *new_e =
                         (__mp_Str_Ht_Entry *) ((char *) new_data + new_i * self->__da_item_size);
-                    if (!mp_str_is_valid(new_e->key)) {
+                    if (!mp_is_valid(new_e->key)) {
                         new_e->key = mp_string_clone(&e->key, self->alloc);
                         memcpy(&new_e->val, &e->val, self->__ht_val_size);
                         break;
@@ -3931,9 +3892,9 @@ void __mp_ht_grow(void *ht, size_t offset) {
 void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size) {
     for (size_t i = 0; i < cap; ++i) {
         __mp_Str_Ht_Entry *e = (__mp_Str_Ht_Entry *) ((char *) entries + i * size);
-        if (mp_str_is_valid(e->key)) {
+        if (mp_is_valid(e->key)) {
             mp_string_deinit(&e->key, alloc);
-            __MP_ASSERT(!mp_str_is_valid(e->key));
+            __MP_ASSERT(!mp_is_valid(e->key));
         }
     }
 }
@@ -3947,14 +3908,14 @@ void __mp_ht_reset(void *ht) {
 // TODO: mp_ht(i)_move
 void __mp_ht_delete(void *ht, mp_Str k) {
     __mp_Str_Ht *self = ht;
-    if (mp_str_is_valid(k)) {
+    if (mp_is_valid(k)) {
         uint64_t hash = __mp_ht_hash_str(&k);
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_str_is_valid(e->key) && mp_str_eq(k, mp_str_v(e->key))) {
+            if (mp_is_valid(e->key) && mp_str_eq(k, mp_str_v(e->key))) {
                 mp_string_deinit(&e->key, self->alloc);
-                __MP_ASSERT(!mp_str_is_valid(e->key));
+                __MP_ASSERT(!mp_is_valid(e->key));
                 memset(&e->val, 1, sizeof(char));
                 --self->len;
                 break;
@@ -3963,7 +3924,7 @@ void __mp_ht_delete(void *ht, mp_Str k) {
             if (i >= self->cap) {
                 i = 0;
             }
-            if (!mp_str_is_valid(e->key)) {
+            if (!mp_is_valid(e->key)) {
                 break;
             }
         }
@@ -3975,11 +3936,11 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
     __mp_Str_Ht       *d = dest;
     memcpy(d, s, sizeof(__mp_Str_Ht));
     d->data = mp_dup(alloc, s->data, s->cap * s->__da_item_size);
-    if (mp_ht_is_valid(*d)) {
+    if (mp_is_valid(*d)) {
         for (size_t i = 0; i < s->cap; ++i) {
             __mp_Str_Ht_Entry *s_e = __mp_da_get(__mp_Str_Ht_Entry, s, i);
             __mp_Str_Ht_Entry *d_e = __mp_da_get(__mp_Str_Ht_Entry, d, i);
-            if (mp_str_is_valid(s_e->key)) {
+            if (mp_is_valid(s_e->key)) {
                 d_e->key = mp_string_clone(&s_e->key, alloc);
                 __MP_ASSERT(d_e->key.data != s_e->key.data);
             }
@@ -3999,7 +3960,7 @@ void mp_ht_keys_deinit(mp_Ht_Keys *keys) {
 void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
     const __mp_Str_Ht *self = ht;
     mp_da_reserve(keys, self->len);
-    if (mp_da_is_valid(*keys)) {
+    if (mp_is_valid(*keys)) {
         size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->__ht_val_size;
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_ht_iter_init(it, self);
@@ -4015,7 +3976,7 @@ void __mp_ht_values(const void *ht, void *values) {
     __mp_Dyn_Array    *vals = values;
     __MP_ASSERT(self->__ht_val_size == vals->__da_item_size);
     __mp_da_reserve(vals, self->len);
-    if (mp_da_is_valid(*vals)) {
+    if (mp_is_valid(*vals)) {
         size_t            iter_size = sizeof(__mp_Str_Ht_Iter) + self->__ht_val_size;
         __mp_Str_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_ht_iter_init(it, self);
@@ -4039,7 +4000,7 @@ bool __mp_ht_iter_next(void *it) {
     __mp_Str_Ht_Iter *self = it;
     while (self->__ht_it_i < self->_h->cap) {
         __mp_Str_Ht_Entry *entry = __mp_da_get(__mp_Str_Ht_Entry, self->_h, self->__ht_it_i);
-        if (mp_str_is_valid(entry->key)) {
+        if (mp_is_valid(entry->key)) {
             self->key = mp_str_v(entry->key);
             if (self->_h->__ht_val_size > 0) {
                 self->val = &entry->val;
@@ -4093,7 +4054,7 @@ bool __mp_hti_exists(const void *ht, size_t k) {
 void __mp_hti_set(void *ht, size_t k, void *v) {
     __mp_Int_Ht *self = ht;
     __mp_hti_grow(self, 1);
-    if (mp_hti_is_valid(*self)) {
+    if (mp_is_valid(*self)) {
         size_t i = (size_t) (k % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
@@ -4201,7 +4162,7 @@ void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
     __mp_Int_Ht       *d = dest;
     memcpy(d, s, sizeof(__mp_Int_Ht));
     d->data = mp_dup(alloc, s->data, s->cap * s->__da_item_size);
-    if (!mp_hti_is_valid(*d)) {
+    if (!mp_is_valid(*d)) {
         __MP_ZERO(d);
     }
 }
@@ -4209,7 +4170,7 @@ void __mp_hti_clone(void *dest, const void *src, mp_Alloc alloc) {
 void __mp_hti_keys(const void *ht, mp_Hti_Keys *keys) {
     const __mp_Int_Ht *self = ht;
     mp_da_reserve(keys, self->len);
-    if (mp_da_is_valid(*keys)) {
+    if (mp_is_valid(*keys)) {
         size_t            iter_size = sizeof(__mp_Int_Ht_Iter) + self->__hti_val_size;
         __mp_Int_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_hti_iter_init(it, self);
@@ -4225,7 +4186,7 @@ void __mp_hti_values(const void *ht, void *values) {
     __mp_Dyn_Array    *vals = values;
     __MP_ASSERT(self->__hti_val_size == vals->__da_item_size);
     __mp_da_reserve(vals, self->len);
-    if (mp_da_is_valid(*vals)) {
+    if (mp_is_valid(*vals)) {
         size_t            iter_size = sizeof(__mp_Int_Ht_Iter) + self->__hti_val_size;
         __mp_Int_Ht_Iter *it        = mp_alloc(self->alloc, iter_size);
         __mp_hti_iter_init(it, self);
