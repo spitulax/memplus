@@ -140,8 +140,14 @@
 
 #if defined(__MP_STD_C23)
     #define __MP_TYPEOF typeof
+    #define mp_alignOF  alignof
 #else
     #define __MP_TYPEOF __typeof__
+    #if defined(__MP_COMP_MSVC)
+        #define mp_alignOF __alignof
+    #else
+        #define mp_alignOF __alignof__
+    #endif
 #endif
 
 // Define custom assert by modidying the definition of `__mp_assert_fail()`
@@ -366,6 +372,22 @@ typedef struct {
     ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, (size), 0, NULL))
 
 /**
+ * \brief Allocates a block of memory with alignment.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_ALLOC**.
+ *
+ * This automatically factors in the padding from the given \a alignment.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param size (size_t) number of bytes to be allocated
+ * \param alignment (size_t) alignment
+ * \return (void *) pointer to allocated block of memory, NULL if allocation failed
+ */
+#define /* void* */ mp_alloc_align(/* mp_Alloc */ alloc, /* size_t */ size,                        \
+                                   /* size_t */ alignment)                                         \
+    ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, mp_align((size), (alignment)), 0, NULL))
+
+/**
  * \brief Reallocates a block of memory.
  *
  * Calls allocator function with **MP_ALLOC_OP_REALLOC**.
@@ -381,6 +403,28 @@ typedef struct {
     ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, (new_size), (old_size), (old_ptr)))
 
 /**
+ * \brief Reallocates a block of memory with alignment.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_REALLOC**.
+ *
+ * This automatically factors in the padding from the given \a alignment.
+ *
+ * The old buffer must be allocated with the same alignment.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param old_ptr (void *) pointer to the block to be reallocated (nullable)
+ * \param old_size (size_t) size of block in bytes
+ * \param new_size (size_t) size of new allocated block in bytes
+ * \param alignment (size_t) alignment
+ * \return (void *) pointer to newly allocated block of memory, NULL if allocation failed
+ */
+#define /* void* */ mp_realloc_align(/* mp_Alloc */ alloc, /* void* */ old_ptr,                    \
+                                     /* size_t */ old_size, /* size_t */ new_size,                 \
+                                     /* size_t */ alignment)                                       \
+    ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, mp_align((new_size), (alignment)),            \
+               mp_align((old_size), (alignment)), (old_ptr)))
+
+/**
  * \brief Frees a block of memory that has been allocated.
  *
  * Calls allocator function with **MP_ALLOC_OP_FREE**.
@@ -391,6 +435,22 @@ typedef struct {
  */
 #define mp_free(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size)                          \
     (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, (size), 0, (ptr)))
+
+/**
+ * \brief Frees a block of memory that has been allocated with alignment.
+ *
+ * Calls allocator function with **MP_ALLOC_OP_FREE**.
+ *
+ * This automatically factors in the padding from the given \a alignment.
+ *
+ * \param alloc (\ref mp_Alloc) allocator (no side effects)
+ * \param ptr (void *) pointer to block to be freed (nullable)
+ * \param size (size_t) size of block in bytes
+ * \param alignment (size_t) alignment
+ */
+#define mp_free_align(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ size,                    \
+                      /* size_t */ alignment)                                                      \
+    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, mp_align((size), (alignment)), 0, (ptr)))
 
 /**
  * \brief Allocates a block of memory that can hold a value of \a type.
@@ -539,7 +599,17 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * \param a (Any) data to test
  * \return (bool) whether \a a is valid
  */
-#define mp_is_valid(a) ((a).data != NULL)
+#define /* bool */ mp_is_valid(/* Any */ a) ((a).data != NULL)
+
+/**
+ * \brief Returns \a n aligned by \a alignment.
+ *
+ * \param n (size_t) number to be aligned
+ * \param alignment (size_t) alignment
+ * \return (size_t) \a n aligned by \a alignment
+ */
+#define /* size_t */ mp_align(/* size_t */ n, /* size_t */ alignment)                              \
+    (((n) + (alignment) - 1) & ~((alignment) - 1))
 
 /// \}
 
@@ -3463,13 +3533,11 @@ const char *mp_err_str(mp_Err e);
     #include <stdio.h>
     #include <string.h>
 
-    #define __MP_UNREACHABLE()      __MP_ASSERT_MSG(0, "Unreachable")
-    #define __MP_TODO(msg)          __MP_ASSERT_MSG(0, "todo: " msg)
-    #define __MP_DIV_ROUNDUP(a, b)  (((a) + (b) - 1) / (b))
-    #define __MP_ALIGN(a, inc)      (__MP_DIV_ROUNDUP((a), (inc)) * (inc))
-    #define __MP_ALIGN_DOWN(a, inc) (((a) / (inc)) * (inc))
-    #define __MP_MAX(a, b)          ((a) > (b) ? (a) : (b))
-    #define __MP_MIN(a, b)          ((a) < (b) ? (a) : (b))
+    #define __MP_UNREACHABLE()     __MP_ASSERT_MSG(0, "Unreachable")
+    #define __MP_TODO(msg)         __MP_ASSERT_MSG(0, "todo: " msg)
+    #define __MP_DIV_ROUNDUP(a, b) (((a) + (b) - 1) / (b))
+    #define __MP_MAX(a, b)         ((a) > (b) ? (a) : (b))
+    #define __MP_MIN(a, b)         ((a) < (b) ? (a) : (b))
     #define __MP_ASSERT_OVERLAP(a, a_len, b, b_len)                                                \
         do {                                                                                       \
             uintptr_t _a = (uintptr_t) a;                                                          \
@@ -4224,7 +4292,7 @@ bool __mp_hti_iter_next(void *it) {
 }
 
 mp_Region *mp_region_new(mp_Alloc alloc, size_t cap) {
-    size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
+    size_t     bytes  = mp_align(cap, sizeof(uintptr_t));
     mp_Region *region = mp_alloc(alloc, bytes);
     region->next      = NULL;
     region->len       = 0;
@@ -4302,7 +4370,7 @@ static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size,
                 return NULL;
             }
 
-            size_t alloc_size = __MP_ALIGN(new_size, sizeof(uintptr_t));
+            size_t alloc_size = mp_align(new_size, sizeof(uintptr_t));
 
             if (ctx->end == NULL) {
                 __MP_ASSERT(ctx->begin == NULL);
@@ -4317,12 +4385,12 @@ static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size,
                 ctx->begin = ctx->end;
             }
 
-            while (__MP_ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap
+            while (mp_align(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap
                    && ctx->end->next != NULL) {
                 ctx->end = ctx->end->next;
             }
 
-            if (__MP_ALIGN(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap) {
+            if (mp_align(ctx->end->len, sizeof(uintptr_t)) + alloc_size > ctx->end->cap) {
                 __MP_ASSERT(ctx->end->next == NULL);
                 size_t capacity = ctx->_def_size;
                 if (capacity < alloc_size) {
@@ -4356,7 +4424,7 @@ static void *mp_arena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size,
 }
 
 void mp_sarena_init(mp_Sarena *a, mp_Alloc alloc, size_t cap) {
-    size_t     bytes  = __MP_ALIGN(cap, sizeof(uintptr_t));
+    size_t     bytes  = mp_align(cap, sizeof(uintptr_t));
     uintptr_t *buffer = mp_alloc(alloc, bytes);
     a->alloc          = alloc;
     a->buf            = buffer;
@@ -4407,7 +4475,7 @@ static void *mp_sarena_alloc_func(mp_Alloc_Op op, void *context, size_t new_size
                 return NULL;
             }
 
-            size_t alloc_size = __MP_ALIGN(new_size, sizeof(uintptr_t));
+            size_t alloc_size = mp_align(new_size, sizeof(uintptr_t));
 
             __MP_ASSERT(ctx->len % sizeof(uintptr_t) == 0);
             if (ctx->len + alloc_size > ctx->cap) {
@@ -4438,7 +4506,7 @@ void mp_temp_init(mp_Temp *t, char *buf, size_t cap) {
     memset(buf, 0, cap);
     t->buf = (uintptr_t *) buf;
     t->len = 0;
-    t->cap = __MP_ALIGN(cap, sizeof(uintptr_t));
+    t->cap = mp_align(cap, sizeof(uintptr_t));
 }
 
 void mp_temp_reset(mp_Temp *t) {
