@@ -1301,8 +1301,6 @@ mp_String mp_string_from(mp_Str str, mp_Alloc alloc);
  */
 mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc);
 
-// FIXME: Change all or some macros that accept const pointer to not accept by pointer
-
 /**
  * \brief Creates a view to \ref mp_String.
  *
