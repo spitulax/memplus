@@ -5,7 +5,7 @@
 int main(void) {
     const size_t nums = 200;
 
-    mp_talloc_s(4096);
+    mp_talloc();
 
     {
         mp_Str_Set str_set;
@@ -14,13 +14,13 @@ int main(void) {
 
         for (size_t i = 0; i < nums; ++i) {
             mp_Sb key;
-            mp_sb_withf(&key, temp_alloc, "key_%zu", i / 2);
+            mp_sb_withf(&key, talloc, "key_%zu", i / 2);
             if (i % 2 == 0) {
-                expect(!mp_ht_exists_s(&str_set, mp_sb_str(&key)));
+                expect(!mp_hhass(&str_set, mp_sb_str(&key)));
             } else {
-                expect(mp_ht_exists_s(&str_set, mp_sb_str(&key)));
+                expect(mp_hhass(&str_set, mp_sb_str(&key)));
             }
-            mp_hs_set_s(&str_set, mp_sb_str(&key));
+            mp_hssets(&str_set, mp_sb_str(&key));
         }
         expect_eq(str_set.len, nums / 2, "%zu");
 
@@ -44,11 +44,11 @@ int main(void) {
         for (size_t i = 0; i < nums; ++i) {
             size_t key = i / 2;
             if (i % 2 == 0) {
-                expect(!mp_hti_exists(&int_set, key));
+                expect(!mp_hihas(&int_set, key));
             } else {
-                expect(mp_hti_exists(&int_set, key));
+                expect(mp_hihas(&int_set, key));
             }
-            mp_hsi_set(&int_set, key);
+            mp_hsiset(&int_set, key);
         }
         expect_eq(int_set.len, nums / 2, "%zu");
 

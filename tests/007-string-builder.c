@@ -16,7 +16,7 @@ int main(void) {
     expect_eq(sb.len, (size_t) 16, "%zu");
     expect_streq_mp_s(sb, "Hello, World! 67");
 
-    mp_da_append(&sb, (char) 10);
+    mp_append(&sb, (char) 10);
     expect_eq(sb.len, (size_t) 17, "%zu");
     expect_streq_mp_s(sb, "Hello, World! 67\n");
 

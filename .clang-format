@@ -93,8 +93,8 @@ KeepEmptyLines:
 LambdaBodyIndentation: Signature
 Language: Cpp
 LineEnding: LF
-# MacroBlockBegin: "^.*_BEGIN$"
-# MacroBlockEnd: "^.*_END$"
+MacroBlockBegin: "^.*_BEGIN$"
+MacroBlockEnd: "^.*_END$"
 MaxEmptyLinesToKeep: 2
 NamespaceIndentation: Inner
 PPIndentWidth: -1

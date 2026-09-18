@@ -10,7 +10,7 @@ mp_ht_typedef(int, Ht_Int);
 mp_da_typedef(int, Da_Int);
 
 int main(void) {
-    mp_talloc_s(4096);
+    mp_talloc();
 
     mp_Alloc alloc = mp_heap_alloc();
 
@@ -19,30 +19,30 @@ int main(void) {
     expect_eq(ht.__ht_val_size, sizeof(int), "%zu");
     expect_eq(ht.__da_item_size, sizeof(__Ht_Int_Entry), "%zu");
 
-    expect_eq(mp_ht_get(&ht, "foo"), NULL, "%p");
+    expect_eq(mp_hget(&ht, "foo"), NULL, "%p");
 
     // Simple set/get test
-    mp_ht_set(&ht, "foo", 69);
-    mp_ht_set(&ht, "bar", 420);
+    mp_hset(&ht, "foo", 69);
+    mp_hset(&ht, "bar", 420);
 
     int *val;
 
-    expect(mp_ht_exists(&ht, "foo"));
+    expect(mp_hhas(&ht, "foo"));
 
-    val = mp_ht_get(&ht, "foo");
+    val = mp_hget(&ht, "foo");
     expect_eq(*val, 69, "%d");
 
     // Must not be NULL
     // val = mp_ht_get(&ht, NULL);
 
-    val = mp_ht_get(&ht, "bar");
+    val = mp_hget(&ht, "bar");
     expect_eq(*val, 420, "%d");
 
-    mp_ht_set(&ht, "foo", 20);
-    val = mp_ht_get(&ht, "foo");
+    mp_hset(&ht, "foo", 20);
+    val = mp_hget(&ht, "foo");
     expect_eq(*val, 20, "%d");
 
-    val = mp_ht_get(&ht, "nonexistent");
+    val = mp_hget(&ht, "nonexistent");
     expect_eq((void *) val, NULL, "%p");
 
     expect_eq(ht.len, (size_t) 2, "%zu");
@@ -52,13 +52,13 @@ int main(void) {
     mp_ht_delete(&ht, "bar");
     expect_eq(ht.len, (size_t) 1, "%zu");
 
-    expect(!mp_ht_exists(&ht, "bar"));
+    expect(!mp_hhas(&ht, "bar"));
 
-    val = mp_ht_get(&ht, "bar");
+    val = mp_hget(&ht, "bar");
     expect_eq((void *) val, NULL, "%p");
 
-    mp_ht_set(&ht, "bar", 30);
-    val = mp_ht_get(&ht, "bar");
+    mp_hset(&ht, "bar", 30);
+    val = mp_hget(&ht, "bar");
     expect_eq(*val, 30, "%d");
 
     mp_ht_reset(&ht);
@@ -66,8 +66,8 @@ int main(void) {
     // Realloc test
     for (int i = 0; i < __MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
         mp_Sb key;
-        mp_sb_withf(&key, temp_alloc, "key_%d", i);
-        mp_ht_set_s(&ht, mp_sb_str(&key), i);
+        mp_sb_withf(&key, talloc, "key_%d", i);
+        mp_hsets(&ht, mp_sb_str(&key), i);
     }
 
     expect_eq(ht.len, (size_t) (__MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1),
@@ -82,8 +82,8 @@ int main(void) {
 
     for (int i = 0; i < (int) ht.len; ++i) {
         mp_Sb key;
-        mp_sb_withf(&key, temp_alloc, "key_%d", i);
-        val = mp_ht_get_s(&ht, mp_sb_str(&key));
+        mp_sb_withf(&key, talloc, "key_%d", i);
+        val = mp_hgets(&ht, mp_sb_str(&key));
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
     }
@@ -113,7 +113,7 @@ int main(void) {
     for (size_t i = 0; i < keys.len; ++i) {
         mp_String key = mp_get(&keys, i);
         // TODO: use `mp_str_substr`
-        mp_String string_key   = mp_string_from(mp_str_s(key.data + 4, key.len - 4), temp_alloc);
+        mp_String string_key   = mp_string_from(mp_strs(key.data + 4, key.len - 4), talloc);
         int       val_from_key = atoi(string_key.data);
         expect_eq(val_from_key, mp_get(&vals, i), "%d");
     }
@@ -131,7 +131,7 @@ int main(void) {
     mp_ht_iter_init(&it, &ht);
     while (mp_ht_iter_next(&it)) {
         __Ht_Int_Entry *o = ht.data + (it.__ht_it_i - 1);
-        expect_streq_mp(it.key, mp_str_v(o->key));
+        expect_streq_mp(it.key, mp_strv(o->key));
         expect_eq(*it.val, o->val, "%d");
     }
 

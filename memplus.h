@@ -1456,7 +1456,7 @@ void mp_sb_deinit(mp_Sb *sb);
  *
  * \a sb becomes \ref mp_is_valid "invalid" if allocation failed.
  *
- * Use \ref mp_da_append or \ref mp_da_append_many to append by byte instead.
+ * Use \ref mp_append or \ref mp_appendm to append by byte instead.
  *
  * \param sb string builder
  * \param str string to be appended
@@ -2156,8 +2156,13 @@ struct __mp_Str_Set_Iter {
  * $ HASH TABLE (INTEGER KEY)
  ***********/
 
+// TODO: Finalize hash table and hash set (integer).
+
 /**
  * \defgroup HashTableInt Hash Table (Integer Key)
+ *
+ * **Integer hash table and hash set are not final and may be drastically changed or removed in the
+ * future.**
  *
  * Hash table with integer key.
  * The keys are stored as size_t, but any type that can be coerced to size_t should work.
@@ -3594,6 +3599,94 @@ const char *mp_err_str(mp_Err e);
  * \param a (const? Any *) array (no side effects)
  */
 #define mp_arg(/* const? Any* */ a) (a)->data, (a)->len
+
+/**
+ * \defgroup ContainerLoopShortcuts Container Loop Shortcuts
+ *
+ * Shortcuts for looping over containers.
+ *
+ * If using clang-format, add these options for the auto formatting to work:
+ *
+ * ```yaml
+ * MacroBlockBegin: "^.*_BEGIN$"
+ * MacroBlockEnd: "^.*_END$"
+ * ```
+ *
+ * \{
+ */
+
+/**
+ * \brief Shortcut for looping over a \ref DynamicArray "dynamic array".
+ *
+ * # Example
+ * \code
+ * MP_DA_BEGIN(&array, i, v)
+ *     (void) i;    // index
+ *     (void) v;    // value at i
+ * MP_END()
+ * \endcode
+ *
+ * \param a (Dyn_Array *) array to loop over
+ * \param idx (ident) name of the index variable (size_t)
+ * \param item (ident) name of the item variable (Type *)
+ */
+#define MP_DA_BEGIN(/* Dyn_Array* */ a, /* ident */ idx, /* ident */ item)                         \
+    for (size_t idx = 0; idx < (a)->len; ++idx) {                                                  \
+        __MP_TYPEOF((a)->data) item = (a)->data + idx;
+
+/**
+ * \brief Shortcut for looping over a \ref HashTableString "string hash table".
+ *
+ * # Example
+ * \code
+ * MP_HT_BEGIN(MyHt, &my_ht, my_ht_iter, k, v)
+ *     (void) my_ht_iter;   // iterator struct
+ *     (void) k;            // key
+ *     (void) v;            // value
+ * MP_END()
+ * \endcode
+ *
+ * \param type ("HtType") type name of \a ht
+ * \param ht (Str_Hash_Table *) hash table to loop over
+ * \param iter (ident) name of the iterator variable ("HtType"_Iter)
+ * \param k (ident) name of the key variable (\ref mp_Str)
+ * \param v (ident) name of the value variable (Type *)
+ */
+#define MP_HT_BEGIN(/* "HtType" */ type, /* Str_Hash_Table* */ ht, /* ident */ iter,               \
+                    /* ident */ k, /* ident */ v)                                                  \
+    type##_Iter iter;                                                                              \
+    mp_ht_iter_init(&iter, (ht));                                                                  \
+    while (mp_ht_iter_next(&iter)) {                                                               \
+        __MP_TYPEOF(iter.key) k = iter.key;                                                        \
+        __MP_TYPEOF(iter.val) v = iter.val;
+
+/**
+ * \brief Shortcut for looping over a \ref HashSetString "string hash set".
+ *
+ * # Example
+ * \code
+ * MP_HS_BEGIN(&hs, hs_iter, k)
+ *     (void) hs_iter;      // iterator struct
+ *     (void) k;            // key
+ * MP_END()
+ * \endcode
+ *
+ * \param hs (mp_Str_Set *) hash set to loop over
+ * \param iter (ident) name of the iterator variable (\ref mp_Str_Set_Iter)
+ * \param k (ident) name of the key variable (\ref mp_Str)
+ */
+#define MP_HS_BEGIN(/* mp_Str_Set* */ hs, /* ident */ iter, /* ident */ k)                         \
+    mp_Str_Set_Iter iter;                                                                          \
+    mp_ht_iter_init(&iter, (hs));                                                                  \
+    while (mp_ht_iter_next(&iter)) {                                                               \
+        __MP_TYPEOF(iter.key) k = iter.key;
+
+/**
+ * \brief Ends loop shortcut blocks.
+ */
+#define MP_END() }
+
+/// \}
 
 /// \}
 

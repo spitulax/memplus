@@ -14,27 +14,27 @@ int main(void) {
     expect_eq(ht.__hti_val_size, sizeof(int), "%zu");
     expect_eq(ht.__da_item_size, sizeof(__Ht_Int_Entry), "%zu");
 
-    expect_eq(mp_hti_get(&ht, 0), NULL, "%p");
+    expect_eq(mp_higet(&ht, 0), NULL, "%p");
 
     // Simple set/get test
-    mp_hti_set(&ht, 0, 69);
-    mp_hti_set(&ht, 1, 420);
+    mp_hiset(&ht, 0, 69);
+    mp_hiset(&ht, 1, 420);
 
     int *val;
 
-    expect(mp_hti_exists(&ht, 0));
+    expect(mp_hihas(&ht, 0));
 
-    val = mp_hti_get(&ht, 0);
+    val = mp_higet(&ht, 0);
     expect_eq(*val, 69, "%d");
 
-    val = mp_hti_get(&ht, 1);
+    val = mp_higet(&ht, 1);
     expect_eq(*val, 420, "%d");
 
-    mp_hti_set(&ht, 0, 20);
-    val = mp_hti_get(&ht, 0);
+    mp_hiset(&ht, 0, 20);
+    val = mp_higet(&ht, 0);
     expect_eq(*val, 20, "%d");
 
-    val = mp_hti_get(&ht, 69);
+    val = mp_higet(&ht, 69);
     expect_eq((void *) val, NULL, "%p");
 
     expect_eq(ht.len, (size_t) 2, "%zu");
@@ -44,20 +44,20 @@ int main(void) {
     mp_hti_delete(&ht, 1);
     expect_eq(ht.len, (size_t) 1, "%zu");
 
-    expect(!mp_hti_exists(&ht, 1));
+    expect(!mp_hti_has(&ht, 1));
 
-    val = mp_hti_get(&ht, 1);
+    val = mp_higet(&ht, 1);
     expect_eq((void *) val, NULL, "%p");
 
-    mp_hti_set(&ht, 1, 30);
-    val = mp_hti_get(&ht, 1);
+    mp_hiset(&ht, 1, 30);
+    val = mp_higet(&ht, 1);
     expect_eq(*val, 30, "%d");
 
     mp_hti_reset(&ht);
 
     // Realloc test
     for (int i = 0; i < __MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
-        mp_hti_set(&ht, (size_t) i * 2, i);
+        mp_hiset(&ht, (size_t) i * 2, i);
     }
 
     expect_eq(ht.len, (size_t) (__MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1),
@@ -73,7 +73,7 @@ int main(void) {
     // printf("\n");
 
     for (int i = 0; i < (int) ht.len; ++i) {
-        val = mp_hti_get(&ht, (size_t) i * 2);
+        val = mp_higet(&ht, (size_t) i * 2);
         expect_ne((void *) val, NULL, "%p");
         expect_eq(*val, i, "%d");
     }

@@ -26,7 +26,7 @@ int main(void) {
         bool valid = mp_utf8_char_is_valid(c);
         expect_eq(valid, valids[i], "%d");
         expect_eq(c.size, sizes[i], "%d");
-        mp_Utf8_Char_Data ch = mp_utf8_char_s(c.c, c.size);
+        mp_Utf8_Char_Data ch = mp_utf8_chars(c.c, c.size);
         if (valid) {
             expect_eq(c.codepoint, codepoints[i], "%d");
             expect_eq(c.size, ch.size, "%hhu");
@@ -50,28 +50,28 @@ int main(void) {
     {
         // `10` prefix (continuation byte) must follow a "head" byte, but nothing precedes
         const char unused_continuation[] = { (char) 0x80 /*10000000*/, (char) 0x80 };
-        expect_eq(mp_utf8_len_s(unused_continuation, 2), (size_t) 2, "%zu");
+        expect_eq(mp_utf8_lens(unused_continuation, 2), (size_t) 2, "%zu");
 
         // `110` prefix indicates a byte will follow, but nothing follows
         const char abruptly_ends[] = { (char) 0xC0 /*11000000*/ };
-        expect_eq(mp_utf8_len_s(abruptly_ends, 1), (size_t) 1, "%zu");
+        expect_eq(mp_utf8_lens(abruptly_ends, 1), (size_t) 1, "%zu");
 
         // `110` prefix indicates a byte will follow, but overlong encoding is detected
         const char overlong[] = { (char) 0xC0 /*11000000*/, (char) 0x80 /*10000000*/ };
-        expect_eq(mp_utf8_len_s(overlong, 2), (size_t) 1, "%zu");
+        expect_eq(mp_utf8_lens(overlong, 2), (size_t) 1, "%zu");
 
         // `1110` prefix indicates 2 bytes will follow, but only one follows
         const char abruptly_ends2[] = { (char) 0xE0 /*11100000*/, (char) 0x80 /*10000000*/ };
-        expect_eq(mp_utf8_len_s(abruptly_ends2, 2), (size_t) 1, "%zu");
+        expect_eq(mp_utf8_lens(abruptly_ends2, 2), (size_t) 1, "%zu");
 
         // `1110` prefix indicates 2 bytes will follow, and two bytes follow
         const char ok2[] = { (char) 0xE0 /*11100000*/, (char) 0x80 /*10000000*/,
                              (char) 0x80 /*10000000*/ };
-        expect_eq(mp_utf8_len_s(ok2, 3), (size_t) 1, "%zu");
+        expect_eq(mp_utf8_lens(ok2, 3), (size_t) 1, "%zu");
 
         // "head" byte followed by non-continuation byte
         const char invalid_continuation[] = { (char) 0xC0 /*11000000*/, (char) 0x0 };
-        expect_eq(mp_utf8_len_s(invalid_continuation, 2), (size_t) 2, "%zu");
+        expect_eq(mp_utf8_lens(invalid_continuation, 2), (size_t) 2, "%zu");
     }
 
     mp_Utf8_Iter iter  = mp_utf8_iter_new(all_valid);

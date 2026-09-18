@@ -69,13 +69,13 @@ int main(void) {
     {
         mp_talloc();
 
-        int *i = mp_make(temp_alloc, int);
+        int *i = mp_make(talloc, int);
         *i     = 67;
         expect_ne((void *) i, NULL, "%p");
         expect_eq(*i, 67, "%d");
 
         mp_Sb sb;
-        mp_sb_withf(&sb, temp_alloc, "%d!!!", *i);
+        mp_sb_withf(&sb, talloc, "%d!!!", *i);
         mp_Str str = mp_sb_str(&sb);
         expect_ne((void *) str.data, NULL, "%p");
         expect_streq_mp(str, mp_str("67!!!"));
