@@ -140,14 +140,14 @@
 #endif
 
 #if defined(__MP_STD_C23)
-    #define __MP_TYPEOF typeof
-    #define mp_alignOF  alignof
+    #define __MP_TYPEOF  typeof
+    #define __MP_ALIGNOF alignof
 #else
     #define __MP_TYPEOF __typeof__
     #if defined(__MP_COMP_MSVC)
-        #define mp_alignOF __alignof
+        #define __MP_ALIGNOF __alignof
     #else
-        #define mp_alignOF __alignof__
+        #define __MP_ALIGNOF __alignof__
     #endif
 #endif
 
@@ -627,8 +627,8 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
  * \code
  * Da_Int array;
  * mp_da_init(Da_Int, &array, alloc);
- * mp_da_append(&array, 0);
- * mp_da_append_many(&array, 1, 2);
+ * mp_append(&array, 0);
+ * mp_appendm(&array, 1, 2);
  * \endcode
  *
  * \code
@@ -812,7 +812,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /**
  * \brief Gets item at \a i.
  *
- * No bounds checking, use \ref mp_da_get_s for that.
+ * No bounds checking, use \ref mp_da_gets for that.
  *
  * \param a (const Dyn_Array*) array
  * \param i (size_t) index to item
@@ -824,7 +824,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /**
  * \brief Gets pointer to item at \a i.
  *
- * No bounds checking, use \ref mp_da_get_s for that.
+ * No bounds checking, use \ref mp_da_gets for that.
  *
  * \param a (const Dyn_Array*) array
  * \param i (size_t) index to item
@@ -844,7 +844,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param i (size_t) index to item
  * \return (Type) item at \a i
  */
-#define /* Type */ mp_da_get_s(/* const Dyn_Array */ a, /* size_t */ i)                            \
+#define /* Type */ mp_da_gets(/* const Dyn_Array */ a, /* size_t */ i)                             \
     ((void) (a)->__da_item_size, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 
 /**
@@ -858,7 +858,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param i (size_t) index to item
  * \return (Type *) pointer to item at \a i
  */
-#define /* Type* */ mp_da_getp_s(/* const Dyn_Array */ a, /* size_t */ i)                          \
+#define /* Type* */ mp_da_getps(/* const Dyn_Array */ a, /* size_t */ i)                           \
     ((void) (a)->__da_item_size, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
 
 // Generic dynamic array get function
@@ -873,6 +873,26 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \brief Alias of \ref mp_da_getp.
  */
 #define mp_getp mp_da_getp
+
+/**
+ * \brief Alias of \ref mp_da_gets.
+ */
+#define mp_gets mp_da_gets
+
+/**
+ * \brief Alias of \ref mp_da_getps.
+ */
+#define mp_getps mp_da_getps
+
+/**
+ * \brief Alias of \ref mp_da_append.
+ */
+#define mp_append mp_da_append
+
+/**
+ * \brief Alias of \ref mp_da_append_many.
+ */
+#define mp_appendm mp_da_append_many
 
 /**
  * \brief Gets the last item in \a a.
@@ -1158,7 +1178,7 @@ void __mp_da_quick_move(void *a, size_t pos, void *ret_item);
  * \param size (size_t) size of \a b in bytes
  * \return (bool) whether \a a and \a b contain the same items.
  */
-#define /* bool */ mp_da_eq_a(/* const Dyn_Array* */ a, /* const Any* */ b, /* size_t */ size)     \
+#define /* bool */ mp_da_eqa(/* const Dyn_Array* */ a, /* const Any* */ b, /* size_t */ size)      \
     ((void) (a)->__da_item_size,                                                                   \
      (a)->len * (a)->__da_item_size == (size)                                                      \
          && memcmp((a)->data, (b), (a)->len * (a)->__da_item_size) == 0)
@@ -1202,7 +1222,7 @@ typedef struct {
  *
  * \ref mp_Str only holds a view to a buffer, but \ref mp_String owns the buffer.
  *
- * To create a view to an \ref mp_String, use \ref mp_str_v.
+ * To create a view to an \ref mp_String, use \ref mp_strv.
  *
  * \ref mp_String can be safely casted to C-style string by accessing the field \a data since the
  * buffer is guaranteed to be null-terminated.
@@ -1250,7 +1270,7 @@ typedef struct {
  * \param str (const char *) null-terminated string (no side effects)
  * \return (\ref mp_Str) view to \a str
  */
-#define /* mp_Str */ mp_str(/* const char* */ str) mp_str_s((str), strlen(str))
+#define /* mp_Str */ mp_str(/* const char* */ str) mp_strs((str), strlen(str))
 
 /**
  * \brief Creates a view to a string.
@@ -1259,7 +1279,7 @@ typedef struct {
  * \param length (size_t) length of \a str
  * \return (\ref mp_Str) view to \a str
  */
-#define /* mp_Str */ mp_str_s(/* const char* */ str, /* size_t */ length)                          \
+#define /* mp_Str */ mp_strs(/* const char* */ str, /* size_t */ length)                           \
     ((mp_Str) {                                                                                    \
         .len  = (length),                                                                          \
         .data = (str),                                                                             \
@@ -1271,6 +1291,11 @@ typedef struct {
  * \param str (\ref mp_Str | \ref mp_String) string (no side effects)
  */
 #define mp_str_print(/* mp_Str|mp_String */ str) (int) (str).len, (str).data
+
+/**
+ * \brief Alias of \ref mp_str_print.
+ */
+#define mp_strp mp_str_print
 
 /**
  * \brief Allocates copy of \a str with \a alloc.
@@ -1307,7 +1332,7 @@ mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc);
  * \param str (mp_String) string (no side effects)
  * \return (\ref mp_Str) view to \a str
  */
-#define /* mp_Str */ mp_str_v(/* mp_String */ str)                                                 \
+#define /* mp_Str */ mp_strv(/* mp_String */ str)                                                  \
     ((mp_Str) {                                                                                    \
         .data = (str).data,                                                                        \
         .len  = (str).len,                                                                         \
@@ -1519,7 +1544,7 @@ mp_String mp_sb_clone_to_string(mp_Sb *sb, mp_Alloc alloc);
  * \code
  * Ht_Int ht;
  * mp_ht_init(Ht_Int, &ht, alloc);
- * mp_ht_set(&ht, "key", 10);
+ * mp_hset(&ht, "key", 10);
  * \endcode
  *
  * By default, hash tables start allocating memory for a certain number of elements, and if
@@ -1722,7 +1747,7 @@ void __mp_ht_deinit(void *ht);
  * \return (void *) retrieved value, NULL if cannot retrieve
  */
 #define /* void* */ mp_ht_get(/* const Str_Hash_Table* */ ht, /* const char* */ k)                 \
-    mp_ht_get_s((ht), mp_str(k))
+    mp_ht_gets((ht), mp_str(k))
 
 /**
  * \brief Same as \ref mp_ht_get but accepts \ref mp_Str.
@@ -1733,7 +1758,7 @@ void __mp_ht_deinit(void *ht);
  * \param k (\ref mp_Str) key
  * \return (void *) retrieved value, NULL if cannot retrieve
  */
-#define /* void* */ mp_ht_get_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                    \
+#define /* void* */ mp_ht_gets(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                     \
     ((void) (ht)->__ht_val_size, __mp_ht_get((ht), (k)))
 void *__mp_ht_get(const void *ht, mp_Str k);
 
@@ -1749,7 +1774,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
  * \param v (Type) value to be stored
  */
 #define mp_ht_set(/* Str_Hash_Table* */ ht, /* const char* */ k, /* Type */ v)                     \
-    mp_ht_set_s((ht), mp_str(k), (v))
+    mp_ht_sets((ht), mp_str(k), (v))
 
 /**
  * \brief Same as \ref mp_ht_set but accepts \ref mp_Str.
@@ -1760,7 +1785,7 @@ void *__mp_ht_get(const void *ht, mp_Str k);
  * \param k (\ref mp_Str) key
  * \param v (Type) value to be stored
  */
-#define mp_ht_set_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                        \
+#define mp_ht_sets(/* Str_Hash_Table* */ ht, /* mp_Str */ k, /* Type */ v)                         \
     do {                                                                                           \
         (void) (ht)->__ht_val_size;                                                                \
         __MP_TYPEOF(v) __it = (v);                                                                 \
@@ -1779,21 +1804,51 @@ void __mp_ht_set(void *ht, mp_Str k, void *v);
  * \param k (const char *) key
  * \return (bool) whether \a k exists in \a ht
  */
-#define /* bool */ mp_ht_exists(/* const Str_Hash_Table* */ ht, /* const char * */ k)              \
-    __mp_ht_exists((ht), mp_str(k))
+#define /* bool */ mp_ht_has(/* const Str_Hash_Table* */ ht, /* const char * */ k)                 \
+    __mp_ht_has((ht), mp_str(k))
 
 /**
- * \brief Same as \ref mp_ht_exists but accepts \ref mp_Str.
+ * \brief Same as \ref mp_ht_has but accepts \ref mp_Str.
  *
- * See \ref mp_ht_exists.
+ * See \ref mp_ht_has.
  *
  * \param ht (const Str_Hash_Table *) hash table
  * \param k (\ref mp_Str) key
  * \return (bool) whether \a k exists in \a ht
  */
-#define /* bool */ mp_ht_exists_s(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                  \
-    ((void) (ht)->__ht_val_size, __mp_ht_exists((ht), (k)))
-bool __mp_ht_exists(const void *ht, mp_Str k);
+#define /* bool */ mp_ht_hass(/* const Str_Hash_Table* */ ht, /* mp_Str */ k)                      \
+    ((void) (ht)->__ht_val_size, __mp_ht_has((ht), (k)))
+bool __mp_ht_has(const void *ht, mp_Str k);
+
+/**
+ * \brief Alias of \ref mp_ht_get.
+ */
+#define mp_hget mp_ht_get
+
+/**
+ * \brief Alias of \ref mp_ht_gets.
+ */
+#define mp_hgets mp_ht_gets
+
+/**
+ * \brief Alias of \ref mp_ht_set.
+ */
+#define mp_hset mp_ht_set
+
+/**
+ * \brief Alias of \ref mp_ht_sets.
+ */
+#define mp_hsets mp_ht_sets
+
+/**
+ * \brief Alias of \ref mp_ht_has.
+ */
+#define mp_hhas mp_ht_has
+
+/**
+ * \brief Alias of \ref mp_ht_hass.
+ */
+#define mp_hhass mp_ht_hass
 
 /**
  * \brief Grows \a ht to be able to hold \a offset more items from the current length.
@@ -1845,7 +1900,7 @@ void __mp_ht_reset(void *ht);
  * \param ht (Str_Hash_Table *) hash table
  * \param k (const char *) key
  */
-#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k) mp_ht_delete_s((ht), mp_str(k))
+#define mp_ht_delete(/* Str_Hash_Table* */ ht, /* const char* */ k) mp_ht_deletes((ht), mp_str(k))
 
 /**
  * \brief Same as \ref mp_ht_delete but accepts \ref mp_Str.
@@ -1855,7 +1910,7 @@ void __mp_ht_reset(void *ht);
  * \param ht (Str_Hash_Table *) hash table
  * \param k (\ref mp_Str) key
  */
-#define mp_ht_delete_s(/* Str_Hash_Table* */ ht, /* mp_Str */ k)                                   \
+#define mp_ht_deletes(/* Str_Hash_Table* */ ht, /* mp_Str */ k)                                    \
     do {                                                                                           \
         (void) (ht)->__ht_val_size;                                                                \
         __mp_ht_delete((ht), (k));                                                                 \
@@ -1995,14 +2050,14 @@ uint64_t __mp_ht_hash_str(const mp_Str *str);
  * The primary usage of this is for setting keys. Use \ref mp_hs_set to set an element, do not use
  * \ref mp_ht_set.
  * \code
- * mp_hs_set(&set, "foo");
+ * mp_hsset(&set, "foo");
  * \endcode
  *
  * Getting the pointer to the value is a valid way to assess if the key spot is already occupied.
  * But dereferencing the pointer does not give meaningful result.
  * \code
- * void *v = mp_ht_get(&set, "foo");    // v is not NULL if "foo" exists, alternatively...
- * mp_ht_exists(&set, "foo");           // true if "foo" exists
+ * void *v = mp_hget(&set, "foo");    // v is not NULL if "foo" exists, alternatively...
+ * mp_hhas(&set, "foo");           // true if "foo" exists
  * \endcode
  *
  * Also, iterators can be constructed from hash sets.
@@ -2055,7 +2110,7 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  * \param hs (\ref mp_Str_Set *) hash set
  * \param k (const char *) key
  */
-#define mp_hs_set(/* mp_Str_Set* */ hs, /* const char* */ k) mp_hs_set_s((hs), mp_str(k))
+#define mp_hs_set(/* mp_Str_Set* */ hs, /* const char* */ k) mp_hs_sets((hs), mp_str(k))
 
 /**
  * \brief Same as \ref mp_hs_set but accepts \ref mp_Str.
@@ -2065,11 +2120,21 @@ __mp_ht_struct(__mp_Str_Ht_Entry, __mp_Str_Set);
  * \param hs (\ref mp_Str_Set *) hash set
  * \param k (\ref mp_Str) key
  */
-#define mp_hs_set_s(/* mp_Str_Set* */ hs, /* mp_Str */ k)                                          \
+#define mp_hs_sets(/* mp_Str_Set* */ hs, /* mp_Str */ k)                                           \
     do {                                                                                           \
         (void) (hs)->__ht_val_size;                                                                \
         __mp_ht_set((hs), (k), NULL);                                                              \
     } while (0)
+
+/**
+ * \brief Alias of \ref mp_hs_set.
+ */
+#define mp_hsset mp_hs_set
+
+/**
+ * \brief Alias of \ref mp_hs_sets.
+ */
+#define mp_hssets mp_hs_sets
 
 /**
  * \brief Iterator for \ref HashSetString "hash sets (string key)".
@@ -2113,7 +2178,7 @@ struct __mp_Str_Set_Iter {
  * \code
  * Ht_Int ht;
  * mp_hti_init(Ht_Int, &ht, alloc);
- * mp_hti_set(&ht, 0, 10);
+ * mp_hiset(&ht, 0, 10);
  * \endcode
  * Note that zero is a valid key.
  *
@@ -2355,9 +2420,24 @@ void __mp_hti_set(void *ht, size_t k, void *v);
  * \param k (size_t) key
  * \return (bool) whether \a k exists in \a ht
  */
-#define /* bool */ mp_hti_exists(/* const Int_Hash_Table* */ ht, /* size_t */ k)                   \
-    ((void) (ht)->__hti_val_size, __mp_hti_exists((ht), (k)))
-bool __mp_hti_exists(const void *ht, size_t k);
+#define /* bool */ mp_hti_has(/* const Int_Hash_Table* */ ht, /* size_t */ k)                      \
+    ((void) (ht)->__hti_val_size, __mp_hti_has((ht), (k)))
+bool __mp_hti_has(const void *ht, size_t k);
+
+/**
+ * \brief Alias of \ref mp_hti_get.
+ */
+#define mp_higet mp_hti_get
+
+/**
+ * \brief Alias of \ref mp_hti_set.
+ */
+#define mp_hiset mp_hti_set
+
+/**
+ * \brief Alias of \ref mp_hti_has.
+ */
+#define mp_hihas mp_hti_has
 
 /**
  * \brief Grows \a ht to be able to hold \a offset more items from the current length.
@@ -2534,14 +2614,14 @@ bool __mp_hti_iter_next(void *it);
  * The primary usage of this is for setting keys. Use \ref mp_hsi_set to set an element, do not use
  * \ref mp_hti_set.
  * \code
- * mp_hsi_set(&set, 0);
+ * mp_hsiset(&set, 0);
  * \endcode
  *
  * Getting the pointer to the value is a valid way to assess if the key spot is already occupied.
  * But dereferencing the pointer does not give meaningful result.
  * \code
- * void *v = mp_hti_get(&set, 0);   // v is not NULL if key 0 exists, alternatively...
- * mp_hti_exists(&set, 0);      // true if key 0 exists
+ * void *v = mp_higet(&set, 0);   // v is not NULL if key 0 exists, alternatively...
+ * mp_hihas(&set, 0);      // true if key 0 exists
  * \endcode
  *
  * Also, iterators can be constructed from hash sets.
@@ -2597,6 +2677,11 @@ __mp_hti_struct(__mp_Int_Ht_Entry, __mp_Int_Set);
         (void) (hs)->__hti_val_size;                                                               \
         __mp_hti_set((hs), (k), NULL);                                                             \
     } while (0)
+
+/**
+ * \brief Alias of \ref mp_hsi_set.
+ */
+#define mp_hsiset mp_hsi_set
 
 /**
  * \brief Iterator for \ref HashSetInt "hash sets (integer key)".
@@ -2725,7 +2810,7 @@ typedef struct {
  * \param alloc (\ref mp_Alloc) backing allocator
  */
 #define mp_arena_init(/* mp_Arena* */ a, /* mp_Alloc */ alloc)                                     \
-    mp_arena_init_s((a), (alloc), __MP_REGION_DEFAULT_SIZE)
+    mp_arena_inits((a), (alloc), __MP_REGION_DEFAULT_SIZE)
 
 /**
  * \brief Same as \ref mp_arena_init but accepts default size for regions.
@@ -2738,7 +2823,7 @@ typedef struct {
  * \param alloc backing allocator
  * \param def_size size of regions in bytes
  */
-void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size);
+void mp_arena_inits(mp_Arena *a, mp_Alloc alloc, size_t def_size);
 
 /**
  * \brief Sets the length of \a a to 0, but does not free allocated regions.
@@ -2897,7 +2982,7 @@ void mp_sarena_rewind(mp_Sarena *a, uintptr_t mark);
  *
  * # Usage
  *
- * Call \ref mp_talloc macro (or \ref mp_talloc_s) to define and initialize a temporary allocator
+ * Call \ref mp_talloc macro (or \ref mp_tallocs) to define and initialize a temporary allocator
  * for this scope. The allocator will be accessible as `temp_alloc`.
  *
  * \code
@@ -2923,11 +3008,11 @@ typedef struct {
 /**
  * \brief Shortcut for defining and initializing a temp allocator.
  *
- * Will initialize a \ref mp_Temp "temp allocator" 1024 bytes in size.
+ * Will initialize a \ref mp_Temp "temp allocator" 8192 bytes in size.
  *
  * Defines `temp_alloc` variable for the current scope.
  */
-#define mp_talloc() mp_talloc_s(1024)
+#define mp_talloc() mp_tallocs(8192)
 
 /**
  * \brief Shortcut for defining and initializing a temp allocator \a size bytes in size.
@@ -2938,11 +3023,11 @@ typedef struct {
  *
  * \param size (size_t) size of buffer in bytes
  */
-#define mp_talloc_s(/* size_t */ size)                                                             \
+#define mp_tallocs(/* size_t */ size)                                                              \
     char    __mp_tempbuf[(size)];                                                                  \
     mp_Temp __mp_temp;                                                                             \
     mp_temp_init(&__mp_temp, __mp_tempbuf, (size));                                                \
-    mp_Alloc temp_alloc = mp_temp_alloc(&__mp_temp);
+    mp_Alloc talloc = mp_temp_alloc(&__mp_temp);
 
 /**
  * \brief Initializes \a t with \a buf of size \a cap bytes.
@@ -3143,14 +3228,14 @@ mp_Utf8_Char_Data mp_utf8_char(const char *c);
  * \return character data, \ref mp_utf8_char_invalid "invalid character data" if \a c is not a valid
  * UTF-8 character.
  */
-mp_Utf8_Char_Data mp_utf8_char_s(const char *c, size_t size);
+mp_Utf8_Char_Data mp_utf8_chars(const char *c, size_t size);
 
 /**
  * \brief Calculates the amount of Unicode characters in \a str (null-terminated).
  *
  * This operation is O(n).
  *
- * Use \ref mp_utf8_len_s for non-null-terminated strings.
+ * Use \ref mp_utf8_lens for non-null-terminated strings.
  *
  * \param str null-terminated string
  * \return amount of Unicode characters in \a str
@@ -3166,7 +3251,7 @@ size_t mp_utf8_len(const char *str);
  * \param size size of \a str in bytes
  * \return amount of Unicode characters in \a str
  */
-size_t mp_utf8_len_s(const char *str, size_t size);
+size_t mp_utf8_lens(const char *str, size_t size);
 
 /**
  * \brief Gets a UTF-8 character from \a str (null-terminated) at \a index.
@@ -3191,7 +3276,7 @@ mp_Utf8_Char_Data mp_utf8_get(const char *str, size_t index);
  * \return character data at \a index, \ref mp_utf8_char_invalid "invalid character data" when out
  * of bounds.
  */
-mp_Utf8_Char_Data mp_utf8_get_s(const char *str, size_t size, size_t index);
+mp_Utf8_Char_Data mp_utf8_gets(const char *str, size_t size, size_t index);
 
 /**
  * \brief Iterator for UTF-8 strings.
@@ -3223,7 +3308,7 @@ typedef struct {
 /**
  * \brief Creates a \ref mp_Utf8_Iter "UTF-8 iterator" that iterates over \a str (null-terminated).
  *
- * Use \ref mp_utf8_iter_new_s for non-null-terminated strings.
+ * Use \ref mp_utf8_iter_news for non-null-terminated strings.
  *
  * See \ref mp_Utf8_Iter for usage.
  *
@@ -3243,7 +3328,7 @@ mp_Utf8_Iter mp_utf8_iter_new(const char *str);
  * \param size size of \a str in bytes
  * \return iterator over \a str
  */
-mp_Utf8_Iter mp_utf8_iter_new_s(const char *str, size_t size);
+mp_Utf8_Iter mp_utf8_iter_news(const char *str, size_t size);
 
 /**
  * \brief Continues iterating with \a it.
@@ -3478,7 +3563,7 @@ const char *mp_err_str(mp_Err e);
 // - File iterator (custom separator)
 // - mp_file_delete_file
 // - mp_file_write_file
-// - mp_file_stat, mp_file_exists
+// - mp_file_stat, mp_file_has
 
 // TODO: Directory functions
 // - mp_file_create_dir
@@ -3796,7 +3881,7 @@ void mp_sb_appendf(mp_Sb *sb, const char *fmt, ...) {
 }
 
 mp_Str mp_sb_str(const mp_Sb *sb) {
-    return mp_str_s(sb->data, sb->len);
+    return mp_strs(sb->data, sb->len);
 }
 
 mp_String mp_sb_string(mp_Sb *sb) {
@@ -3854,7 +3939,7 @@ void *__mp_ht_get(const void *ht, mp_Str k) {
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_is_valid(e->key) && mp_str_eq(k, mp_str_v(e->key))) {
+            if (mp_is_valid(e->key) && mp_str_eq(k, mp_strv(e->key))) {
                 return &e->val;
             }
             ++i;
@@ -3883,7 +3968,7 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
                     memcpy(&e->val, v, self->__ht_val_size);
                 }
                 break;
-            } else if (mp_str_eq(mp_str_v(e->key), k)) {
+            } else if (mp_str_eq(mp_strv(e->key), k)) {
                 if (v != NULL) {
                     memcpy(&e->val, v, self->__ht_val_size);
                 }
@@ -3899,7 +3984,7 @@ void __mp_ht_set(void *ht, mp_Str k, void *v) {
     }
 }
 
-bool __mp_ht_exists(const void *ht, mp_Str k) {
+bool __mp_ht_has(const void *ht, mp_Str k) {
     return __mp_ht_get(ht, k) != NULL;
 }
 
@@ -3922,7 +4007,7 @@ void __mp_ht_grow(void *ht, size_t offset) {
         for (size_t i = 0; i < old_cap; ++i) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
             if (mp_is_valid(e->key)) {
-                uint64_t hash  = __mp_ht_hash_str(&mp_str_v(e->key));
+                uint64_t hash  = __mp_ht_hash_str(&mp_strv(e->key));
                 size_t   new_i = (size_t) (hash % (uint64_t) (self->cap - 1));
                 for (;;) {
                     __mp_Str_Ht_Entry *new_e =
@@ -3971,7 +4056,7 @@ void __mp_ht_delete(void *ht, mp_Str k) {
         size_t   i    = (size_t) (hash % (uint64_t) (self->cap - 1));
         for (;;) {
             __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-            if (mp_is_valid(e->key) && mp_str_eq(k, mp_str_v(e->key))) {
+            if (mp_is_valid(e->key) && mp_str_eq(k, mp_strv(e->key))) {
                 mp_string_deinit(&e->key, self->alloc);
                 __MP_ASSERT(!mp_is_valid(e->key));
                 memset(&e->val, 1, sizeof(char));
@@ -4059,7 +4144,7 @@ bool __mp_ht_iter_next(void *it) {
     while (self->__ht_it_i < self->_h->cap) {
         __mp_Str_Ht_Entry *entry = __mp_da_get(__mp_Str_Ht_Entry, self->_h, self->__ht_it_i);
         if (mp_is_valid(entry->key)) {
-            self->key = mp_str_v(entry->key);
+            self->key = mp_strv(entry->key);
             if (self->_h->__ht_val_size > 0) {
                 self->val = &entry->val;
             }
@@ -4105,7 +4190,7 @@ void *__mp_hti_get(const void *ht, size_t k) {
     return NULL;
 }
 
-bool __mp_hti_exists(const void *ht, size_t k) {
+bool __mp_hti_has(const void *ht, size_t k) {
     return __mp_hti_get(ht, k) != NULL;
 }
 
@@ -4294,7 +4379,7 @@ void mp_region_deinit(mp_Region *r, mp_Alloc alloc) {
     mp_free(alloc, r);
 }
 
-void mp_arena_init_s(mp_Arena *a, mp_Alloc alloc, size_t def_size) {
+void mp_arena_inits(mp_Arena *a, mp_Alloc alloc, size_t def_size) {
     a->len       = 0;
     a->begin     = NULL;
     a->end       = NULL;
@@ -4567,32 +4652,32 @@ mp_Utf8_Char_Data mp_utf8_take(const char **str, size_t *size) {
     const char *ch    = *str;
     uint8_t     first = (uint8_t) ch[0];
 
-    uint8_t char_size           = 0;
+    uint8_t charsize            = 0;
     uint8_t actual_decoded_size = 0;
     if (first <= 0x7F) {
-        char_size = 1;
+        charsize = 1;
     } else if (first >= 0xC0 && first <= 0xDF) {
-        char_size = 2;
+        charsize = 2;
     } else if (first >= 0xE0 && first <= 0xEF) {
-        char_size = 3;
+        charsize = 3;
     } else if (first >= 0xF0) {
-        char_size = 4;
+        charsize = 4;
     } else {
         goto fail;
     }
 
     uint32_t codepoint = 0x00;
-    for (uint8_t i = 1; i <= char_size; ++i) {
+    for (uint8_t i = 1; i <= charsize; ++i) {
         if (i > *size) {
             goto fail;
         }
 
         uint8_t byte  = (uint8_t) ch[i - 1];
-        uint8_t order = char_size - i;
+        uint8_t order = charsize - i;
 
         if (i == 1) {
-            uint8_t second_shift = (char_size == 1) ? char_size : char_size + 1;
-            codepoint |= (uint32_t) ((byte & (0xFF >> second_shift)) << 6 * (char_size - 1));
+            uint8_t second_shift = (charsize == 1) ? charsize : charsize + 1;
+            codepoint |= (uint32_t) ((byte & (0xFF >> second_shift)) << 6 * (charsize - 1));
         } else {
             // not a "continuation byte"
             if (!(byte >= 0x80 && byte <= 0xBF)) {
@@ -4603,7 +4688,7 @@ mp_Utf8_Char_Data mp_utf8_take(const char **str, size_t *size) {
         ++actual_decoded_size;
     }
 
-    __MP_ASSERT(char_size == actual_decoded_size);
+    __MP_ASSERT(charsize == actual_decoded_size);
 
     // checking for overlong encoding
     if ((actual_decoded_size == 2 && !(codepoint >= 0x0080 && codepoint <= 0x07FF))
@@ -4621,11 +4706,11 @@ mp_Utf8_Char_Data mp_utf8_take(const char **str, size_t *size) {
         goto fail;
     }
 
-    *str += char_size;
-    *size -= char_size;
+    *str += charsize;
+    *size -= charsize;
 
     return (mp_Utf8_Char_Data) {
-        .size      = char_size,
+        .size      = charsize,
         .c         = ch,
         .codepoint = codepoint,
     };
@@ -4640,18 +4725,18 @@ fail:
 }
 
 mp_Utf8_Char_Data mp_utf8_char(const char *c) {
-    return mp_utf8_char_s(c, strlen(c));
+    return mp_utf8_chars(c, strlen(c));
 }
 
-mp_Utf8_Char_Data mp_utf8_char_s(const char *c, size_t size) {
+mp_Utf8_Char_Data mp_utf8_chars(const char *c, size_t size) {
     return mp_utf8_take(&c, &size);
 }
 
 size_t mp_utf8_len(const char *str) {
-    return mp_utf8_len_s(str, strlen(str));
+    return mp_utf8_lens(str, strlen(str));
 }
 
-size_t mp_utf8_len_s(const char *str, size_t size) {
+size_t mp_utf8_lens(const char *str, size_t size) {
     size_t            len = 0;
     mp_Utf8_Char_Data c;
     while ((c = mp_utf8_take(&str, &size)).c != NULL) {
@@ -4661,10 +4746,10 @@ size_t mp_utf8_len_s(const char *str, size_t size) {
 }
 
 mp_Utf8_Char_Data mp_utf8_get(const char *str, size_t index) {
-    return mp_utf8_get_s(str, strlen(str), index);
+    return mp_utf8_gets(str, strlen(str), index);
 }
 
-mp_Utf8_Char_Data mp_utf8_get_s(const char *str, size_t size, size_t index) {
+mp_Utf8_Char_Data mp_utf8_gets(const char *str, size_t size, size_t index) {
     size_t            i = 0;
     mp_Utf8_Char_Data c;
     while ((c = mp_utf8_take(&str, &size)).c != NULL) {
@@ -4683,7 +4768,7 @@ mp_Utf8_Iter mp_utf8_iter_new(const char *str) {
     };
 }
 
-mp_Utf8_Iter mp_utf8_iter_new_s(const char *str, size_t size) {
+mp_Utf8_Iter mp_utf8_iter_news(const char *str, size_t size) {
     return (mp_Utf8_Iter) {
         ._str  = str,
         ._size = size,
