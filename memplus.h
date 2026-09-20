@@ -812,30 +812,6 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 /**
  * \brief Gets item at \a i.
  *
- * No bounds checking, use \ref mp_da_gets for that.
- *
- * \param a (const Dyn_Array*) array
- * \param i (size_t) index to item
- * \return (Type) item at \a i
- */
-#define /* Type */ mp_da_get(/* const Dyn_Array* */ a, /* size_t */ i)                             \
-    ((void) (a)->__da_item_size, (a)->data[i])
-
-/**
- * \brief Gets pointer to item at \a i.
- *
- * No bounds checking, use \ref mp_da_gets for that.
- *
- * \param a (const Dyn_Array*) array
- * \param i (size_t) index to item
- * \return (Type *) pointer to item at \a i
- */
-#define /* Type* */ mp_da_getp(/* const Dyn_Array* */ a, /* size_t */ i)                           \
-    ((void) (a)->__da_item_size, (a)->data + i)
-
-/**
- * \brief Gets item at \a i with bounds-checking.
- *
  * Asserts that \a i is not out of bounds.
  *
  * The assert will not trigger if `NDEBUG` is defined.
@@ -844,11 +820,11 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param i (size_t) index to item
  * \return (Type) item at \a i
  */
-#define /* Type */ mp_da_gets(/* const Dyn_Array */ a, /* size_t */ i)                             \
+#define /* Type */ mp_da_get(/* const Dyn_Array */ a, /* size_t */ i)                              \
     ((void) (a)->__da_item_size, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data[i])
 
 /**
- * \brief Gets pointer to item at \a i with bounds-checking.
+ * \brief Gets pointer to item at \a i.
  *
  * Asserts that \a i is not out of bounds.
  *
@@ -858,7 +834,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \param i (size_t) index to item
  * \return (Type *) pointer to item at \a i
  */
-#define /* Type* */ mp_da_getps(/* const Dyn_Array */ a, /* size_t */ i)                           \
+#define /* Type* */ mp_da_getp(/* const Dyn_Array */ a, /* size_t */ i)                            \
     ((void) (a)->__da_item_size, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
 
 // Generic dynamic array get function
