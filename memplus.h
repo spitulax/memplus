@@ -61,6 +61,14 @@
 
 /* #define MEMPLUS_IMPLEMENTATION */
 
+/**
+ * \brief The version of the library.
+ *
+ * Semver encoded in hexadecimal where two digits represent each element.
+ * Example: 0.1.0 -> (0x) 00 01 00
+ */
+#define MEMPLUS_VERSION (0x000100)
+
 /// \cond
 #define _POSIX_C_SOURCE 200809l    // also defines X/Open
 /// \endcond
@@ -185,14 +193,6 @@ __MP_NORETURN void __mp_assert_fail(const char *assertion, const char *file, con
     #include <stdlib.h>
     #define __MP_FREE free
 #endif
-
-/**
- * \brief The version of the library.
- *
- * Semver encoded in hexadecimal where two digits represent each element.
- * Example: 0.1.0 -> (0x) 00 01 00
- */
-#define MEMPLUS_VERSION (0x000100)
 
 // "Private" macros that are used outside of the implementation block.
 #define __MP_ZERO(ptr)            memset((ptr), 0, sizeof(*(ptr)))
