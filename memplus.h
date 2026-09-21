@@ -3608,7 +3608,7 @@ bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep);
 
 bool mp_path_canonicalize(mp_Path *path);
 
-bool mp_path_relativize(mp_Path *path, const mp_Path *base);
+// TODO: mp_path_relativize
 
 mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc);
 
@@ -3628,14 +3628,14 @@ mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc);
 /**
  * \brief Reads the contents of file at \a file_path to \a out_str.
  *
- * Deinit \a out_str with \ref mp_str_deinit.
+ * Deinit \a out_str with \ref mp_string_deinit.
  *
  * \param[out] out_str destination of file contents (initialized by this)
  * \param file_path path to file
  * \param alloc allocator allocating \a out_str
  * \return MP_OK if successful, an error if failed
  */
-mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc);
+mp_Err mp_file_read(mp_String *out_str, const char *file_path, mp_Alloc alloc);
 
 /**
  * \brief Writes data into file at \a file_path.
@@ -4212,9 +4212,7 @@ mp_String mp_sb_string(mp_Sb *sb) {
     }
     mp_String ret = (mp_String) {
         .data = sb->data,
-        // TODO: The buffer may be longer, but after we remove passing length to free function it
-        // will not matter.
-        .len = sb->len - 1,
+        .len  = sb->len - 1,
     };
     __MP_ZERO(sb);
     return ret;
@@ -5644,12 +5642,6 @@ bool mp_path_canonicalize(mp_Path *path) {
     #endif
 }
 
-bool mp_path_relativize(mp_Path *path, const mp_Path *base) {
-    (void) path;
-    (void) base;
-    __MP_TODO("mp_path_relativize");
-}
-
 mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
     #if defined(__MP_SYSTEM_POSIX)
     {
@@ -5695,7 +5687,7 @@ mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
     return MP_OK;
 }
 
-mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
+mp_Err mp_file_read(mp_String *out_str, const char *file_path, mp_Alloc alloc) {
     FILE *f = fopen(file_path, "r");
     if (f == NULL) {
         return mp_err(errno);
@@ -5721,7 +5713,7 @@ mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
 
     buf[size] = '\0';
 
-    *out_str = (mp_Str) {
+    *out_str = (mp_String) {
         .data = buf,
         .len  = size,
     };

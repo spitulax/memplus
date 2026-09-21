@@ -7,8 +7,8 @@ int main(void) {
     {
         mp_talloc();
 
-        mp_Str text;
-        mp_Err err = mp_file_read(&text, ".hello.txt", talloc);
+        mp_String text;
+        mp_Err    err = mp_file_read(&text, "010-file/.hello.txt", talloc);
         expect_erreq(err, MP_OK, mp_err_str);
         expect_eq(text.len, (size_t) 14, "%zu");
         expect_streq(text.data, "Hello, World!\n");
@@ -27,15 +27,15 @@ int main(void) {
         err = mp_file_create(path);
         expect_erreq(err, MP_OK, mp_err_str);
 
-        err = mp_file_write(path, data.data, data.len, false);
+        err = mp_file_write(path, mp_arr(&data), false);
         expect_erreq(err, MP_OK, mp_err_str);
 
-        mp_Str text;
+        mp_String text;
         err = mp_file_read(&text, path, talloc);
         expect_erreq(err, MP_OK, mp_err_str);
         expect_streq(text.data, "Foobarbazquux");
 
-        err = mp_file_write(path, data.data, data.len, true);
+        err = mp_file_write(path, mp_arr(&data), true);
         expect_erreq(err, MP_OK, mp_err_str);
 
         err = mp_file_read(&text, path, talloc);
