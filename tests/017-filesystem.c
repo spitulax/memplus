@@ -4,7 +4,7 @@
 
 int main(void) {
     mp_Path cwd;
-    expect_erreq(mp_get_current_dir(&cwd, mp_heap()), MP_ERR_NONE, mp_err_str);
+    expect_erreq(mp_get_current_dir(&cwd, mp_heap()), MP_OK, mp_err_str);
     expect(cwd.absolute);
 
     mp_String cwd_str = mp_path_string(&cwd, mp_heap());

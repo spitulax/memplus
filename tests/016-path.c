@@ -95,7 +95,7 @@ int main(void) {
         expect(mp_path_canonicalize(&path));
 
         mp_Path cur_dir;
-        expect_erreq(mp_get_current_dir(&cur_dir, mp_heap()), MP_ERR_NONE, mp_err_str);
+        expect_erreq(mp_get_current_dir(&cur_dir, mp_heap()), MP_OK, mp_err_str);
 
         expect(mp_path_eq(&path, &cur_dir));
 

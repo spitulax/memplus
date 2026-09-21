@@ -8,8 +8,8 @@ int main(void) {
         mp_talloc();
 
         mp_Str text;
-        mp_Err err = mp_file_read(&text, ".hello.txt", temp_alloc);
-        expect_erreq(err, MP_ERR_NONE, mp_err_str);
+        mp_Err err = mp_file_read(&text, ".hello.txt", talloc);
+        expect_erreq(err, MP_OK, mp_err_str);
         expect_eq(text.len, (size_t) 14, "%zu");
         expect_streq(text.data, "Hello, World!\n");
     }
@@ -25,25 +25,25 @@ int main(void) {
         // TODO: check if file exists
 
         err = mp_file_create(path);
-        expect_erreq(err, MP_ERR_NONE, mp_err_str);
+        expect_erreq(err, MP_OK, mp_err_str);
 
         err = mp_file_write(path, data.data, data.len, false);
-        expect_erreq(err, MP_ERR_NONE, mp_err_str);
+        expect_erreq(err, MP_OK, mp_err_str);
 
         mp_Str text;
-        err = mp_file_read(&text, path, temp_alloc);
-        expect_erreq(err, MP_ERR_NONE, mp_err_str);
+        err = mp_file_read(&text, path, talloc);
+        expect_erreq(err, MP_OK, mp_err_str);
         expect_streq(text.data, "Foobarbazquux");
 
         err = mp_file_write(path, data.data, data.len, true);
-        expect_erreq(err, MP_ERR_NONE, mp_err_str);
+        expect_erreq(err, MP_OK, mp_err_str);
 
-        err = mp_file_read(&text, path, temp_alloc);
-        expect_erreq(err, MP_ERR_NONE, mp_err_str);
+        err = mp_file_read(&text, path, talloc);
+        expect_erreq(err, MP_OK, mp_err_str);
         expect_streq(text.data, "FoobarbazquuxFoobarbazquux");
 
         err = mp_file_delete(path);
-        expect_erreq(err, MP_ERR_NONE, mp_err_str);
+        expect_erreq(err, MP_OK, mp_err_str);
     }
 
     return 0;

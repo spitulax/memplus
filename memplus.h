@@ -3630,7 +3630,7 @@ mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc);
  * \param[out] out_str destination of file contents (initialized by this)
  * \param file_path path to file
  * \param alloc allocator allocating \a out_str
- * \return MP_ERR_NONE if successful, an error if failed
+ * \return MP_OK if successful, an error if failed
  */
 mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc);
 
@@ -3641,7 +3641,7 @@ mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc);
  * \param data data to write
  * \param data_size size of \a data in bytes
  * \param append whether to write from the end (append) or from the beginning (truncate)
- * \return MP_ERR_NONE if successful, an error if failed
+ * \return MP_OK if successful, an error if failed
  */
 mp_Err mp_file_write(const char *file_path, const char *data, size_t data_size, bool append);
 
@@ -3651,7 +3651,7 @@ mp_Err mp_file_write(const char *file_path, const char *data, size_t data_size, 
  * The created file will be readable and writeable if permitted.
  *
  * \param file_path path to file
- * \return MP_ERR_NONE if successful, an error if failed
+ * \return MP_OK if successful, an error if failed
  */
 mp_Err mp_file_create(const char *file_path);
 
@@ -3661,7 +3661,7 @@ mp_Err mp_file_create(const char *file_path);
  * Also works on symbolic links and empty directory.
  *
  * \param file_path path to file
- * \return MP_ERR_NONE if successful, an error if failed
+ * \return MP_OK if successful, an error if failed
  */
 mp_Err mp_file_delete(const char *file_path);
 
@@ -4131,11 +4131,11 @@ mp_Str mp_str_from_tchar(const TCHAR *str, mp_Alloc alloc) {
             return mp_str_invalid();
         }
 
-        return mp_str_s(buf, size);
+        return mp_strs(buf, size);
     }
     #else
     {
-        return mp_str_clone(mp_str_s(str, len), alloc);
+        return mp_str_clone(mp_strs(str, len), alloc);
     }
     #endif
 }
@@ -4228,19 +4228,6 @@ mp_String mp_sb_clone_to_string(mp_Sb *sb, mp_Alloc alloc) {
         .data = cloned,
         .len  = sb->len,
     };
-}
-
-mp_String mp_sb_string(mp_Sb *sb) {
-    mp_da_append(sb, (char) '\0');
-    if (sb->data == NULL) {
-        return mp_string_invalid();
-    }
-    mp_String ret = (mp_String) {
-        .data = sb->data,
-        .len  = sb->len - 1,
-    };
-    __MP_ZERO(sb);
-    return ret;
 }
 
 void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
@@ -5481,7 +5468,7 @@ mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc) {
             if (i > 0) {
                 mp_da_append(&sb, (char) '/');
             }
-            mp_sb_append(&sb, mp_str_v(mp_get(&path->comps, i)));
+            mp_sb_append(&sb, mp_strv(mp_get(&path->comps, i)));
         }
     }
     #elif defined(__MP_SYSTEM_WINDOWS)
@@ -5495,7 +5482,7 @@ mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc) {
             if (i > 0) {
                 mp_da_append(&sb, (char) '\\');
             }
-            mp_sb_append(&sb, mp_str_v(mp_get(&path->comps, i)));
+            mp_sb_append(&sb, mp_strv(mp_get(&path->comps, i)));
         }
     }
     #else
@@ -5530,7 +5517,7 @@ bool mp_path_eq(const mp_Path *a, const mp_Path *b) {
     }
 
     for (size_t i = 0; i < a->comps.len; ++i) {
-        if (!mp_str_eq(mp_str_v(mp_get(&a->comps, i)), mp_str_v(mp_get(&b->comps, i)))) {
+        if (!mp_str_eq(mp_strv(mp_get(&a->comps, i)), mp_strv(mp_get(&b->comps, i)))) {
             return false;
         }
     }
@@ -5540,7 +5527,7 @@ bool mp_path_eq(const mp_Path *a, const mp_Path *b) {
 
 bool mp_path_append(mp_Path *path, mp_Str str_path) {
     mp_String comp = mp_string_from(str_path, path->comps.alloc);
-    if (!mp_str_is_valid(comp)) {
+    if (!mp_is_valid(comp)) {
         return false;
     }
     mp_da_append(&path->comps, comp);
@@ -5607,7 +5594,7 @@ bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep) {
                 continue;
             }
 
-            if (!mp_path_append(path, mp_str_s(comp_start, comp_len))) {
+            if (!mp_path_append(path, mp_strs(comp_start, comp_len))) {
                 return false;
             }
             comp_start = it + 1;
@@ -5695,7 +5682,7 @@ mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
         #error "mp_get_current_dir: Unsupported system."
     #endif
 
-    return MP_ERR_NONE;
+    return MP_OK;
 }
 
 mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
@@ -5704,7 +5691,7 @@ mp_Err mp_file_read(mp_Str *out_str, const char *file_path, mp_Alloc alloc) {
         return mp_err(errno);
     }
 
-    mp_Err err = MP_ERR_NONE;
+    mp_Err err = MP_OK;
 
     fseek(f, 0, SEEK_END);
     size_t size = (size_t) ftell(f);
@@ -5744,7 +5731,7 @@ mp_Err mp_file_write(const char *file_path, const char *data, size_t data_size, 
         return mp_err(errno);
     }
 
-    mp_Err err = MP_ERR_NONE;
+    mp_Err err = MP_OK;
 
     size_t written_size = fwrite(data, 1, data_size, f);
     if (written_size != data_size) {
@@ -5764,14 +5751,14 @@ mp_Err mp_file_create(const char *file_path) {
     }
 
     fclose(f);
-    return MP_ERR_NONE;
+    return MP_OK;
 }
 
 mp_Err mp_file_delete(const char *file_path) {
     if (remove(file_path)) {
         return mp_err(errno);
     }
-    return MP_ERR_NONE;
+    return MP_OK;
 }
 
 #endif /* ifdef MEMPLUS_IMPLEMENTATION */
