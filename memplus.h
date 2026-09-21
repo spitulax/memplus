@@ -3580,7 +3580,10 @@ typedef struct __mp_Path_Components mp_Path_Components;
 typedef struct {
     mp_Path_Components comps;
     bool               absolute;
-    char               drive;    // DOCS: always uppercase, implies absolute, '\' for UNC
+
+    #ifdef __MP_SYSTEM_WINDOWS
+    char drive;    // DOCS: always uppercase, implies absolute, '\' for UNC
+    #endif
 } mp_Path;
 
 void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc);
@@ -5436,7 +5439,10 @@ void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc) {
     mp_da_init(mp_Path_Components, &path->comps, alloc);
     if (absolute != 0) {
         path->absolute = true;
-        path->drive    = absolute;
+
+        #ifdef __MP_SYSTEM_WINDOWS
+        path->drive = absolute;
+        #endif
     }
 }
 
@@ -5512,7 +5518,11 @@ void mp_path_reset(mp_Path *path) {
 }
 
 bool mp_path_eq(const mp_Path *a, const mp_Path *b) {
-    if (a->absolute != b->absolute || a->drive != b->drive || a->comps.len != b->comps.len) {
+    if (a->absolute != b->absolute
+        #ifdef __MP_SYSTEM_WINDOWS
+        || a->drive != b->drive
+        #endif
+        || a->comps.len != b->comps.len) {
         return false;
     }
 
