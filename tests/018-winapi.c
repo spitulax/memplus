@@ -8,10 +8,10 @@
 #include <windows.h>
 
 int main(void) {
-    TCHAR *tstr   = _T("Хэлло, Ворлд!");
-    mp_Str mp_str = mp_str_from_tchar(tstr, mp_heap());
+    TCHAR    *tstr   = _T("Хэлло, Ворлд!");
+    mp_String mp_str = mp_string_from_tchar(tstr, mp_heap());
     expect_eq(mp_str.len, (size_t) 23, "%zu");
-    mp_str_deinit(&mp_str, mp_heap());
+    mp_string_deinit(&mp_str, mp_heap());
 
     return 0;
 

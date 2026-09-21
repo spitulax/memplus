@@ -31,7 +31,6 @@
  */
 
 // TODO: Alloc location
-// FIXME: Fix Windows implementation
 
 /**
  * \file memplus.h
@@ -1340,17 +1339,16 @@ bool mp_str_eq(mp_Str a, mp_Str b);
 
 #ifdef __MP_SYSTEM_WINDOWS
 /**
- * \brief Allocates copy of null-terminated TCHAR \a str as UTF-8 string with \a alloc and returns a
- * view to it.
+ * \brief Allocates copy of null-terminated TCHAR \a str as UTF-8 string with \a alloc.
  *
- * Converts \a str into non-null-terminated UTF-8 string.
+ * Converts \a str into null-terminated UTF-8 string.
  *
  * \param str null-terminated TCHAR string
  * \param alloc allocator for the copy
- * \return view to allocated UTF-8 copy of \a str (not null-terminated), \ref mp_str_invalid
- * "invalid string" if allocation failed
+ * \return allocated UTF-8 copy of \a str, \ref mp_string_invalid "invalid string" if allocation
+ * failed
  */
-mp_Str mp_str_from_tchar(const TCHAR *str, mp_Alloc alloc);
+mp_String mp_string_from_tchar(const TCHAR *str, mp_Alloc alloc);
 #endif
 
 // TODO: String functions:
@@ -4113,32 +4111,36 @@ bool mp_str_eq(mp_Str a, mp_Str b) {
 }
 
 #ifdef __MP_SYSTEM_WINDOWS
-mp_Str mp_str_from_tchar(const TCHAR *str, mp_Alloc alloc) {
+mp_String mp_string_from_tchar(const TCHAR *str, mp_Alloc alloc) {
     size_t len = _tcslen(str);
     if (len == 0) {
-        return mp_str_invalid();
+        return mp_string_invalid();
     }
 
     #ifdef UNICODE
     {
         int size = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, NULL, 0, NULL, NULL);
         if (size == 0) {
-            return mp_str_invalid();
+            return mp_string_invalid();
         }
-        char *buf = mp_make_array(alloc, char, size);
+        char *buf = mp_make_array(alloc, char, size + 1);
         if (buf == NULL) {
-            return mp_str_invalid();
+            return mp_string_invalid();
         }
-        size = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, buf, size, NULL, NULL);
+        buf[size] = '\0';
+        size      = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, buf, size, NULL, NULL);
         if (size == 0) {
-            return mp_str_invalid();
+            return mp_string_invalid();
         }
 
-        return mp_strs(buf, size);
+        return (mp_String) {
+            .data = buf,
+            .len  = size,
+        };
     }
     #else
     {
-        return mp_str_clone(mp_strs(str, len), alloc);
+        return mp_string_from(mp_strs(str, len), alloc);
     }
     #endif
 }
@@ -5636,6 +5638,7 @@ bool mp_path_canonicalize(mp_Path *path) {
         return ret;
     }
     #elif defined(__MP_SYSTEM_WINDOWS)
+    // FIXME: mp_path_canonicalize: Windows support
     { __MP_TODO("mp_path_canonicalize: Windows support."); }
     #else
         #error "mp_path_canonicalize: Unsupported system."
@@ -5671,14 +5674,14 @@ mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
             return mp_err(GetLastError());
         }
 
-        mp_Str cwd_mp = mp_str_from_tchar(cwd, alloc);
+        mp_String cwd_mp = mp_string_from_tchar(cwd, alloc);
 
-        if (!mp_path_parse(ret, cwd_mp, alloc)) {
+        if (!mp_path_parse(ret, mp_strv(cwd_mp), alloc)) {
             return MP_ERR_CANNOT_ALLOC;
         }
 
-        mp_str_deinit(&cwd_mp, alloc);
-        mp_deinit_array(alloc, TCHAR, cwd, len);
+        mp_string_deinit(&cwd_mp, alloc);
+        mp_deinit(alloc, cwd);
     }
     #else
         #error "mp_get_current_dir: Unsupported system."
