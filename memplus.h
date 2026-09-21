@@ -709,6 +709,8 @@ typedef struct {
  *
  * The array does not allocate anything until it gets appended with something.
  *
+ * To initialize with elements directly use \ref mp_da_with.
+ *
  * Deinit with \ref mp_da_deinit.
  *
  * \param type ("Type") array type name
@@ -849,16 +851,6 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \brief Alias of \ref mp_da_getp.
  */
 #define mp_getp mp_da_getp
-
-/**
- * \brief Alias of \ref mp_da_gets.
- */
-#define mp_gets mp_da_gets
-
-/**
- * \brief Alias of \ref mp_da_getps.
- */
-#define mp_getps mp_da_getps
 
 /**
  * \brief Alias of \ref mp_da_append.
@@ -3566,15 +3558,111 @@ const char *mp_err_str(mp_Err e);
  */
 
 /**
- * \brief Passes \a a to a function that accepts array as pointer and length.
+ * \defgroup Slicing Slicing
+ *
+ * Helpers for passing arrays to functions in universal manner with slicing.
+ *
+ * For this to work, the function must accept the array as two parameters, first is the pointer and
+ * the second is the length.
+ *
+ * There are two variants of every slicing helper, one made for memplus arrays (such as \ref
+ * DynamicArray "dynamic arrays", \ref mp_Str, \ref mp_String and \ref mp_Sb) and the other for C
+ * arrays (suffixed with `c` in their name).
+ *
+ * - \ref mp_lenc : Gets the length of a non-decayed C array.
+ * - \ref mp_arr and \ref mp_arrc : Pass the whole array (C arrays must not be decayed).
+ * - \ref mp_slice and \ref mp_slicec : Pass slice to array given the starting and end index.
+ * - \ref mp_slicee and \ref mp_sliceec : Pass slice from the beginning to the given index (length).
+ * - \ref mp_sliceb : Pass slice starting from the given index to the end of the array.
  *
  * DOCS: Example usage here once there is a function that fits
  *
+ * \{
+ */
+
+/**
+ * \brief Calculates the length of non-decayed C array \a a.
+ *
+ * \param a (const? Any *) non-decayed C array (no side effects)
+ */
+#define mp_lenc(/* const? Any* */ a) (sizeof(a) / sizeof(*(a)))
+
+/**
+ * \brief Passes an array \a a.
+ *
  * Works for any type that has fields \a data and \a len.
+ * Such as \ref DynamicArray "dynamic arrays", \ref mp_Str, \ref mp_String and \ref mp_Sb.
  *
  * \param a (const? Any *) array (no side effects)
  */
-#define mp_arg(/* const? Any* */ a) (a)->data, (a)->len
+#define mp_arr(/* const? Any* */ a) (a)->data, (a)->len
+
+/**
+ * \brief Passes a non-decayed C array \a a.
+ *
+ * \param a (const? Any *) non-decayed C array (no side effects)
+ */
+#define mp_arrc(/* const? Any* */ a) (a), sizeof(a) / sizeof(*a)
+
+/**
+ * \brief Passes a slice to \a a.
+ *
+ * Works for any type that has fields \a data.
+ * Such as \ref DynamicArray "dynamic arrays", \ref mp_Str, \ref mp_String and \ref mp_Sb.
+ *
+ * For pointers or C arrays use \ref mp_slicec instead.
+ *
+ * \param a (const? Any *) array
+ * \param begin (unsigned integer) index to the beginning of the slice (no side effects)
+ * \param end (unsigned integer) index to the end of the slice (exclusive)
+ */
+#define mp_slice(/* const? Any* */ a, /* unsigned integer */ begin, /* unsigned integer */ end)    \
+    (a)->data + (begin), (end) - (begin)
+
+/**
+ * \brief Passes a slice to C array/pointer \a a.
+ *
+ * \param a (const? Any *) C array/pointer
+ * \param begin (unsigned integer) index to the beginning of the slice (no side effects)
+ * \param end (unsigned integer) index to the end of the slice (exclusive)
+ */
+#define mp_slicec(/* const? Any* */ a, /* unsigned integer */ begin, /* unsigned integer */ end)   \
+    (a) + (begin), (end) - (begin)
+
+/**
+ * \brief Passes a slice to \a a from start to \a end.
+ *
+ * Works for any type that has fields \a data.
+ * Such as \ref DynamicArray "dynamic arrays", \ref mp_Str, \ref mp_String and \ref mp_Sb.
+ *
+ * For pointers or C arrays use \ref mp_sliceec instead.
+ *
+ * \param a (const? Any *) array
+ * \param end (unsigned integer) index to the end of the slice (exclusive)
+ */
+#define mp_slicee(/* const? Any* */ a, /* unsigned integer */ end) (a)->data, (end)
+
+/**
+ * \brief Passes a slice to C array/pointer \a a from start to \a end.
+ *
+ * \param a (const? Any *) C array/pointer
+ * \param end (unsigned integer) index to the end of the slice (exclusive)
+ */
+#define mp_sliceec(/* const? Any* */ a, /* unsigned integer */ end) (a), (end)
+
+/**
+ * \brief Passes a slice to \a a begining from \a begin to the end.
+ *
+ * Works for any type that has fields \a data and \a len.
+ * Such as \ref DynamicArray "dynamic arrays", \ref mp_Str, \ref mp_String and \ref mp_Sb.
+ *
+ * \param a (const? Any *) array (no side effects)
+ * \param begin (unsigned integer) index to the beginning of the slice (no side effects)
+ */
+#define mp_sliceb(/* const? Any* */ a, /* unsigned integer */ begin)                               \
+    (a)->data + (begin), (a)->len - (begin)
+
+/// \}
 
 /**
  * \defgroup ContainerLoopShortcuts Container Loop Shortcuts
@@ -3603,10 +3691,10 @@ const char *mp_err_str(mp_Err e);
  * \endcode
  *
  * \param a (Dyn_Array *) array to loop over
- * \param idx (ident) name of the index variable (size_t)
- * \param item (ident) name of the item variable (Type *)
+ * \param idx (identifier) name of the index variable (size_t)
+ * \param item (identifier) name of the item variable (Type *)
  */
-#define MP_DA_BEGIN(/* Dyn_Array* */ a, /* ident */ idx, /* ident */ item)                         \
+#define MP_DA_BEGIN(/* Dyn_Array* */ a, /* identifier */ idx, /* identifier */ item)               \
     for (size_t idx = 0; idx < (a)->len; ++idx) {                                                  \
         __MP_TYPEOF((a)->data) item = (a)->data + idx;
 
@@ -3624,12 +3712,12 @@ const char *mp_err_str(mp_Err e);
  *
  * \param type ("HtType") type name of \a ht
  * \param ht (Str_Hash_Table *) hash table to loop over
- * \param iter (ident) name of the iterator variable ("HtType"_Iter)
- * \param k (ident) name of the key variable (\ref mp_Str)
- * \param v (ident) name of the value variable (Type *)
+ * \param iter (identifier) name of the iterator variable ("HtType"_Iter)
+ * \param k (identifier) name of the key variable (\ref mp_Str)
+ * \param v (identifier) name of the value variable (Type *)
  */
-#define MP_HT_BEGIN(/* "HtType" */ type, /* Str_Hash_Table* */ ht, /* ident */ iter,               \
-                    /* ident */ k, /* ident */ v)                                                  \
+#define MP_HT_BEGIN(/* "HtType" */ type, /* Str_Hash_Table* */ ht, /* identifier */ iter,          \
+                    /* identifier */ k, /* identifier */ v)                                        \
     type##_Iter iter;                                                                              \
     mp_ht_iter_init(&iter, (ht));                                                                  \
     while (mp_ht_iter_next(&iter)) {                                                               \
@@ -3648,10 +3736,10 @@ const char *mp_err_str(mp_Err e);
  * \endcode
  *
  * \param hs (mp_Str_Set *) hash set to loop over
- * \param iter (ident) name of the iterator variable (\ref mp_Str_Set_Iter)
- * \param k (ident) name of the key variable (\ref mp_Str)
+ * \param iter (identifier) name of the iterator variable (\ref mp_Str_Set_Iter)
+ * \param k (identifier) name of the key variable (\ref mp_Str)
  */
-#define MP_HS_BEGIN(/* mp_Str_Set* */ hs, /* ident */ iter, /* ident */ k)                         \
+#define MP_HS_BEGIN(/* mp_Str_Set* */ hs, /* identifier */ iter, /* identifier */ k)               \
     mp_Str_Set_Iter iter;                                                                          \
     mp_ht_iter_init(&iter, (hs));                                                                  \
     while (mp_ht_iter_next(&iter)) {                                                               \
