@@ -27,7 +27,7 @@ int main(void) {
     void *realloc_res = mp_realloc(allocator, (void *) 100, 10, 20);
     expect_eq(realloc_res, (void *) (100 + 10 + 20), "%p");
 
-    mp_free(allocator, (void *) 100, 10);
+    mp_free(allocator, (void *) 100);
 
     return 0;
 

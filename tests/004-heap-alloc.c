@@ -17,8 +17,8 @@ int main(void) {
 
     uint64_t *p3 = mp_dup(alloc, p2, sizeof(*p2));
     expect_eq(*p3, (size_t) 69, "%zu");
-    mp_free(alloc, p2, sizeof(*p2));
-    mp_free(alloc, p3, sizeof(*p3));
+    mp_free(alloc, p2);
+    mp_free(alloc, p3);
 
     {
         int *ptr = mp_make(alloc, int);
@@ -28,8 +28,8 @@ int main(void) {
         int *ptr_clone = mp_clone(alloc, int, ptr);
         expect_eq(*ptr_clone, 69, "%d");
 
-        mp_deinit(alloc, int, ptr_clone);
-        mp_deinit(alloc, int, ptr);
+        mp_deinit(alloc, ptr_clone);
+        mp_deinit(alloc, ptr);
     }
 
     return 0;

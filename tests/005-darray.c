@@ -9,25 +9,25 @@ mp_da_typedef(int32_t, Da_Int32);
 int main(void) {
     mp_Alloc alloc = mp_heap_alloc();
 
-
     Da_Int32 array;
     mp_da_init(Da_Int32, &array, alloc);
     expect_eq(array.__da_item_size, sizeof(int32_t), "%zu");
 
     // Append test
-    mp_da_append(&array, 0);
+    mp_append(&array, 0);
     expect_eq(array.len, (size_t) 1, "%zu");
     expect_eq(array.cap, (size_t) __MP_DARRAY_INIT_CAPACITY, "%zu");
     expect_eq(mp_get(&array, 0), (int32_t) 0, "%d");
 
     // Realloc test
     for (int32_t i = 1; i < __MP_DARRAY_INIT_CAPACITY + 1; ++i) {
-        mp_da_append(&array, i);
+        mp_append(&array, i);
     }
     expect_eq(array.len, (size_t) __MP_DARRAY_INIT_CAPACITY + 1, "%zu");
     expect_eq(array.cap, (size_t) __MP_DARRAY_INIT_CAPACITY * 2, "%zu");
 
     // Pop test
+    expect_eq(mp_da_last(&array), (int32_t) __MP_DARRAY_INIT_CAPACITY, "%d");
     expect_eq(mp_da_pop(&array), (int32_t) __MP_DARRAY_INIT_CAPACITY, "%d");
     expect_eq(array.len, (size_t) __MP_DARRAY_INIT_CAPACITY, "%zu");
 
@@ -41,7 +41,7 @@ int main(void) {
 
     // Reset test
     mp_da_reset(&array);
-    mp_da_append(&array, 0);
+    mp_append(&array, 0);
     expect_eq(array.len, (size_t) 1, "%zu");
     expect_eq(mp_get(&array, 0), (int32_t) 0, "%d");
     expect_eq(array.cap, (size_t) __MP_DARRAY_INIT_CAPACITY * 2 * 2, "%zu");
@@ -55,7 +55,7 @@ int main(void) {
     expect_eq(array2.cap, (size_t) __MP_DARRAY_INIT_CAPACITY + 1, "%zu");
     expect(mp_da_eq(&array, &array2));
     int32_t eq[1] = { 0 };
-    expect(mp_da_eq_a(&array2, eq, sizeof(eq)));
+    expect(mp_da_eqa(&array2, eq, sizeof(eq)));
 
     mp_da_deinit(&array);
 
@@ -98,7 +98,7 @@ int main(void) {
     // Append many test
     Da_Int32 array3;
     mp_da_init(Da_Int32, &array3, alloc);
-    mp_da_append_many(&array3, 69, 420, 67, 13, 37);
+    mp_appendm(&array3, 69, 420, 67, 13, 37);
     mp_da_insert_many(&array3, 2, 10, 20);
     expect_eq(array3.len, (size_t) 7, "%zu");
 
@@ -126,7 +126,7 @@ int main(void) {
 
     // Quick initialization
     Da_Int32 array4;
-    mp_da_init_with(Da_Int32, &array4, alloc, 1, 2, 3, 4, 5);
+    mp_da_with(Da_Int32, &array4, alloc, 1, 2, 3, 4, 5);
     expect_eq(array4.len, (size_t) 5, "%zu");
     expect_eq(mp_get(&array4, 0), (int32_t) 1, "%d");
     expect_eq(mp_get(&array4, 1), (int32_t) 2, "%d");

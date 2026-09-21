@@ -16,7 +16,7 @@ int main(void) {
     expect_eq(sb.len, (size_t) 16, "%zu");
     expect_streq_mp_s(sb, "Hello, World! 67");
 
-    mp_da_append(&sb, (char) 10);
+    mp_append(&sb, (char) 10);
     expect_eq(sb.len, (size_t) 17, "%zu");
     expect_streq_mp_s(sb, "Hello, World! 67\n");
 
@@ -28,19 +28,26 @@ int main(void) {
 
     mp_sb_deinit(&sb);
 
-    mp_sb_init_with(&sb, mp_str("hello"), alloc);
+    mp_sb_with(&sb, mp_str("hello"), alloc);
     expect_eq(sb.len, (size_t) 5, "%zu");
     expect_eq(sb.cap, (size_t) 5, "%zu");
     expect_streq_mp_s(sb, "hello");
 
     mp_sb_deinit(&sb);
 
-    mp_sb_init_withf(&sb, alloc, "hello %d", 13);
+    mp_sb_withf(&sb, alloc, "hello %d", 13);
     expect_eq(sb.len, (size_t) 8, "%zu");
     expect_eq(sb.cap, (size_t) 9, "%zu");
     expect_streq_mp_s(sb, "hello 13");
 
-    mp_sb_deinit(&sb);
+    mp_String string1 = mp_sb_clone_to_string(&sb, alloc);
+    mp_String string2 = mp_sb_string(&sb);
+    expect_eq(string1.len, (size_t) 8, "%zu");
+    expect_eq(string2.len, (size_t) 8, "%zu");
+    expect_streq_mp_s(string1, "hello 13");
+    expect_streq_mp_s(string2, "hello 13");
+    mp_string_deinit(&string2, alloc);
+    mp_string_deinit(&string1, alloc);
 
     return 0;
 

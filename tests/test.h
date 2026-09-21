@@ -55,7 +55,7 @@
 
 #define expect_streq_mp(a, b)                                                                      \
     do {                                                                                           \
-        if (!mp_str_eq((a), (b))) {                                                                \
+        if ((a).len != (b).len || memcmp((a).data, (b).data, (a).len) != 0) {                      \
             elogf("Expected `a == b`, got\n\ta = `%.*s`\n\tb = `%.*s`", mp_str_print(a),           \
                   mp_str_print(b));                                                                \
             goto fail;                                                                             \

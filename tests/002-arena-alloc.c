@@ -11,7 +11,7 @@
 int main(void) {
     mp_Arena arena;
     // We assume the default size would just work
-    mp_arena_init_s(&arena, mp_heap_alloc(), INIT_SIZE);
+    mp_arena_inits(&arena, mp_heap_alloc(), INIT_SIZE);
     mp_Alloc alloc = mp_arena_alloc(&arena);
 
     // First allocation
