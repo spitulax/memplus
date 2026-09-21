@@ -70,9 +70,9 @@ int main(void) {
 
             mp_Path path;
             #ifdef __MP_SYSTEM_WINDOWS
-            expect(mp_path_init_parse(&path, mp_str(t->path_str_win), mp_heap()));
+            expect(mp_path_parse(&path, mp_str(t->path_str_win), mp_heap()));
             #else
-            expect(mp_path_init_parse(&path, mp_str(t->path_str_posix), mp_heap()));
+            expect(mp_path_parse(&path, mp_str(t->path_str_posix), mp_heap()));
             #endif
 
             expect_eq(path.absolute, (bool) t->expected_absolute, "%d");
@@ -91,7 +91,7 @@ int main(void) {
 
     {
         mp_Path path;
-        expect(mp_path_init_parse(&path, mp_str("."), mp_heap()));
+        expect(mp_path_parse(&path, mp_str("."), mp_heap()));
         expect(mp_path_canonicalize(&path));
 
         mp_Path cur_dir;

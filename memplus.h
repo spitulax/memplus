@@ -3585,9 +3585,9 @@ typedef struct {
 
 void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc);
 
-bool mp_path_init_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc);
+bool mp_path_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc);
 
-bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc);
+bool mp_path_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc);
 
 mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc);
 
@@ -5440,11 +5440,11 @@ void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc) {
     }
 }
 
-bool mp_path_init_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc) {
-    return mp_path_init_parse_sep(path, str_path, __MP_PATH_SEP, alloc);
+bool mp_path_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc) {
+    return mp_path_parse_sep(path, str_path, __MP_PATH_SEP, alloc);
 }
 
-bool mp_path_init_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc) {
+bool mp_path_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc) {
     mp_path_init(path, false, alloc);
 
     if (!mp_path_append_parse_sep(path, str_path, sep)) {
@@ -5647,7 +5647,7 @@ mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
         if ((cwd = getcwd(NULL, 0)) == NULL) {
             return mp_err(errno);
         }
-        if (!mp_path_init_parse(ret, mp_str(cwd), alloc)) {
+        if (!mp_path_parse(ret, mp_str(cwd), alloc)) {
             free(cwd);
             return MP_ERR_CANNOT_ALLOC;
         }
@@ -5671,7 +5671,7 @@ mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
 
         mp_Str cwd_mp = mp_str_from_tchar(cwd, alloc);
 
-        if (!mp_path_init_parse(ret, cwd_mp, alloc)) {
+        if (!mp_path_parse(ret, cwd_mp, alloc)) {
             return MP_ERR_CANNOT_ALLOC;
         }
 
