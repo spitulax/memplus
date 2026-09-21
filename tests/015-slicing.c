@@ -37,10 +37,8 @@ fail:
 mp_da_typedef(int, DaInt);
 
 int main(void) {
-    mp_talloc();
-
     DaInt d_arr;
-    mp_da_with(DaInt, &d_arr, talloc, 0, 1, 2, 3, 4);
+    mp_da_with(DaInt, &d_arr, mp_heap(), 0, 1, 2, 3, 4);
     int c_arr[] = { 0, 1, 2, 3, 4 };
 
     expect_da_arr_eq(d_arr, c_arr, "%d");
@@ -57,6 +55,8 @@ int main(void) {
 
     expect(test_array(mp_sliceb(&d_arr, 2), (int[]) { 2, 3, 4 }, 3));
     expect(test_array(mp_slicec(c_arr, 2, mp_lenc(c_arr)), (int[]) { 2, 3, 4 }, 3));
+
+    mp_da_deinit(&d_arr);
 
     return 0;
 

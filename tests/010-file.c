@@ -5,19 +5,16 @@
 int main(void) {
     // File read
     {
-        mp_talloc();
-
         mp_String text;
-        mp_Err    err = mp_file_read(&text, "010-file/.hello.txt", talloc);
+        mp_Err    err = mp_file_read(&text, "010-file/.hello.txt", mp_heap());
         expect_erreq(err, MP_OK, mp_err_str);
         expect_eq(text.len, (size_t) 14, "%zu");
         expect_streq(text.data, "Hello, World!\n");
+        mp_string_deinit(&text, mp_heap());
     }
 
     // File create, write, delete
     {
-        mp_talloc();
-
         mp_Err      err;
         const char *path = ".foo.txt";
         mp_Str      data = mp_str("Foobarbazquux");
@@ -31,16 +28,18 @@ int main(void) {
         expect_erreq(err, MP_OK, mp_err_str);
 
         mp_String text;
-        err = mp_file_read(&text, path, talloc);
+        err = mp_file_read(&text, path, mp_heap());
         expect_erreq(err, MP_OK, mp_err_str);
         expect_streq(text.data, "Foobarbazquux");
+        mp_string_deinit(&text, mp_heap());
 
         err = mp_file_write(path, mp_arr(&data), true);
         expect_erreq(err, MP_OK, mp_err_str);
 
-        err = mp_file_read(&text, path, talloc);
+        err = mp_file_read(&text, path, mp_heap());
         expect_erreq(err, MP_OK, mp_err_str);
         expect_streq(text.data, "FoobarbazquuxFoobarbazquux");
+        mp_string_deinit(&text, mp_heap());
 
         err = mp_file_delete(path);
         expect_erreq(err, MP_OK, mp_err_str);
