@@ -1,0 +1,3 @@
+Checks: >
+  -*, bugprone-*, modernize-*, -bugprone-reserved-identifier,
+  -bugprone-easily-swappable-parameters

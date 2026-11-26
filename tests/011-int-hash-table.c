@@ -1,5 +1,5 @@
 #define MEMPLUS_IMPLEMENTATION
-#define __MP_HASH_TABLE_MAX_LOAD 1    // test when any conflict arises
+#define __MP_HASH_TABLE_MAX_LOAD 1uL    // test when any conflict arises
 #include "memplus.h"
 #include "test.h"
 
@@ -56,7 +56,7 @@ int main(void) {
     mp_hti_reset(&ht);
 
     // Realloc test
-    for (int i = 0; i < __MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
+    for (int i = 0; i < (int) (__MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1); ++i) {
         mp_hiset(&ht, (size_t) i * 2, i);
     }
 

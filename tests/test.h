@@ -7,14 +7,13 @@
 #define RESET "\033[0m"
 
 #ifdef QUIET
-    #define logf(fmt, ...)
-    #define logfn(fmt, ...)
+#define logf(fmt, ...)
+#define logfn(fmt, ...)
 #else
-    #define logf(fmt, ...)                                                                         \
-        printf("%s:%s():%d: " fmt "\n", __FILE__, __func__, __LINE__, __VA_ARGS__);
-    #define logs(str)       logf("%s", (str))
-    #define logfn(fmt, ...) printf(fmt, __VA_ARGS__);
-    #define logsn(str)      logfn("%s", (str))
+#define logf(fmt, ...)  printf("%s:%s():%d: " fmt "\n", __FILE__, __func__, __LINE__, __VA_ARGS__);
+#define logs(str)       logf("%s", (str))
+#define logfn(fmt, ...) printf(fmt, __VA_ARGS__);
+#define logsn(str)      logfn("%s", (str))
 #endif
 
 #define elogf(fmt, ...)                                                                            \

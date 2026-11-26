@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define MEMPLUS_IMPLEMENTATION
-#define __MP_HASH_TABLE_MAX_LOAD 1    // test when any conflict arises
+#define __MP_HASH_TABLE_MAX_LOAD 1uL    // test when any conflict arises
 #include "memplus.h"
 #include "test.h"
 
@@ -64,7 +64,7 @@ int main(void) {
     mp_ht_reset(&ht);
 
     // Realloc test
-    for (int i = 0; i < __MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1; ++i) {
+    for (int i = 0; i < (int) (__MP_HASH_TABLE_INIT_CAPACITY * __MP_HASH_TABLE_MAX_LOAD + 1); ++i) {
         mp_Sb key;
         mp_sb_withf(&key, talloc, "key_%d", i);
         mp_hsets(&ht, mp_sb_str(&key), i);

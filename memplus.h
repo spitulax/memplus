@@ -684,8 +684,10 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
 
 // Starting capacity of a dynamic array.
 #ifndef __MP_DARRAY_INIT_CAPACITY
-#define __MP_DARRAY_INIT_CAPACITY 64
+#define __MP_DARRAY_INIT_CAPACITY 64uL
 #endif
+
+// NOLINTBEGIN(bugprone-macro-parentheses)
 
 /**
  * \brief Defines a \ref DynamicArray "dynamic array" struct holding data of type \a type.
@@ -710,6 +712,8 @@ void *mp_alloc_handle_realloc(mp_Alloc alloc, void *old_ptr, size_t old_size, si
         type    *data;                                                                             \
         size_t   __da_item_size;                                                                   \
     }
+
+// NOLINTEND(bugprone-macro-parentheses)
 
 // Generic dynamic array type.
 typedef struct {
@@ -821,7 +825,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
 #define mp_da_append_array(/* Dyn_Array* */ a, /* Type* */ items, /* size_t */ items_len)          \
     do {                                                                                           \
         (void) (a)->__da_item_size;                                                                \
-        __MP_TYPEOF(*items) *__items = (items);                                                    \
+        __MP_TYPEOF(*(items)) *__items = (items);                                                  \
         __MP_ASSERT_MSG(sizeof(*__items) == (a)->__da_item_size,                                   \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_append((a), __items, (items_len));                                                 \
@@ -853,7 +857,7 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  * \return (Type *) pointer to item at \a i
  */
 #define /* Type* */ mp_da_getp(/* const Dyn_Array */ a, /* size_t */ i)                            \
-    ((void) (a)->__da_item_size, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + i)
+    ((void) (a)->__da_item_size, __MP_BOUNDS_CHECK((i), (a)->len), (a)->data + (i))
 
 // Generic dynamic array get function
 #define __mp_da_get(type, a, i) (type *) ((char *) (a)->data + (i) * (a)->__da_item_size)
@@ -1043,7 +1047,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
                            /* size_t */ items_len)                                                 \
     do {                                                                                           \
         (void) (a)->__da_item_size;                                                                \
-        __MP_TYPEOF(*items) *__items = (items);                                                    \
+        __MP_TYPEOF(*(items)) *__items = (items);                                                  \
         __MP_ASSERT_MSG(sizeof(*__items) == (a)->__da_item_size,                                   \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_insert((a), (pos), (items), (items_len));                                          \
@@ -1105,7 +1109,7 @@ void __mp_da_insert(void *a, size_t pos, const void *items, size_t items_len);
 #define mp_da_move(/* Dyn_Array* */ a, /* size_t */ pos, /* size_t */ len, /* Type* */ dest)       \
     do {                                                                                           \
         (void) (a)->__da_item_size;                                                                \
-        __MP_TYPEOF(*dest) *__dest = (dest);                                                       \
+        __MP_TYPEOF(*(dest)) *__dest = (dest);                                                     \
         __MP_ASSERT_MSG(sizeof(*__dest) == (a)->__da_item_size,                                    \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_move((a), (pos), __dest, (len));                                                   \
@@ -1131,7 +1135,7 @@ void __mp_da_move(void *a, size_t pos, void *ret_items, size_t items_len);
 #define mp_da_quick_move(/* Dyn_Array* */ a, /* size_t */ pos, /* Type* */ dest)                   \
     do {                                                                                           \
         (void) (a)->__da_item_size;                                                                \
-        __MP_TYPEOF(*dest) *__dest = (dest);                                                       \
+        __MP_TYPEOF(*(dest)) *__dest = (dest);                                                     \
         __MP_ASSERT_MSG(sizeof(*__dest) == (a)->__da_item_size,                                    \
                         "The size of each item(s) provided does not match the array's item size"); \
         __mp_da_quick_move((a), (pos), __dest);                                                    \
@@ -1667,6 +1671,8 @@ mp_String mp_sb_clone_to_string(const mp_Sb *sb, mp_Alloc alloc);
 #define __MP_HASH_TABLE_INIT_CAPACITY __MP_DARRAY_INIT_CAPACITY
 #endif
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
+
 /**
  * \brief Defines a \ref HashTableString "hash table (string key)" struct with value of type \a
  * value_type.
@@ -1706,6 +1712,8 @@ mp_String mp_sb_clone_to_string(const mp_Sb *sb, mp_Alloc alloc);
         size_t      __da_item_size;                                                                \
         size_t      __ht_val_size;                                                                 \
     }
+
+// NOLINTEND(bugprone-macro-parentheses)
 
 // Generic string hash table type.
 typedef struct {
@@ -2311,6 +2319,8 @@ struct __mp_Str_Set_Iter {
  * \{
  */
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
+
 /**
  * \brief Defines an \ref HashTableInt "hash table (integer key)" struct with value of type \a
  * value_type.
@@ -2350,6 +2360,8 @@ struct __mp_Str_Set_Iter {
         size_t      __da_item_size;                                                                \
         size_t      __hti_val_size;                                                                \
     }
+
+// NOLINTEND(bugprone-macro-parentheses)
 
 // Generic int hash table type.
 typedef struct {
@@ -2768,7 +2780,7 @@ struct __mp_Int_Set_Iter {
  * The value will be aligned to the nearest multiple of `sizeof(uintptr_t)`.
  */
 #ifndef __MP_REGION_DEFAULT_SIZE
-#define __MP_REGION_DEFAULT_SIZE (64 * 1024)
+#define __MP_REGION_DEFAULT_SIZE (64uL * 1024)
 #endif
 
 /**
@@ -3758,7 +3770,7 @@ mp_Err mp_file_delete(const char *file_path);
  *
  * \param a (const? Any *) non-decayed C array (no side effects)
  */
-#define mp_arrc(/* const? Any* */ a) (a), sizeof(a) / sizeof(*a)
+#define mp_arrc(/* const? Any* */ a) (a), sizeof(a) / sizeof(*(a))
 
 /**
  * \brief Passes a slice to \a a.
@@ -3851,8 +3863,8 @@ mp_Err mp_file_delete(const char *file_path);
  * \param item (identifier) name of the item variable (Type *)
  */
 #define MP_DA_BEGIN(/* Dyn_Array* */ a, /* identifier */ idx, /* identifier */ item)               \
-    for (size_t idx = 0; idx < (a)->len; ++idx) {                                                  \
-        __MP_TYPEOF((a)->data) item = (a)->data + idx;
+    for (size_t idx = 0; (idx) < (a)->len; ++(idx)) {                                              \
+        __MP_TYPEOF((a)->data)(item) = (a)->data + (idx);
 
 /**
  * \brief Shortcut for looping over a \ref HashTableString "string hash table".
@@ -3875,10 +3887,10 @@ mp_Err mp_file_delete(const char *file_path);
 #define MP_HT_BEGIN(/* "HtType" */ type, /* Str_Hash_Table* */ ht, /* identifier */ iter,          \
                     /* identifier */ k, /* identifier */ v)                                        \
     type##_Iter iter;                                                                              \
-    mp_ht_iter_init(&iter, (ht));                                                                  \
-    while (mp_ht_iter_next(&iter)) {                                                               \
-        __MP_TYPEOF(iter.key) k = iter.key;                                                        \
-        __MP_TYPEOF(iter.val) v = iter.val;
+    mp_ht_iter_init(&(iter), (ht));                                                                \
+    while (mp_ht_iter_next(&(iter))) {                                                             \
+        __MP_TYPEOF((iter).key)(k) = (iter).key;                                                   \
+        __MP_TYPEOF((iter).val)(v) = (iter).val;
 
 /**
  * \brief Shortcut for looping over a \ref HashSetString "string hash set".
@@ -3897,9 +3909,9 @@ mp_Err mp_file_delete(const char *file_path);
  */
 #define MP_HS_BEGIN(/* mp_Str_Set* */ hs, /* identifier */ iter, /* identifier */ k)               \
     mp_Str_Set_Iter iter;                                                                          \
-    mp_ht_iter_init(&iter, (hs));                                                                  \
-    while (mp_ht_iter_next(&iter)) {                                                               \
-        __MP_TYPEOF(iter.key) k = iter.key;
+    mp_ht_iter_init(&(iter), (hs));                                                                \
+    while (mp_ht_iter_next(&(iter))) {                                                             \
+        __MP_TYPEOF((iter).key)(k) = (iter).key;
 
 /**
  * \brief Ends loop shortcut blocks.
@@ -3935,8 +3947,8 @@ mp_Err mp_file_delete(const char *file_path);
 #define __MP_MIN(a, b)          ((a) < (b) ? (a) : (b))
 #define __MP_ASSERT_OVERLAP(a, a_len, b, b_len)                                                    \
     do {                                                                                           \
-        uintptr_t _a = (uintptr_t) a;                                                              \
-        uintptr_t _b = (uintptr_t) b;                                                              \
+        uintptr_t _a = (uintptr_t) (a);                                                            \
+        uintptr_t _b = (uintptr_t) (b);                                                            \
         if (__MP_MAX((_a), (_b)) < __MP_MIN((_a) + (a_len), (_b) + (b_len))) {                     \
             __MP_ASSERT_MSG(0, "Memory overlaps");                                                 \
         }                                                                                          \
@@ -5790,8 +5802,8 @@ bool mp_path_canonicalize(mp_Path *path) {
 mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
     #if defined(__MP_SYSTEM_POSIX)
     {
-        char *cwd;
-        if ((cwd = getcwd(NULL, 0)) == NULL) {
+        char *cwd = getcwd(NULL, 0);
+        if (cwd == NULL) {
             return mp_err(errno);
         }
         if (!mp_path_parse(ret, mp_str(cwd), alloc)) {

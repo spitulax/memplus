@@ -13,7 +13,7 @@ void test(mp_Alloc alloc, mp_Temp *arena) {
     expect_eq(arena->len, (size_t) align(10), "%zu");
 
     // Too big for this
-    void *failed = mp_alloc(alloc, 64 * 1024);
+    void *failed = mp_alloc(alloc, 64uL * 1024);
     expect_eq(failed, NULL, "%p");
     expect_eq(arena->len, (size_t) align(10), "%zu");
 

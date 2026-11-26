@@ -20,7 +20,7 @@ int main(void) {
     expect_eq(mp_get(&array, 0), (int32_t) 0, "%d");
 
     // Realloc test
-    for (int32_t i = 1; i < __MP_DARRAY_INIT_CAPACITY + 1; ++i) {
+    for (int32_t i = 1; i < (int32_t) __MP_DARRAY_INIT_CAPACITY + 1; ++i) {
         mp_append(&array, i);
     }
     expect_eq(array.len, (size_t) __MP_DARRAY_INIT_CAPACITY + 1, "%zu");
