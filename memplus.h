@@ -3621,7 +3621,9 @@ typedef struct {
     bool               absolute;
 
     #ifdef __MP_SYSTEM_WINDOWS
-    char drive;    // DOCS: always uppercase, implies absolute, '\' for UNC
+    // DOCS: Always uppercase. Always zero if absolute is false
+    // In UNC path, drive is 0 but absolute is true
+    char drive;
     #endif
 } mp_Path;
 
@@ -3629,9 +3631,8 @@ typedef struct {
 
 void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc);
 
+// DOCS: Treats both '/' and '\' as separator in all OS
 bool mp_path_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc);
-
-bool mp_path_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc);
 
 mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc);
 
@@ -3645,12 +3646,12 @@ bool mp_path_eq(const mp_Path *a, const mp_Path *b);
 
 bool mp_path_append(mp_Path *path, mp_Str str_path);
 
+// DOCS: Treats both '/' and '\' as separator in all OS
 bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
-
-bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep);
 
 // DOCS: If failed, the contents of path should not change
 // Only works for existing files
+// TODO: Custom algorithm instead of relying on system functions?
 bool mp_path_canonicalize(mp_Path *path);
 
 // TODO: mp_path_relativize
@@ -5514,13 +5515,9 @@ void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc) {
 }
 
 bool mp_path_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc) {
-    return mp_path_parse_sep(path, str_path, __MP_PATH_SEP, alloc);
-}
-
-bool mp_path_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc) {
     mp_path_init(path, false, alloc);
 
-    if (!mp_path_append_parse_sep(path, str_path, sep)) {
+    if (!mp_path_append_parse(path, str_path)) {
         return false;
     }
 
@@ -5620,20 +5617,27 @@ bool mp_path_append(mp_Path *path, mp_Str str_path) {
     return true;
 }
 
-bool mp_path_append_parse(mp_Path *path, mp_Str str_path) {
-    return mp_path_append_parse_sep(path, str_path, __MP_PATH_SEP);
-}
+#define is_sep(ch) ((ch) == '/' || (ch) == '\\')
 
-bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep) {
+bool mp_path_append_parse(mp_Path *path, mp_Str str_path) {
     const char *it_start = str_path.data;
     const char *it_end   = it_start + str_path.len;
 
     #ifdef __MP_SYSTEM_WINDOWS
     {
-        if (it_start[0] == '\\' && it_start[1] == '\\') {
+        if (is_sep(it_start[0])) {
             path->absolute = true;
-            path->drive    = it_start[0];
-            it_start += 2;
+            if (is_sep(it_start[1])) {    // UNC path
+                path->drive = '\0';
+                it_start += 2;
+            } else {
+                int drive = _getdrive();
+                if (drive > 0) {
+                    drive = 'A' + drive - 1;
+                }
+                path->drive = (char) drive;
+                it_start += 1;
+            }
         } else if (it_start[1] == ':') {
             path->absolute = true;
             path->drive    = it_start[0];
@@ -5652,7 +5656,7 @@ bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep) {
     size_t comp_len = 0;
     size_t comps    = 0;
     for (const char *it = it_start; it < it_end + 1; ++it) {
-        if (*it == sep || it == it_end) {
+        if (is_sep(*it) || it == it_end) {
             if (comp_len == 0) {
                 continue;
             }
@@ -5671,7 +5675,7 @@ bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep) {
     comp_len               = 0;
     const char *comp_start = it_start;
     for (const char *it = it_start; it < it_end + 1; ++it) {
-        if (*it == sep || it == it_end) {
+        if (is_sep(*it) || it == it_end) {
             if (comp_len == 0) {
                 comp_start = it + 1;
                 continue;
@@ -5689,6 +5693,8 @@ bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep) {
 
     return true;
 }
+
+#undef is_sep
 
 bool mp_path_canonicalize(mp_Path *path) {
     bool ret = true;
@@ -5712,7 +5718,7 @@ bool mp_path_canonicalize(mp_Path *path) {
         }
 
         mp_Path new_path;
-        bool result = mp_path_parse_sep(&new_path, mp_str(resolved_path), '/', path->comps.alloc);
+        bool    result = mp_path_parse(&new_path, mp_str(resolved_path), path->comps.alloc);
         if (!result) {
             ret = false;
             goto defer;
@@ -5773,7 +5779,7 @@ bool mp_path_canonicalize(mp_Path *path) {
         }
 
         mp_Path new_path;
-        bool    res = mp_path_parse_sep(&new_path, mp_strv(resolved_path_string), '\\', alloc);
+        bool    res = mp_path_parse(&new_path, mp_strv(resolved_path_string), alloc);
         if (!res) {
             ret = false;
             goto defer;

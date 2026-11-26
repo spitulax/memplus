@@ -30,8 +30,8 @@ int main(void) {
                      .expected_absolute = 0,
                      },
         (Path_Test) {
-                     .path_str_posix    = "foo/bar/",
-                     .path_str_win      = "foo\\bar\\",
+                     .path_str_posix    = "foo\\bar\\",
+                     .path_str_win      = "foo/bar/",
                      .expected_comps    = (const char *[]) { "foo", "bar", NULL },
                      .expected_absolute = 0,
                      },
@@ -63,6 +63,32 @@ int main(void) {
 
         mp_path_deinit(&path);
     }
+
+    #ifdef __MP_SYSTEM_WINDOWS
+    {
+        mp_Path path;
+
+        mp_path_parse(&path, mp_str("C:\\"), mp_heap());
+        expect(path.absolute);
+        expect_eq(path.drive, 'C', "%c");
+        mp_path_deinit(&path);
+
+        mp_path_parse(&path, mp_str("\\\\"), mp_heap());
+        expect(path.absolute);
+        expect_eq(path.drive, 0, "%c");
+        mp_path_deinit(&path);
+
+        mp_path_parse(&path, mp_str("\\"), mp_heap());
+        expect(path.absolute);
+        expect_ne(path.drive, 0, "%c");
+        mp_path_deinit(&path);
+
+        mp_path_parse(&path, mp_str("."), mp_heap());
+        expect(!path.absolute);
+        expect_eq(path.drive, 0, "%c");
+        mp_path_deinit(&path);
+    }
+    #endif
 
     {
         for (size_t i = 0; i < mp_arr_len(path_tests); ++i) {
