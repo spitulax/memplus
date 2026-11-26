@@ -5568,10 +5568,9 @@ mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc) {
 }
 
 mp_String mp_path_string_deinit(mp_Path *path, mp_Alloc alloc) {
-    (void) path;
-    (void) alloc;
-    // TODO: mp_path_string_deinit
-    __MP_TODO("mp_path_string: mp_path_clone_to_string but frees path");
+    mp_String path_string = mp_path_string(path, alloc);
+    mp_path_deinit(path);
+    return path_string;
 }
 
 void mp_path_deinit(mp_Path *path) {
