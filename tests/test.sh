@@ -2,6 +2,8 @@
 
 set -uo pipefail
 
+cd "$(dirname $0)"
+
 # Env vars
 QUIET=${QUIET:-}
 WINDOWS=${WINDOWS:-}

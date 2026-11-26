@@ -98,8 +98,12 @@
 // Windows
 #elif defined(_WIN32)
     #define __MP_SYSTEM_WINDOWS
-    #include <tchar.h>
+    // windows.h must be first
     #include <windows.h>
+
+    #if true    // makes sure these includes are not reordered by clang-format
+    #include <tchar.h>
+    #endif
 
 #else
     #error "Unsupported system."
@@ -1349,6 +1353,29 @@ bool mp_str_eq(mp_Str a, mp_Str b);
  * failed
  */
 mp_String mp_string_from_tchar(const TCHAR *str, mp_Alloc alloc);
+
+/**
+ * \brief Allocates copy of UTF-8 string \a str as null-terminated WCHAR string with \a alloc.
+ *
+ * Deinit with \ref mp_deinit.
+ *
+ * \param str UTF-8 string
+ * \param alloc allocator for the copy
+ * \return allocated null-terminated WCHAR copy of \a str, NULL if allocation failed
+ */
+LPWSTR mp_wstr_from_str(mp_Str str, mp_Alloc alloc);
+
+/**
+ * \brief Allocates copy of null-terminated WCHAR \a str as UTF-8 string with \a alloc.
+ *
+ * Converts \a str into null-terminated UTF-8 string.
+ *
+ * \param str null-terminated WCHAR string
+ * \param alloc allocator for the copy
+ * \return allocated UTF-8 copy of \a str, \ref mp_string_invalid "invalid string" if allocation
+ * failed
+ */
+mp_String mp_wstr_to_string(const WCHAR *str, mp_Alloc alloc);
 #endif
 
 // TODO: String functions:
@@ -1507,7 +1534,7 @@ mp_String mp_sb_string(mp_Sb *sb);
  * \return \ref mp_String clone of \a sb, \ref mp_string_invalid "invalid string" if allocation
  * failed
  */
-mp_String mp_sb_clone_to_string(mp_Sb *sb, mp_Alloc alloc);
+mp_String mp_sb_clone_to_string(const mp_Sb *sb, mp_Alloc alloc);
 
 // TODO: Sb functions:
 // - mp_sb_concat
@@ -3565,6 +3592,8 @@ const char *mp_err_str(mp_Err e);
     #define __MP_PATH_SEP '/'
 #endif
 
+// DOCS: File path
+
 /**
  * \defgroup Path File Path
  *
@@ -3584,6 +3613,8 @@ typedef struct {
     #endif
 } mp_Path;
 
+// TODO: Convert bool error to enum error?
+
 void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc);
 
 bool mp_path_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc);
@@ -3591,6 +3622,8 @@ bool mp_path_parse(mp_Path *path, mp_Str str_path, mp_Alloc alloc);
 bool mp_path_parse_sep(mp_Path *path, mp_Str str_path, char sep, mp_Alloc alloc);
 
 mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc);
+
+mp_String mp_path_string_deinit(mp_Path *path, mp_Alloc alloc);
 
 void mp_path_deinit(mp_Path *path);
 
@@ -4112,37 +4145,57 @@ bool mp_str_eq(mp_Str a, mp_Str b) {
 
 #ifdef __MP_SYSTEM_WINDOWS
 mp_String mp_string_from_tchar(const TCHAR *str, mp_Alloc alloc) {
-    size_t len = _tcslen(str);
+    #ifdef UNICODE
+    { return mp_wstr_to_string(str, alloc); }
+    #else
+    {
+        return mp_string_from(mp_str(str), alloc);
+    }
+    #endif
+}
+
+LPWSTR mp_wstr_from_str(mp_Str str, mp_Alloc alloc) {
+    int size = MultiByteToWideChar(CP_UTF8, 0, str.data, (int) str.len, NULL, 0);
+    if (size == 0) {
+        return NULL;
+    }
+    LPWSTR buf = mp_make_array(alloc, WCHAR, size + 1);
+    if (buf == NULL) {
+        return NULL;
+    }
+    memset(buf + size, 0, sizeof(WCHAR));
+    size = MultiByteToWideChar(CP_UTF8, 0, str.data, (int) str.len, buf, size);
+    if (size == 0) {
+        return NULL;
+    }
+
+    return buf;
+}
+
+mp_String mp_wstr_to_string(const WCHAR *str, mp_Alloc alloc) {
+    size_t len = wcslen(str);
     if (len == 0) {
         return mp_string_invalid();
     }
 
-    #ifdef UNICODE
-    {
-        int size = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, NULL, 0, NULL, NULL);
-        if (size == 0) {
-            return mp_string_invalid();
-        }
-        char *buf = mp_make_array(alloc, char, size + 1);
-        if (buf == NULL) {
-            return mp_string_invalid();
-        }
-        buf[size] = '\0';
-        size      = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, buf, size, NULL, NULL);
-        if (size == 0) {
-            return mp_string_invalid();
-        }
+    int size = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, NULL, 0, NULL, NULL);
+    if (size == 0) {
+        return mp_string_invalid();
+    }
+    char *buf = mp_make_array(alloc, char, size + 1);
+    if (buf == NULL) {
+        return mp_string_invalid();
+    }
+    buf[size] = '\0';
+    size      = WideCharToMultiByte(CP_UTF8, 0, str, (int) len, buf, size, NULL, NULL);
+    if (size == 0) {
+        return mp_string_invalid();
+    }
 
-        return (mp_String) {
-            .data = buf,
-            .len  = size,
-        };
-    }
-    #else
-    {
-        return mp_string_from(mp_strs(str, len), alloc);
-    }
-    #endif
+    return (mp_String) {
+        .data = buf,
+        .len  = size,
+    };
 }
 #endif
 
@@ -4220,7 +4273,7 @@ mp_String mp_sb_string(mp_Sb *sb) {
     return ret;
 }
 
-mp_String mp_sb_clone_to_string(mp_Sb *sb, mp_Alloc alloc) {
+mp_String mp_sb_clone_to_string(const mp_Sb *sb, mp_Alloc alloc) {
     char *cloned = mp_make_array(alloc, char, sb->len + 1);
     if (cloned == NULL) {
         return mp_string_invalid();
@@ -5370,11 +5423,11 @@ const char *mp_err_str(mp_Err e) {
         case MP_ERR_STALE_FILE_HANDLE:   return "Stale file handle";
 
         #if defined(__MP_SYSTEM_LINUX)
-        case MP_ERR_ACCESS_CORRUPT_LIB:       return "Accessing a corrupted shared library";
-        case MP_ERR_ACCESS_TOO_MANY_LIBS:     return "Attempting to link in too many shared libraries";
-        case MP_ERR_BLOCK_DEVICE_REQUIRED:    return "Block device required";
-        case MP_ERR_CANNOT_ACCESS_LIB:        return "Cannot access a needed shared library";
-        case MP_ERR_CANNOT_EXEC_LIB:          return "Cannot exec a shared library directly";
+        case MP_ERR_ACCESS_CORRUPT_LIB:    return "Accessing a corrupted shared library";
+        case MP_ERR_ACCESS_TOO_MANY_LIBS:  return "Attempting to link in too many shared libraries";
+        case MP_ERR_BLOCK_DEVICE_REQUIRED: return "Block device required";
+        case MP_ERR_CANNOT_ACCESS_LIB:     return "Cannot access a needed shared library";
+        case MP_ERR_CANNOT_EXEC_LIB:       return "Cannot exec a shared library directly";
         case MP_ERR_CHANNEL_NUM_OUT_OF_RANGE: return "Channel number out of range";
         case MP_ERR_EXCHANGE_FULL:            return "Exchange full";
         case MP_ERR_HOST_IS_DOWN:             return "Host is down";
@@ -5407,14 +5460,14 @@ const char *mp_err_str(mp_Err e) {
         case MP_ERR_PROTO_FAMILY_UNSUPPORTED: return "Protocol family not supported";
         case MP_ERR_REMOTE_ADDR_CHANGED:      return "Remote address changed";
         case MP_ERR_REMOTE_IO_ERR:            return "Remote I/O error";
-        case MP_ERR_SEND_AFTER_SHUTDOWN:      return "Cannot send after transport endpoint shutdown";
-        case MP_ERR_SEND_COMM_ERR:            return "Communication error on send";
-        case MP_ERR_SOCKET_TYPE_UNSUPPORTED:  return "Socket type not supported";
-        case MP_ERR_STREAM_PIPE_ERR:          return "Streams pipe error";
-        case MP_ERR_STRUCT_NEED_CLEANING:     return "Structure needs cleaning";
-        case MP_ERR_TOO_MANY_REFERENCES:      return "Too many references: cannot splice";
-        case MP_ERR_TOO_MANY_USERS:           return "Too many users";
-        case MP_ERR_WRONG_MEDIUM_TYPE:        return "Wrong medium type";
+        case MP_ERR_SEND_AFTER_SHUTDOWN:     return "Cannot send after transport endpoint shutdown";
+        case MP_ERR_SEND_COMM_ERR:           return "Communication error on send";
+        case MP_ERR_SOCKET_TYPE_UNSUPPORTED: return "Socket type not supported";
+        case MP_ERR_STREAM_PIPE_ERR:         return "Streams pipe error";
+        case MP_ERR_STRUCT_NEED_CLEANING:    return "Structure needs cleaning";
+        case MP_ERR_TOO_MANY_REFERENCES:     return "Too many references: cannot splice";
+        case MP_ERR_TOO_MANY_USERS:          return "Too many users";
+        case MP_ERR_WRONG_MEDIUM_TYPE:       return "Wrong medium type";
 
         #endif /* if defined(__MP_SYSTEM_LINUX) */
 
@@ -5500,6 +5553,13 @@ mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc) {
     }
 
     return mp_sb_string(&sb);
+}
+
+mp_String mp_path_string_deinit(mp_Path *path, mp_Alloc alloc) {
+    (void) path;
+    (void) alloc;
+    // TODO: mp_path_string_deinit
+    __MP_TODO("mp_path_string: mp_path_clone_to_string but frees path");
 }
 
 void mp_path_deinit(mp_Path *path) {
@@ -5624,22 +5684,104 @@ bool mp_path_canonicalize(mp_Path *path) {
 
     #if defined(__MP_SYSTEM_POSIX)
     {
-        mp_String path_str      = mp_path_string(path, path->comps.alloc);
-        char     *resolved_path = realpath(path_str.data, NULL);
+        mp_String path_str      = mp_string_invalid();
+        char     *resolved_path = NULL;
+
+        path_str = mp_path_string(path, path->comps.alloc);
+        if (!mp_is_valid(path_str)) {
+            ret = false;
+            goto defer;
+        }
+        resolved_path = realpath(path_str.data, NULL);
+        if (resolved_path == NULL) {
+            ret = false;
+            goto defer;
+        }
         mp_path_reset(path);
-        if (!mp_path_append_parse_sep(path, mp_str(resolved_path), '/')) {
+        bool result = mp_path_append_parse_sep(path, mp_str(resolved_path), '/');
+        if (!result) {
             ret = false;
             goto defer;
         }
 
     defer:
-        free(resolved_path);
-        mp_string_deinit(&path_str, path->comps.alloc);
+        if (resolved_path != NULL) {
+            free(resolved_path);
+        }
+
+        if (mp_is_valid(path_str)) {
+            mp_string_deinit(&path_str, path->comps.alloc);
+        }
+
         return ret;
     }
     #elif defined(__MP_SYSTEM_WINDOWS)
-    // FIXME: mp_path_canonicalize: Windows support
-    { __MP_TODO("mp_path_canonicalize: Windows support."); }
+    {
+        mp_Alloc alloc = path->comps.alloc;
+
+        mp_String path_str             = mp_string_invalid();
+        WCHAR    *path_wstr            = NULL;
+        WCHAR    *resolved_path        = NULL;
+        mp_String resolved_path_string = mp_string_invalid();
+
+        path_str = mp_path_string(path, alloc);
+        if (!mp_is_valid(path_str)) {
+            ret = false;
+            goto defer;
+        }
+        path_wstr = mp_wstr_from_str(mp_strv(path_str), alloc);
+        if (path_wstr == NULL) {
+            ret = false;
+            goto defer;
+        }
+
+        DWORD buf_len = GetFullPathNameW(path_wstr, 0, NULL, NULL);
+        if (buf_len == 0) {
+            ret = false;
+            goto defer;
+        }
+        resolved_path = mp_make_array(alloc, WCHAR, buf_len * sizeof(TCHAR));
+        if (resolved_path == NULL) {
+            ret = false;
+            goto defer;
+        }
+        buf_len = GetFullPathNameW(path_wstr, buf_len, resolved_path, NULL);
+        if (buf_len == 0) {
+            ret = false;
+            goto defer;
+        }
+        resolved_path_string = mp_wstr_to_string(resolved_path, alloc);
+        if (!mp_is_valid(resolved_path_string)) {
+            ret = false;
+            goto defer;
+        }
+
+        mp_path_reset(path);
+        bool res = mp_path_append_parse_sep(path, mp_strv(resolved_path_string), '\\');
+        if (!res) {
+            ret = false;
+            goto defer;
+        }
+
+    defer:
+        if (mp_is_valid(resolved_path_string)) {
+            mp_string_deinit(&resolved_path_string, alloc);
+        }
+
+        if (resolved_path != NULL) {
+            mp_deinit(alloc, resolved_path);
+        }
+
+        if (path_wstr != NULL) {
+            mp_deinit(alloc, path_wstr);
+        }
+
+        if (mp_is_valid(path_str)) {
+            mp_string_deinit(&path_str, alloc);
+        }
+
+        return ret;
+    }
     #else
         #error "mp_path_canonicalize: Unsupported system."
     #endif

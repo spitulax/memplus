@@ -91,7 +91,7 @@ int main(void) {
 
     {
         mp_Path path;
-        expect(mp_path_parse(&path, mp_str("."), mp_heap()));
+        expect(mp_path_parse(&path, mp_str("././/..///.////tests/./"), mp_heap()));
         expect(mp_path_canonicalize(&path));
 
         mp_Path cur_dir;
