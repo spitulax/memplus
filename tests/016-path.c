@@ -103,6 +103,24 @@ int main(void) {
         mp_path_deinit(&path);
     }
 
+    {
+        mp_Path path;
+        expect(mp_path_parse(&path, mp_str("010-file/.hello.txt"), mp_heap()));
+        expect(mp_path_canonicalize(&path));
+
+        mp_Path actual_path;
+        expect_erreq(mp_get_current_dir(&actual_path, mp_heap()), MP_OK, mp_err_str);
+        expect(mp_path_append_parse(&actual_path, mp_str("010-file/.hello.txt")));
+
+        mp_String path_string        = mp_path_string_deinit(&path, mp_heap());
+        mp_String actual_path_string = mp_path_string_deinit(&actual_path, mp_heap());
+        expect(mp_path_eq(&path, &actual_path));
+        expect_streq_mp(path_string, actual_path_string);
+
+        mp_string_deinit(&actual_path_string, mp_heap());
+        mp_string_deinit(&path_string, mp_heap());
+    }
+
     return 0;
 
 fail:

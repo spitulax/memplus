@@ -3649,6 +3649,8 @@ bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
 
 bool mp_path_append_parse_sep(mp_Path *path, mp_Str str_path, char sep);
 
+// DOCS: If failed, the contents of path should not change
+// Only works for existing files
 bool mp_path_canonicalize(mp_Path *path);
 
 // TODO: mp_path_relativize
@@ -5708,12 +5710,15 @@ bool mp_path_canonicalize(mp_Path *path) {
             ret = false;
             goto defer;
         }
-        mp_path_reset(path);
-        bool result = mp_path_append_parse_sep(path, mp_str(resolved_path), '/');
+
+        mp_Path new_path;
+        bool result = mp_path_parse_sep(&new_path, mp_str(resolved_path), '/', path->comps.alloc);
         if (!result) {
             ret = false;
             goto defer;
         }
+        mp_path_deinit(path);
+        *path = new_path;
 
     defer:
         if (resolved_path != NULL) {
@@ -5767,12 +5772,14 @@ bool mp_path_canonicalize(mp_Path *path) {
             goto defer;
         }
 
-        mp_path_reset(path);
-        bool res = mp_path_append_parse_sep(path, mp_strv(resolved_path_string), '\\');
+        mp_Path new_path;
+        bool    res = mp_path_parse_sep(&new_path, mp_strv(resolved_path_string), '\\', alloc);
         if (!res) {
             ret = false;
             goto defer;
         }
+        mp_path_deinit(path);
+        *path = new_path;
 
     defer:
         if (mp_is_valid(resolved_path_string)) {
