@@ -122,7 +122,7 @@ int main(void) {
     {
         mp_Path path;
         expect(mp_path_parse(&path, mp_str("././/..///.////tests/./"), mp_heap()));
-        expect(mp_path_canonicalize(&path));
+        expect(mp_path_realpath(&path));
 
         mp_Path cur_dir;
         expect_erreq(mp_get_current_dir(&cur_dir, mp_heap()), MP_OK, mp_err_str);
@@ -137,7 +137,7 @@ int main(void) {
     {
         mp_Path path;
         expect(mp_path_parse(&path, mp_str("010-file/.hello.txt"), mp_heap()));
-        expect(mp_path_canonicalize(&path));
+        expect(mp_path_realpath(&path));
 
         mp_Path actual_path;
         expect_erreq(mp_get_current_dir(&actual_path, mp_heap()), MP_OK, mp_err_str);
@@ -158,7 +158,7 @@ int main(void) {
     {
         mp_Path path;
         expect(mp_path_parse(&path, mp_str("../doesnotexist"), mp_heap()));
-        expect(!mp_path_canonicalize(&path));
+        expect(!mp_path_realpath(&path));
         mp_path_deinit(&path);
     }
     #endif
@@ -169,7 +169,7 @@ int main(void) {
         expect(mp_path_parse(&path, mp_str("."), mp_heap()));
         expect(mp_path_clone(&cloned, &path, mp_heap()));
         expect_erreq(mp_get_current_dir(&cwd, mp_heap()), MP_OK, mp_err_str);
-        expect(mp_path_canonicalize(&path));
+        expect(mp_path_realpath(&path));
 
         mp_String path_string   = mp_path_string_deinit(&path, mp_heap());
         mp_String cloned_string = mp_path_string_deinit(&cloned, mp_heap());

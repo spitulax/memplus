@@ -31,7 +31,6 @@
  */
 
 // TODO: Alloc location
-// FIXME: Replace for loop (search for '\.len;') with macro loop
 
 /**
  * \file memplus.h
@@ -3671,8 +3670,6 @@ typedef struct {
     #endif
 } mp_Path;
 
-// TODO: Convert bool error to enum error?
-
 void mp_path_init(mp_Path *path, char absolute, mp_Alloc alloc);
 
 // DOCS: Treats both '/' and '\' as separator in all OS
@@ -3705,7 +3702,7 @@ bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
 // TODO: This function has differing behaviour between POSIX and Windows.
 // POSIX version fails if the path doesn't exist, unlike Windows.
 // For consistency, it should not check paths on all OS.
-bool mp_path_canonicalize(mp_Path *path);
+bool mp_path_realpath(mp_Path *path);
 
 // DOCS: If failed, the contents of path should not change
 // DOCS: Uses `path.comps.alloc`
@@ -5781,10 +5778,8 @@ bool mp_path_append_parse(mp_Path *path, mp_Str str_path) {
 
 #undef is_sep
 
-bool mp_path_canonicalize(mp_Path *path) {
+bool mp_path_realpath(mp_Path *path) {
     bool ret = true;
-
-    // TODO: Precalculate required capacity
 
     #if defined(__MP_SYSTEM_POSIX)
     {
@@ -5878,7 +5873,7 @@ bool mp_path_canonicalize(mp_Path *path) {
         return ret;
     }
     #else
-        #error "mp_path_canonicalize: Unsupported system."
+        #error "mp_path_realpath: Unsupported system."
     #endif
 }
 
@@ -5894,7 +5889,7 @@ bool mp_path_relative_to(mp_Path *path, const mp_Path *relative_to) {
         ret = false;
         goto defer;
     }
-    if (!dst.absolute && !mp_path_canonicalize(&dst)) {
+    if (!dst.absolute && !mp_path_realpath(&dst)) {
         ret = false;
         goto defer;
     }
@@ -5904,7 +5899,7 @@ bool mp_path_relative_to(mp_Path *path, const mp_Path *relative_to) {
         ret = false;
         goto defer;
     }
-    if (!rel.absolute && !mp_path_canonicalize(&rel)) {
+    if (!rel.absolute && !mp_path_realpath(&rel)) {
         ret = false;
         goto defer;
     }
