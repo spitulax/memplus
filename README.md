@@ -35,6 +35,16 @@ you like.
 #include "memplus.h"
 ```
 
+## Documentation
+
+The documentation for this library can be built using `doxygen`.
+
+```bash
+cd docs
+doxygen
+# Open html/index.html in browser
+```
+
 ## Support
 
 Theoretically supports POSIX systems and Windows. Tested on Linux with GCC and
