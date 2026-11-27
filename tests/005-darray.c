@@ -135,6 +135,12 @@ int main(void) {
     expect_eq(mp_get(&array4, 4), (int32_t) 5, "%d");
     mp_da_deinit(&array4);
 
+    // Null delete test
+    Da_Int32 array_null;
+    mp_da_init(Da_Int32, &array_null, alloc);
+    expect(!mp_is_valid(array_null));
+    mp_da_deinit(&array_null);
+
     return 0;
 
 fail:

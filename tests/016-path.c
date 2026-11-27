@@ -55,13 +55,12 @@ int main(void) {
                      },
     };
 
+    // TODO: Use the path for filesystem functions
+    // Put in different test file
     {
-        mp_Path path;
-        mp_path_init(&path, false, mp_heap());
-
-        // TODO: Use the path for filesystem functions
-
-        mp_path_deinit(&path);
+        mp_Path path_null;
+        mp_path_init(&path_null, false, mp_heap());
+        mp_path_deinit(&path_null);
     }
 
     #ifdef __MP_SYSTEM_WINDOWS

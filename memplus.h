@@ -485,6 +485,8 @@ typedef struct {
 /**
  * \brief Frees a block of memory that holds a value of \a type.
  *
+ * Does nothing if \a ptr is NULL.
+ *
  * \param alloc (\ref mp_Alloc) allocator (no side effects)
  * \param ptr (void *) pointer to block to be freed (nullable)
  */
@@ -766,6 +768,8 @@ void __mp_da_init(void *a, mp_Alloc alloc, size_t size);
 
 /**
  * \brief Deinitializes \a a.
+ *
+ * Does nothing if \a a is \ref mp_is_valid "invalid".
  *
  * \param a (Dyn_Array *) array (deinitialized by this)
  */
@@ -1338,6 +1342,8 @@ mp_String mp_string_clone(const mp_String *str, mp_Alloc alloc);
 /**
  * \brief Deinitializes \a str.
  *
+ * Does nothing if \a str is \ref mp_is_valid "invalid".
+ *
  * \a str must be previously allocated with \a alloc.
  *
  * \param str pointer to \a mp_String
@@ -1480,6 +1486,8 @@ void mp_sb_withf(mp_Sb *sb, mp_Alloc alloc, const char *fmt, ...) __MP_PRINTF_FO
 
 /**
  * \brief Deinitializes \a sb.
+ *
+ * Does nothing if \a sb is \ref mp_is_valid "invalid".
  *
  * \param sb string builder (deinitialized by this)
  */
@@ -1770,6 +1778,8 @@ void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size);
 /**
  * \brief Deinitializes \a ht.
  *
+ * Does nothing if \a ht is \ref mp_is_valid "invalid".
+ *
  * \param ht (Str_Hash_Table *) hash table (deinitialized by this)
  */
 #define mp_ht_deinit(/* Str_Hash_Table* */ ht)                                                     \
@@ -1920,6 +1930,8 @@ void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size
  *
  * This resets \a ht to "initial condition" but without actually freeing the data.
  *
+ * Does nothing if \a ht is \ref mp_is_valid "invalid".
+ *
  * \param ht (Str_Hash_Table *) hash table
  */
 #define mp_ht_reset(/* Str_Hash_Table* */ ht)                                                      \
@@ -1989,6 +2001,8 @@ __mp_da_struct(mp_String, __mp_Ht_Keys);
 
 /**
  * \brief Deinitializes \a keys.
+ *
+ * Does nothing if \a keys is \ref mp_is_valid "invalid".
  *
  * \param keys key array (deinitialized by this)
  */
@@ -2423,6 +2437,8 @@ typedef struct {
 /**
  * \brief Deinitializes \a ht.
  *
+ * Does nothing if \a ht is \ref mp_is_valid "invalid".
+ *
  * \param ht (Int_Hash_Table *) hash table (deinitialized by this)
  */
 #define mp_hti_deinit(/* Int_Hash_Table* */ ht)                                                    \
@@ -2514,6 +2530,8 @@ void __mp_hti_grow(void *ht, size_t offset);
  * \brief Sets the length of \a ht to 0 and frees its keys.
  *
  * This resets the hash table to "initial condition" but without actually freeing the data.
+ *
+ * Does nothing if \a ht is \ref mp_is_valid "invalid".
  *
  * \param ht (Int_Hash_Table *) hash table
  */
@@ -3647,8 +3665,10 @@ mp_String mp_path_string(const mp_Path *path, mp_Alloc alloc);
 
 mp_String mp_path_string_deinit(mp_Path *path, mp_Alloc alloc);
 
+// DOCS: Does nothing if \a path is \ref mp_is_valid "invalid".
 void mp_path_deinit(mp_Path *path);
 
+// DOCS: Does nothing if \a path is \ref mp_is_valid "invalid".
 void mp_path_reset(mp_Path *path);
 
 bool mp_path_clone(mp_Path *dest, const mp_Path *src, mp_Alloc alloc);
@@ -4319,10 +4339,12 @@ void __mp_ht_init(void *ht, mp_Alloc alloc, size_t size, size_t val_size) {
 
 void __mp_ht_deinit(void *ht) {
     __mp_Str_Ht *self = ht;
-    for (size_t i = 0; i < self->cap; i++) {
-        __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
-        if (mp_is_valid(e->key)) {
-            mp_string_deinit(&e->key, self->alloc);
+    if (self->data != NULL) {
+        for (size_t i = 0; i < self->cap; i++) {
+            __mp_Str_Ht_Entry *e = __mp_da_get(__mp_Str_Ht_Entry, self, i);
+            if (mp_is_valid(e->key)) {
+                mp_string_deinit(&e->key, self->alloc);
+            }
         }
     }
     __mp_da_deinit(self);
@@ -4432,11 +4454,13 @@ void __mp_ht_grow(void *ht, size_t offset) {
 }
 
 void __mp_ht_free_entries(void *entries, mp_Alloc alloc, size_t cap, size_t size) {
-    for (size_t i = 0; i < cap; ++i) {
-        __mp_Str_Ht_Entry *e = (__mp_Str_Ht_Entry *) ((char *) entries + i * size);
-        if (mp_is_valid(e->key)) {
-            mp_string_deinit(&e->key, alloc);
-            __MP_ASSERT(!mp_is_valid(e->key));
+    if (entries != NULL) {
+        for (size_t i = 0; i < cap; ++i) {
+            __mp_Str_Ht_Entry *e = (__mp_Str_Ht_Entry *) ((char *) entries + i * size);
+            if (mp_is_valid(e->key)) {
+                mp_string_deinit(&e->key, alloc);
+                __MP_ASSERT(!mp_is_valid(e->key));
+            }
         }
     }
 }
@@ -4493,10 +4517,12 @@ void __mp_ht_clone(void *dest, const void *src, mp_Alloc alloc) {
 }
 
 void mp_ht_keys_deinit(mp_Ht_Keys *keys) {
-    for (size_t i = 0; i < keys->len; ++i) {
-        mp_string_deinit(mp_getp(keys, i), keys->alloc);
+    if (mp_is_valid(*keys)) {
+        for (size_t i = 0; i < keys->len; ++i) {
+            mp_string_deinit(mp_getp(keys, i), keys->alloc);
+        }
+        mp_da_deinit(keys);
     }
-    mp_da_deinit(keys);
 }
 
 void __mp_ht_keys(const void *ht, mp_Ht_Keys *keys) {
@@ -4669,10 +4695,12 @@ void __mp_hti_grow(void *ht, size_t offset) {
 
 void __mp_hti_reset(void *ht) {
     __mp_Int_Ht *self = ht;
-    for (size_t i = 0; i < self->cap; ++i) {
-        __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
-        if (e->key.valid) {
-            __MP_ZERO(&e->key);
+    if (self->data != NULL) {
+        for (size_t i = 0; i < self->cap; ++i) {
+            __mp_Int_Ht_Entry *e = __mp_da_get(__mp_Int_Ht_Entry, self, i);
+            if (e->key.valid) {
+                __MP_ZERO(&e->key);
+            }
         }
     }
     self->len = 0;
@@ -5583,18 +5611,22 @@ mp_String mp_path_string_deinit(mp_Path *path, mp_Alloc alloc) {
 }
 
 void mp_path_deinit(mp_Path *path) {
-    for (size_t i = 0; i < path->comps.len; ++i) {
-        mp_string_deinit(mp_getp(&path->comps, i), path->comps.alloc);
+    if (mp_is_valid(path->comps)) {
+        for (size_t i = 0; i < path->comps.len; ++i) {
+            mp_string_deinit(mp_getp(&path->comps, i), path->comps.alloc);
+        }
+        mp_da_deinit(&path->comps);
     }
-    mp_da_deinit(&path->comps);
     __MP_ZERO(path);
 }
 
 void mp_path_reset(mp_Path *path) {
-    for (size_t i = 0; i < path->comps.len; ++i) {
-        mp_string_deinit(mp_getp(&path->comps, i), path->comps.alloc);
+    if (mp_is_valid(path->comps)) {
+        for (size_t i = 0; i < path->comps.len; ++i) {
+            mp_string_deinit(mp_getp(&path->comps, i), path->comps.alloc);
+        }
+        mp_da_reset(&path->comps);
     }
-    mp_da_reset(&path->comps);
 }
 
 bool mp_path_clone(mp_Path *dest, const mp_Path *src, mp_Alloc alloc) {
@@ -5754,9 +5786,7 @@ bool mp_path_canonicalize(mp_Path *path) {
             free(resolved_path);
         }
 
-        if (mp_is_valid(path_str)) {
-            mp_string_deinit(&path_str, path->comps.alloc);
-        }
+        mp_string_deinit(&path_str, path->comps.alloc);
 
         return ret;
     }
@@ -5811,22 +5841,10 @@ bool mp_path_canonicalize(mp_Path *path) {
         *path = new_path;
 
     defer:
-        if (mp_is_valid(resolved_path_string)) {
-            mp_string_deinit(&resolved_path_string, alloc);
-        }
-
-        if (resolved_path != NULL) {
-            mp_deinit(alloc, resolved_path);
-        }
-
-        if (path_wstr != NULL) {
-            mp_deinit(alloc, path_wstr);
-        }
-
-        if (mp_is_valid(path_str)) {
-            mp_string_deinit(&path_str, alloc);
-        }
-
+        mp_string_deinit(&resolved_path_string, alloc);
+        mp_deinit(alloc, resolved_path);
+        mp_deinit(alloc, path_wstr);
+        mp_string_deinit(&path_str, alloc);
         return ret;
     }
     #else

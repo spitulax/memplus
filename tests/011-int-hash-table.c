@@ -126,6 +126,12 @@ int main(void) {
 
     mp_hti_deinit(&ht);
 
+    // Null delete test
+    Ht_Int ht_null;
+    mp_hti_init(Ht_Int, &ht_null, alloc);
+    expect(!mp_is_valid(ht_null));
+    mp_hti_deinit(&ht_null);
+
     return 0;
 
 fail:

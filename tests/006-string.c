@@ -34,6 +34,10 @@ int main(void) {
     mp_string_deinit(&s2, alloc);
     mp_string_deinit(&s1, alloc);
 
+    // Null delete test
+    mp_String s_null = { 0 };
+    mp_string_deinit(&s_null, alloc);
+
     return 0;
 
 fail:

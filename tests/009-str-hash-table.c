@@ -139,6 +139,15 @@ int main(void) {
 
     mp_ht_deinit(&ht);
 
+    // Null delete test
+    Ht_Int ht_null;
+    mp_ht_init(Ht_Int, &ht_null, alloc);
+    expect(!mp_is_valid(ht_null));
+    mp_ht_deinit(&ht_null);
+    mp_Ht_Keys htk_null;
+    mp_ht_keys(&ht_null, &htk_null);
+    mp_ht_keys_deinit(&htk_null);
+
     return 0;
 
 fail:
