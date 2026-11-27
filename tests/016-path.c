@@ -147,6 +147,25 @@ int main(void) {
         mp_string_deinit(&path_string, mp_heap());
     }
 
+    {
+        mp_Path path, cloned, cwd;
+        expect(mp_path_parse(&path, mp_str("."), mp_heap()));
+        expect(mp_path_clone(&cloned, &path, mp_heap()));
+        expect_erreq(mp_get_current_dir(&cwd, mp_heap()), MP_OK, mp_err_str);
+        expect(mp_path_canonicalize(&path));
+
+        mp_String path_string   = mp_path_string_deinit(&path, mp_heap());
+        mp_String cloned_string = mp_path_string_deinit(&cloned, mp_heap());
+        mp_String cwd_string    = mp_path_string_deinit(&cwd, mp_heap());
+
+        expect_streq_mp(path_string, cwd_string);
+        expect_streq_mp_s(cloned_string, ".");
+
+        mp_string_deinit(&cwd_string, mp_heap());
+        mp_string_deinit(&cloned_string, mp_heap());
+        mp_string_deinit(&path_string, mp_heap());
+    }
+
     return 0;
 
 fail:

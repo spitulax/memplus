@@ -892,6 +892,15 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
     ((void) (a)->__da_item_size, (a)->data[(a)->len - 1])
 
 /**
+ * \brief Gets pointer to the last item in \a a.
+ *
+ * \param a (const Dyn_Array *) array (no side effects)
+ * \return (Type *) pointer to the last item in \a a
+ */
+#define /* Type */ mp_da_lastp(/* const Dyn_Array* */ a)                                           \
+    ((void) (a)->__da_item_size, (a)->data + (a)->len - 1)
+
+/**
  * \brief Removes the last item in \a a and returns it.
  *
  * \param a (Dyn_Array *) array (no side effects)
@@ -3642,6 +3651,8 @@ void mp_path_deinit(mp_Path *path);
 
 void mp_path_reset(mp_Path *path);
 
+bool mp_path_clone(mp_Path *dest, const mp_Path *src, mp_Alloc alloc);
+
 bool mp_path_eq(const mp_Path *a, const mp_Path *b);
 
 bool mp_path_append(mp_Path *path, mp_Str str_path);
@@ -3651,12 +3662,11 @@ bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
 
 // DOCS: If failed, the contents of path should not change
 // Only works for existing files
-// TODO: Custom algorithm instead of relying on system functions?
 bool mp_path_canonicalize(mp_Path *path);
 
-// TODO: mp_path_relativize
+// bool mp_path_relativize(mp_Path *path, const mp_Path *relative_to);
 
-mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc);
+mp_Err mp_get_current_dir(mp_Path *out_path, mp_Alloc alloc);
 
 /// \}
 
@@ -5587,6 +5597,19 @@ void mp_path_reset(mp_Path *path) {
     mp_da_reset(&path->comps);
 }
 
+bool mp_path_clone(mp_Path *dest, const mp_Path *src, mp_Alloc alloc) {
+    *dest = *src;
+    mp_da_clone(&dest->comps, &src->comps, alloc);
+    if (!mp_is_valid(dest->comps)) {
+        return false;
+    }
+    for (size_t i = 0; i < dest->comps.len; ++i) {
+        mp_String *old            = mp_getp(&src->comps, i);
+        *mp_getp(&dest->comps, i) = mp_string_clone(old, dest->comps.alloc);
+    }
+    return true;
+}
+
 bool mp_path_eq(const mp_Path *a, const mp_Path *b) {
     if (a->absolute != b->absolute
         #ifdef __MP_SYSTEM_WINDOWS
@@ -5811,14 +5834,14 @@ bool mp_path_canonicalize(mp_Path *path) {
     #endif
 }
 
-mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
+mp_Err mp_get_current_dir(mp_Path *out_path, mp_Alloc alloc) {
     #if defined(__MP_SYSTEM_POSIX)
     {
         char *cwd = getcwd(NULL, 0);
         if (cwd == NULL) {
             return mp_err(errno);
         }
-        if (!mp_path_parse(ret, mp_str(cwd), alloc)) {
+        if (!mp_path_parse(out_path, mp_str(cwd), alloc)) {
             free(cwd);
             return MP_ERR_CANNOT_ALLOC;
         }
@@ -5842,7 +5865,7 @@ mp_Err mp_get_current_dir(mp_Path *ret, mp_Alloc alloc) {
 
         mp_String cwd_mp = mp_string_from_tchar(cwd, alloc);
 
-        if (!mp_path_parse(ret, mp_strv(cwd_mp), alloc)) {
+        if (!mp_path_parse(out_path, mp_strv(cwd_mp), alloc)) {
             return MP_ERR_CANNOT_ALLOC;
         }
 
