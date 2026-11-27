@@ -31,6 +31,7 @@
  */
 
 // TODO: Alloc location
+// FIXME: Replace for loop (search for '\.len;') with macro loop
 
 /**
  * \file memplus.h
@@ -377,7 +378,7 @@ typedef struct {
  * \return (void *) pointer to allocated block of memory, NULL if allocation failed
  */
 #define /* void* */ mp_alloc(/* mp_Alloc */ alloc, /* size_t */ size)                              \
-    ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, (size), 0, NULL))
+    ((alloc).f) ? ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, (size), 0, NULL)) : NULL
 
 /**
  * \brief Allocates a block of memory with alignment.
@@ -393,7 +394,9 @@ typedef struct {
  */
 #define /* void* */ mp_alloc_align(/* mp_Alloc */ alloc, /* size_t */ size,                        \
                                    /* size_t */ alignment)                                         \
-    ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, mp_align((size), (alignment)), 0, NULL))
+    ((alloc).f)                                                                                    \
+        ? ((alloc).f(MP_ALLOC_OP_ALLOC, (alloc).context, mp_align((size), (alignment)), 0, NULL))  \
+        : NULL
 
 /**
  * \brief Reallocates a block of memory.
@@ -408,7 +411,9 @@ typedef struct {
  */
 #define /* void* */ mp_realloc(/* mp_Alloc */ alloc, /* void* */ old_ptr, /* size_t */ old_size,   \
                                /* size_t */ new_size)                                              \
-    ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, (new_size), (old_size), (old_ptr)))
+    ((alloc).f)                                                                                    \
+        ? ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, (new_size), (old_size), (old_ptr)))     \
+        : NULL
 
 /**
  * \brief Reallocates a block of memory with alignment.
@@ -429,8 +434,10 @@ typedef struct {
 #define /* void* */ mp_realloc_align(/* mp_Alloc */ alloc, /* void* */ old_ptr,                    \
                                      /* size_t */ old_size, /* size_t */ new_size,                 \
                                      /* size_t */ alignment)                                       \
-    ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, mp_align((new_size), (alignment)),            \
-               mp_align((old_size), (alignment)), (old_ptr)))
+    ((alloc).f)                                                                                    \
+        ? ((alloc).f(MP_ALLOC_OP_REALLOC, (alloc).context, mp_align((new_size), (alignment)),      \
+                     mp_align((old_size), (alignment)), (old_ptr)))                                \
+        : NULL
 
 /**
  * \brief Frees a block of memory that has been allocated.
@@ -441,7 +448,7 @@ typedef struct {
  * \param ptr (void *) pointer to block to be freed (nullable)
  */
 #define mp_free(/* mp_Alloc */ alloc, /* void* */ ptr)                                             \
-    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, 0, 0, (ptr)))
+    ((alloc).f) ? (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, 0, 0, (ptr))) : (void) NULL
 
 /**
  * \brief Frees a block of memory that has been allocated with alignment.
@@ -455,8 +462,9 @@ typedef struct {
  * \param alignment (size_t) alignment
  */
 #define mp_free_align(/* mp_Alloc */ alloc, /* void* */ ptr, /* size_t */ alignment)               \
-    (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context, mp_align((size), (alignment)), 0, 0,      \
-                      (ptr)))
+    ((alloc).f) ? (void) ((alloc).f(MP_ALLOC_OP_FREE, (alloc).context,                             \
+                                    mp_align((size), (alignment)), 0, 0, (ptr)))                   \
+                : (void) NULL
 
 /**
  * \brief Allocates a block of memory that can hold a value of \a type.
@@ -912,6 +920,15 @@ void __mp_da_append(void *a, const void *items, size_t items_len);
  */
 #define /* Type */ mp_da_pop(/* Dyn_Array* */ a)                                                   \
     ((void) (a)->__da_item_size, --(a)->len, (a)->data[(a)->len])
+
+/**
+ * \brief Removes the last item in \a a and returns pointer to it.
+ *
+ * \param a (Dyn_Array *) array (no side effects)
+ * \return (Type *) pointer to the last item in \a a
+ */
+#define /* Type */ mp_da_popp(/* Dyn_Array* */ a)                                                  \
+    ((void) (a)->__da_item_size, --(a)->len, (a)->data + (a)->len)
 
 /**
  * \brief Sets length of \a a to 0.
@@ -3675,16 +3692,29 @@ bool mp_path_clone(mp_Path *dest, const mp_Path *src, mp_Alloc alloc);
 
 bool mp_path_eq(const mp_Path *a, const mp_Path *b);
 
+// DOCS: Uses `path.comps.alloc`
 bool mp_path_append(mp_Path *path, mp_Str str_path);
 
 // DOCS: Treats both '/' and '\' as separator in all OS
+// DOCS: Uses `path.comps.alloc`
 bool mp_path_append_parse(mp_Path *path, mp_Str str_path);
 
 // DOCS: If failed, the contents of path should not change
 // Only works for existing files
+// DOCS: Uses `path.comps.alloc`
+// TODO: This function has differing behaviour between POSIX and Windows.
+// POSIX version fails if the path doesn't exist, unlike Windows.
+// For consistency, it should not check paths on all OS.
 bool mp_path_canonicalize(mp_Path *path);
 
-// bool mp_path_relativize(mp_Path *path, const mp_Path *relative_to);
+// DOCS: If failed, the contents of path should not change
+// DOCS: Uses `path.comps.alloc`
+// Will canonicalize `path` and `relative_to` if they are not absolute
+bool mp_path_relative_to(mp_Path *path, const mp_Path *relative_to);
+
+// DOCS: Uses `path.comps.alloc`
+// For debugging purpose
+void mp_path_print(const mp_Path *path, FILE *to);
 
 mp_Err mp_get_current_dir(mp_Path *out_path, mp_Alloc alloc);
 
@@ -5850,6 +5880,105 @@ bool mp_path_canonicalize(mp_Path *path) {
     #else
         #error "mp_path_canonicalize: Unsupported system."
     #endif
+}
+
+bool mp_path_relative_to(mp_Path *path, const mp_Path *relative_to) {
+    bool     ret   = true;
+    mp_Alloc alloc = path->comps.alloc;
+
+    mp_da_typedef(mp_String, mp_Da_String);
+    mp_Da_String below_common;
+
+    mp_Path dst;
+    if (!mp_path_clone(&dst, path, alloc)) {
+        ret = false;
+        goto defer;
+    }
+    if (!dst.absolute && !mp_path_canonicalize(&dst)) {
+        ret = false;
+        goto defer;
+    }
+
+    mp_Path rel;
+    if (!mp_path_clone(&rel, relative_to, alloc)) {
+        ret = false;
+        goto defer;
+    }
+    if (!rel.absolute && !mp_path_canonicalize(&rel)) {
+        ret = false;
+        goto defer;
+    }
+
+    __MP_ASSERT(dst.absolute && rel.absolute);
+
+    mp_da_init(mp_Da_String, &below_common, alloc);
+
+    size_t level = 0;
+    while (true) {
+        if (mp_path_eq(&dst, &rel)) {
+            break;
+        }
+
+        mp_String dst_popped = mp_da_pop(&dst.comps);
+        mp_da_append(&below_common, dst_popped);    // NOLINT
+
+        mp_String *rel_popped = mp_da_popp(&rel.comps);
+        mp_string_deinit(rel_popped, rel.comps.alloc);
+
+        ++level;
+    }
+    mp_path_reset(&dst);
+
+    if (level == 0) {
+        if (!mp_path_append(&dst, mp_str("."))) {
+            ret = false;
+            goto defer;
+        }
+    } else {
+        for (size_t i = 0; i < level; ++i) {
+            if (!mp_path_append(&dst, mp_str(".."))) {
+                ret = false;
+                goto defer;
+            }
+        }
+
+        MP_DA_BEGIN(&below_common, i, str)
+            if (!mp_path_append(&dst, mp_strv(*str))) {
+                ret = false;
+                goto defer;
+            }
+        MP_END()
+    }
+
+    mp_path_deinit(path);
+    *path          = dst;
+    path->absolute = false;
+    #ifdef __MP_SYSTEM_WINDOWS
+    path->drive = '\0';
+    #endif
+
+defer:
+    MP_DA_BEGIN(&below_common, i, str)
+        mp_string_deinit(str, below_common.alloc);
+    MP_END()
+    mp_da_deinit(&below_common);
+    if (!ret) {
+        mp_path_deinit(&dst);
+    }
+    mp_path_deinit(&rel);
+
+    return ret;
+}
+
+void mp_path_print(const mp_Path *path, FILE *to) {
+    mp_Alloc  alloc = path->comps.alloc;
+    mp_String str   = mp_path_string(path, alloc);
+    if (mp_is_valid(str)) {
+        fprintf(to, "%.*s", mp_strp(str));
+    } else {
+        fprintf(to, "<invalid path>");
+    }
+    mp_string_deinit(&str, alloc);
 }
 
 mp_Err mp_get_current_dir(mp_Path *out_path, mp_Alloc alloc) {

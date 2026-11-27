@@ -57,12 +57,15 @@ int main(void) {
 
     // TODO: Use the path for filesystem functions
     // Put in different test file
+
+    // Null delete
     {
         mp_Path path_null;
         mp_path_init(&path_null, false, mp_heap());
         mp_path_deinit(&path_null);
     }
 
+    // Windows drive
     #ifdef __MP_SYSTEM_WINDOWS
     {
         mp_Path path;
@@ -89,6 +92,7 @@ int main(void) {
     }
     #endif
 
+    // Path parsing
     {
         for (size_t i = 0; i < mp_arr_len(path_tests); ++i) {
             const Path_Test *t = &path_tests[i];
@@ -114,6 +118,7 @@ int main(void) {
         }
     }
 
+    // Canonicalization
     {
         mp_Path path;
         expect(mp_path_parse(&path, mp_str("././/..///.////tests/./"), mp_heap()));
@@ -128,6 +133,7 @@ int main(void) {
         mp_path_deinit(&path);
     }
 
+    // Canonicalization on file
     {
         mp_Path path;
         expect(mp_path_parse(&path, mp_str("010-file/.hello.txt"), mp_heap()));
@@ -146,6 +152,18 @@ int main(void) {
         mp_string_deinit(&path_string, mp_heap());
     }
 
+    // Canonicalization (nonexistent path)
+    // Windows does not check if the path exists
+    #ifdef __MP_SYSTEM_POSIX
+    {
+        mp_Path path;
+        expect(mp_path_parse(&path, mp_str("../doesnotexist"), mp_heap()));
+        expect(!mp_path_canonicalize(&path));
+        mp_path_deinit(&path);
+    }
+    #endif
+
+    // Cloning
     {
         mp_Path path, cloned, cwd;
         expect(mp_path_parse(&path, mp_str("."), mp_heap()));
@@ -164,6 +182,38 @@ int main(void) {
         mp_string_deinit(&cloned_string, mp_heap());
         mp_string_deinit(&path_string, mp_heap());
     }
+
+    // Relativization (valid path)
+    {
+        mp_Path path, rel_to;
+        expect(mp_path_parse(&path, mp_str("010-file"), mp_heap()));
+        expect(mp_path_parse(&rel_to, mp_str("test.sh"), mp_heap()));
+
+        expect(mp_path_relative_to(&path, &rel_to));
+
+        mp_Path rel_path;
+        expect(mp_path_parse(&rel_path, mp_str("../010-file"), mp_heap()));
+        expect(mp_path_eq(&path, &rel_path));
+        mp_path_deinit(&rel_path);
+
+        mp_path_deinit(&rel_to);
+        mp_path_deinit(&path);
+    }
+
+    // Relativization (nonexistent path)
+    // Windows does not check if the path exists
+    #ifdef __MP_SYSTEM_POSIX
+    {
+        mp_Path path, rel_to;
+        expect(mp_path_parse(&path, mp_str("doesnotexist"), mp_heap()));
+        expect(mp_path_parse(&rel_to, mp_str("../doesnotexist"), mp_heap()));
+
+        expect(!mp_path_relative_to(&path, &rel_to));
+
+        mp_path_deinit(&rel_to);
+        mp_path_deinit(&path);
+    }
+    #endif
 
     return 0;
 
